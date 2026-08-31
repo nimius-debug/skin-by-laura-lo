@@ -1,0 +1,46 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "skin-by-laura-lo"
+main = "src/index.js"
+compatibility_date = "2026-08-19"
+workers_dev = true
+
+# ---------------------------------------------------------------------------
+# Business settings. Everything here is editable without touching code —
+# change a value, redeploy, done. Money values are in CENTS (1000 = $10.00).
+# ---------------------------------------------------------------------------
+[vars]
+SITE_URL = "https://test.skinbylauralo.com"
+
+# Shipping. Square's Payment Links accept a single flat shipping fee that must
+# be decided BEFORE the buyer enters an address, so rate-by-zone is not
+# possible. Flat fee + free-over-threshold is the workable model.
+SHIPPING_ENABLED = "true"
+SHIPPING_FEE_CENTS = "1000"            # $10.00 flat
+FREE_SHIPPING_THRESHOLD_CENTS = "10000" # free at $100.00+ subtotal. Set to "0" to always charge.
+SHIPPING_LABEL = "U.S. shipping"
+
+# Local pickup at the Tampa studio, offered as a no-fee alternative.
+PICKUP_ENABLED = "true"
+PICKUP_PREP_HOURS = "24"
+
+# How long catalog reads from Square are cached at the edge, in seconds.
+# Set to "0" to always hit Square live.
+CATALOG_TTL_SECONDS = "120"
+
+# Set to "true" to hide out-of-stock items entirely instead of marking them sold out.
+HIDE_SOLD_OUT = "false"
+
+# ---------------------------------------------------------------------------
+# Secrets — DO NOT put these here. Set them with:
+#   npx wrangler secret put SQUARE_ACCESS_TOKEN
+#   npx wrangler secret put SQUARE_LOCATION_ID
+#   npx wrangler secret put SQUARE_ENVIRONMENT   (optional: "sandbox")
+# ---------------------------------------------------------------------------
+
+# Custom domain. Uncomment once the zone is on Cloudflare (Phase 1-2 target).
+# [[routes]]
+# pattern = "test.skinbylauralo.com"
+# custom_domain = true
+
+[observability]
+enabled = true

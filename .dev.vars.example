@@ -1,0 +1,12 @@
+# Copy to .dev.vars for local development (`wrangler dev`).
+# NEVER commit .dev.vars — it is gitignored.
+#
+# For production, set these as encrypted secrets instead:
+#   npx wrangler secret put SQUARE_ACCESS_TOKEN
+#   npx wrangler secret put SQUARE_LOCATION_ID
+
+SQUARE_ACCESS_TOKEN=""
+SQUARE_LOCATION_ID=""
+
+# "production" (default) or "sandbox"
+SQUARE_ENVIRONMENT="sandbox"

@@ -1,0 +1,16 @@
+{
+  "name": "skin-by-laura-lo-storefront",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Custom storefront for skinbylauralo.com — Cloudflare Workers + Square",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "test": "node test/catalog.test.mjs && node test/checkout.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.42.0"
+  }
+}
