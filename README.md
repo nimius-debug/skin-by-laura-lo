@@ -60,15 +60,37 @@ Without Square credentials the site runs normally and the shop shows a clear
 
 ### Connecting Square
 
-Get an access token and location ID from the
-[Square Developer dashboard](https://developer.squareup.com/apps). The token
-needs read access to **Catalog** (`ITEMS_READ`) and **Inventory**
-(`INVENTORY_READ`), plus **Orders/Payments write** (`ORDERS_WRITE`,
-`PAYMENTS_WRITE`) to create checkout links.
+Two credentials are needed, and they are easy to mix up:
+
+| Credential | Looks like | Role |
+|---|---|---|
+| Application ID | `sq0idp-…` | Public identifier for frontend SDKs. **Not used here.** |
+| **Access token** | `EAAA…` | Secret that authenticates API calls. **Required.** |
+| **Location ID** | `L…` | Which location's catalog, inventory and orders to use. **Required.** |
+
+Get the access token at [developer.squareup.com/apps](https://developer.squareup.com/apps)
+→ your app → **Credentials** → switch to **Production** → *Production Access Token*.
+It needs **Catalog read** (`ITEMS_READ`), **Inventory read** (`INVENTORY_READ`)
+and **Orders/Payments write** (`ORDERS_WRITE`, `PAYMENTS_WRITE`).
+
+To find the location ID, run:
+
+```bash
+SQUARE_ACCESS_TOKEN=EAAA... npm run square:locations
+```
+
+This lists every location the token can see with its ID, address and status.
+It is read-only — it creates nothing and charges nothing.
 
 ```bash
 npx wrangler secret put SQUARE_ACCESS_TOKEN
 npx wrangler secret put SQUARE_LOCATION_ID
+```
+
+**Production is the default.** Only set `SQUARE_ENVIRONMENT` if you want
+sandbox:
+
+```bash
 npx wrangler secret put SQUARE_ENVIRONMENT   # optional: "sandbox"
 ```
 
@@ -122,6 +144,7 @@ src/
 ├── html.js           Auto-escaping template helpers
 ├── client/cart.js    Browser JS: cart, filters, checkout
 └── pages/            One module per page
+scripts/              square-locations.mjs — find your SQUARE_LOCATION_ID
 test/                 Catalog + checkout tests, Square mocked
 ```
 

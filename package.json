@@ -8,7 +8,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "test": "node test/catalog.test.mjs && node test/checkout.test.mjs"
+    "test": "node test/catalog.test.mjs && node test/checkout.test.mjs",
+    "square:locations": "node scripts/square-locations.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.42.0"
