@@ -222,15 +222,15 @@ export const CLIENT_JS = String.raw`
     if (!stage || !layers || !foreground) return;
 
     var kids = Array.prototype.slice.call(stage.querySelectorAll("[data-depth]"));
-    var resultCards = Array.prototype.slice.call(layers.querySelectorAll("[data-hero-result]"));
+    var resultCards = Array.prototype.slice.call(stage.querySelectorAll("[data-hero-result]"));
     var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var raf = null, tx = 0, ty = 0;
     var orbitRaf = null;
     var orbitStart = null;
 
-    /* Both cards follow the same ellipse with enough phase offset to read as
-       separate images. Each card switches depth at the side crossings rather
-       than relying on preserve-3d's inconsistent sorting against an alpha PNG. */
+    /* Both cards stay on the ring's physical plane. At each side crossing the
+       card moves between synchronized background and foreground groups, which
+       changes its occlusion without perspective pulling it away from the arc. */
     function paintOrbit(angle) {
       var width = stage.getBoundingClientRect().width || 600;
       var radiusX = Math.min(270, width * 0.45);
@@ -245,12 +245,13 @@ export const CLIENT_JS = String.raw`
         var y = -depth * radiusY;
         var shade = 0.35 + ((depth + 1) / 2) * 0.65;
         var scale = 0.78 + ((depth + 1) / 2) * 0.16;
+        var destination = front ? foreground : layers;
+
+        if (card.parentNode !== destination) destination.appendChild(card);
 
         card.style.setProperty("--orbit-x", x.toFixed(1) + "px");
         card.style.setProperty("--orbit-y", y.toFixed(1) + "px");
-        // Cross Laura's 110px plane continuously. The wide, sinusoidal depth
-        // range keeps the original pop-out without snapping between planes.
-        card.style.setProperty("--orbit-z", (110 + depth * 145).toFixed(2) + "px");
+        card.style.setProperty("--orbit-z", "-140px");
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
         card.style.opacity = shade.toFixed(3);
         card.style.zIndex = front ? "4" : "1";
