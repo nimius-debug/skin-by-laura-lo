@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { CLIENT_JS } from "../src/client/cart.js";
 import { toString } from "../src/html.js";
+import { page } from "../src/layout.js";
 import { homePage } from "../src/pages/home.js";
 import { STYLES } from "../src/styles.js";
 
@@ -16,5 +17,10 @@ assert.match(CLIENT_JS, /if \(!reducedMotion\) orbitRaf = requestAnimationFrame/
 assert.match(STYLES, /\.hero-result[\s\S]*?var\(--orbit-z\)/, "orbit transforms are scoped to result cards");
 assert.match(STYLES, /\.hero-ring[\s\S]*?background: transparent;/, "the orbit is an open arc, not a filled disc");
 
+const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
+assert.match(document, /styles\.css\?v=20260902-hero-orbit/, "the orbit CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260902-hero-orbit/, "the orbit script bypasses stale caches");
+
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
+
 

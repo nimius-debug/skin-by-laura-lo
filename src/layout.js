@@ -3,6 +3,10 @@ import {
   BOOKING_URL, EGIFT_URL, INSTAGRAM_URL, SUPPORT_EMAIL, STUDIO,
 } from "./config.js";
 
+// Change this whenever the shared CSS or client bundle changes. The Worker may
+// be current while a browser still has an older asset URL in its HTTP cache.
+const ASSET_VERSION = "20260902-hero-orbit";
+
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
     return cfg.pickupEnabled ? html`<span>Local pickup available in Tampa</span>` : "";
@@ -100,7 +104,7 @@ ${canonical ? html`<link rel="canonical" href="${canonical}" />` : ""}
 <meta property="og:description" content="${description || "Korean-infused facials and curated home care in Tampa, Florida."}" />
 <meta property="og:type" content="website" />
 <meta name="theme-color" content="#20231f" />
-<link rel="stylesheet" href="/assets/styles.css" />
+<link rel="stylesheet" href="/assets/styles.css?v=${ASSET_VERSION}" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 ${typeof head === "string" ? raw(head) : head}
 </head>
@@ -109,7 +113,7 @@ ${typeof head === "string" ? raw(head) : head}
 ${header(cfg, current)}
 <main id="main">${body}</main>
 ${footer()}
-<script src="/assets/cart.js" defer></script>
+<script src="/assets/cart.js?v=${ASSET_VERSION}" defer></script>
 </body>
 </html>`);
 }
@@ -134,3 +138,4 @@ export function jsonResponse(data, status = 200) {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 }
+
