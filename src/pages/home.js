@@ -1,6 +1,6 @@
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
-import { BOOKING_URL, STUDIO, HOURS, RATING } from "../config.js";
+import { BOOKING_URL, STUDIO, HOURS, RATING, HERO_IMAGE, BEFORE_AFTER } from "../config.js";
 
 const REVIEWS = [
   { quote: "My skin has never been calmer. Laura actually explains what she's doing and why.", name: "Destinee G." },
@@ -26,8 +26,24 @@ const SERVICES = [
   },
 ];
 
+/** One result card beside the ring. Holds its shape before photos exist. */
+function proofCard(kind, image, depth) {
+  const label = kind === "before" ? "Before" : "After";
+  return html`
+    <figure class="hero-result hero-result-${kind}" data-depth="${depth}">
+      <div class="hero-result-shot">
+        ${image.src ? html`<img src="${image.src}" alt="${image.alt}" loading="lazy" />` : ""}
+      </div>
+      <figcaption>${label}</figcaption>
+    </figure>
+  `;
+}
+
 export function homePage({ products, cfg }) {
   const featured = products.slice(0, 4);
+  // Falls back to the first product until a cutout is supplied.
+  const heroSrc = HERO_IMAGE.src || featured[0]?.image || null;
+  const heroAlt = HERO_IMAGE.src ? HERO_IMAGE.alt : (featured[0]?.name || "");
 
   return html`
     <section class="hero section-shell">
@@ -48,17 +64,20 @@ export function homePage({ products, cfg }) {
         </p>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <div class="hero-orbit hero-orbit-one"></div>
-        <div class="hero-orbit hero-orbit-two"></div>
-        <div class="hero-card hero-card-tall">
-          <span class="hero-card-label">The studio</span>
-          ${featured[0]?.image ? html`<img src="${featured[0].image}" alt="" />` : ""}
+        <div class="hero-stage" data-hero-stage>
+          <div class="hero-layers" data-hero-layers>
+            <!-- the ring the subject stands in front of and breaks out of -->
+            <div class="hero-ring" data-depth="-4"><span class="hero-glow"></span></div>
+            ${proofCard("before", BEFORE_AFTER.before, 2)}
+            ${proofCard("after", BEFORE_AFTER.after, 3)}
+            ${heroSrc
+              ? html`<img class="hero-subject" data-depth="6" src="${heroSrc}" alt="${heroAlt}"
+                       width="765" height="1318" fetchpriority="high" />`
+              : html`<div class="hero-subject hero-subject-empty" data-depth="6"><span>Your image here</span></div>`}
+            <div class="hero-plinth" data-depth="-1"></div>
+          </div>
         </div>
-        <div class="hero-card hero-card-small">
-          <span class="hero-card-label">Home care</span>
-          ${featured[1]?.image ? html`<img src="${featured[1].image}" alt="" />` : ""}
-        </div>
-        <p class="hero-handwritten">healthy barrier, undeniable glow</p>
+        <p class="hero-handwritten">${BEFORE_AFTER.caption}</p>
       </div>
     </section>
 

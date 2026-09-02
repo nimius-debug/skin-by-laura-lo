@@ -42,5 +42,12 @@ HIDE_SOLD_OUT = "false"
 # pattern = "test.skinbylauralo.com"
 # custom_domain = true
 
+# Static files (hero cutout, gallery photography). Served directly by
+# Cloudflare's asset layer at their matching path — e.g. public/media/x.png
+# is served at /media/x.png. Requests with no matching file fall through to
+# the Worker, so every rendered route is unaffected.
+[assets]
+directory = "./public"
+
 [observability]
 enabled = true

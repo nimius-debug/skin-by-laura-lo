@@ -210,6 +210,88 @@ export const CLIENT_JS = String.raw`
     });
   }
 
+  /* --------------------------------------------------------- hero depth */
+
+  /* Parallax between the frame, the subject and the shadow. Each layer moves
+     by its own depth factor, which is what sells "in front of" rather than
+     "on top of". Pointer only — no scroll work, so nothing fights the reader. */
+  function initHero() {
+    var stage = document.querySelector("[data-hero-stage]");
+    var layers = document.querySelector("[data-hero-layers]");
+    if (!stage || !layers) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (window.matchMedia && !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+
+    var kids = Array.prototype.slice.call(layers.children);
+    var base = kids.map(function (el) { return el.style.transform || getComputedStyle(el).transform; });
+    var raf = null, tx = 0, ty = 0;
+
+    function apply() {
+      raf = null;
+      layers.style.transform = "rotateY(" + (tx * 9).toFixed(2) + "deg) rotateX(" + (-ty * 7).toFixed(2) + "deg)";
+      kids.forEach(function (el, i) {
+        var depth = parseFloat(el.getAttribute("data-depth") || "0");
+        if (!depth) return;
+        // Custom properties, not style.translate — several layers use
+        // translate for centring and would be knocked out of position.
+        el.style.setProperty("--px", (tx * depth * 5).toFixed(1) + "px");
+        el.style.setProperty("--py", (ty * depth * 4).toFixed(1) + "px");
+        void base;
+      });
+    }
+
+    window.addEventListener("pointermove", function (event) {
+      var box = stage.getBoundingClientRect();
+      tx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width || 1)));
+      ty = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height || 1)));
+      layers.classList.add("is-tracking");
+      if (!raf) raf = requestAnimationFrame(apply);
+    }, { passive: true });
+
+    window.addEventListener("pointerleave", function () {
+      layers.classList.remove("is-tracking");
+      layers.style.transform = "";
+      kids.forEach(function (el) {
+        el.style.removeProperty("--px");
+        el.style.removeProperty("--py");
+      });
+    });
+  }
+
+  /* ----------------------------------------------------------- 3D tilt */
+
+  /* Cards rotate toward the pointer. Skipped entirely for reduced-motion,
+     for coarse pointers (a phone has no hover), and on the cart, which
+     stays deliberately calm while someone is trying to pay. */
+  function initTilt() {
+    if (!window.matchMedia) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (document.querySelector("[data-cart-root]")) return;
+
+    var MAX = 6;   // degrees — past this it reads as a gimmick
+    var LIFT = 10; // px
+
+    document.addEventListener("pointermove", function (event) {
+      var card = event.target.closest(".product-card");
+      if (!card) return;
+      var box = card.getBoundingClientRect();
+      var px = (event.clientX - box.left) / box.width - 0.5;
+      var py = (event.clientY - box.top) / box.height - 0.5;
+      card.classList.add("is-tilting");
+      card.style.transform =
+        "rotateY(" + (px * MAX * 2).toFixed(2) + "deg) rotateX(" +
+        (-py * MAX * 2).toFixed(2) + "deg) translateZ(" + LIFT + "px)";
+    });
+
+    document.addEventListener("pointerleave", function (event) {
+      var card = event.target && event.target.closest && event.target.closest(".product-card");
+      if (!card) return;
+      card.classList.remove("is-tilting");
+      card.style.transform = "";
+    }, true);
+  }
+
   /* ------------------------------------------------------------ cart page */
 
   function initCartPage() {
@@ -412,6 +494,8 @@ export const CLIENT_JS = String.raw`
     initAddButtons();
     initProductPage();
     initShopFilters();
+    initHero();
+    initTilt();
     initCartPage();
     if (window.__CLEAR_CART__) writeCart([]);
   }

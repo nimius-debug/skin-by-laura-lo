@@ -106,6 +106,26 @@ Then point `test.skinbylauralo.com` at the Worker (uncomment the `[[routes]]`
 block in `wrangler.toml`), exactly as `audit.skinbylauralo.com` is set up today.
 WordPress DNS stays untouched until the Phase 4 cutover.
 
+## Images
+
+Files in `public/media/` are served directly by Cloudflare's static-asset
+layer at their matching path — `public/media/laura-hero.png` is served at
+`/media/laura-hero.png`. They never pass through the Worker, so they add
+nothing to the bundle.
+
+### The hero cutout
+
+`HERO_IMAGE` in `src/config.js` points at the image that breaks out of the
+frame on the homepage. It **must have a transparent background** (PNG or
+WebP with alpha) — a photo on a solid background renders as a visible
+rectangle and the pop-out effect does not read.
+
+- Portrait orientation, 1200px+ on the long edge
+- Cropped roughly head to mid-thigh
+- No baked-in marketing text; the hero sets its own type
+
+Leave `src` as `null` and the hero falls back to the first product image.
+
 ## Business settings
 
 Everything below is in `wrangler.toml` under `[vars]` — change a value and
