@@ -232,9 +232,10 @@ export const CLIENT_JS = String.raw`
       kids.forEach(function (el, i) {
         var depth = parseFloat(el.getAttribute("data-depth") || "0");
         if (!depth) return;
-        var dx = (tx * depth * 5).toFixed(1);
-        var dy = (ty * depth * 4).toFixed(1);
-        el.style.translate = dx + "px " + dy + "px";
+        // Custom properties, not style.translate — several layers use
+        // translate for centring and would be knocked out of position.
+        el.style.setProperty("--px", (tx * depth * 5).toFixed(1) + "px");
+        el.style.setProperty("--py", (ty * depth * 4).toFixed(1) + "px");
         void base;
       });
     }
@@ -250,7 +251,10 @@ export const CLIENT_JS = String.raw`
     window.addEventListener("pointerleave", function () {
       layers.classList.remove("is-tracking");
       layers.style.transform = "";
-      kids.forEach(function (el) { el.style.translate = ""; });
+      kids.forEach(function (el) {
+        el.style.removeProperty("--px");
+        el.style.removeProperty("--py");
+      });
     });
   }
 

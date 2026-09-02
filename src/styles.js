@@ -92,50 +92,87 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    the layers as the pointer moves.
    Requires a cutout image with alpha; see HERO_IMAGE in config.js.
    --------------------------------------------------------------------- */
-.hero-stage { position: absolute; inset: 0; perspective: 1150px; perspective-origin: 55% 45%; }
+.hero-stage { position: absolute; inset: 0; perspective: 1150px; perspective-origin: 52% 46%; }
 .hero-layers { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2,.7,.3,1); }
 .hero-layers.is-tracking { transition: transform .1s linear; }
 .hero-layers > * { position: absolute; }
 
-.hero-frame {
-  right: 6%; top: 8%; width: min(360px, 62%); height: 460px;
-  background: var(--ink); transform: translateZ(-70px);
-  box-shadow: 0 40px 90px rgba(27,33,24,.34); overflow: hidden;
+/* The ring sits furthest back. It is deliberately LIGHT: Laura wears black
+   scrubs, so a moss disc would swallow her silhouette. */
+.hero-ring {
+  left: 50%; top: 50%;
+  width: min(410px, 74%); aspect-ratio: 1;
+  translate: calc(-50% + var(--px, 0px)) calc(-50% + var(--py, 0px));
+  border-radius: 50%;
+  background: radial-gradient(62% 62% at 42% 32%, var(--panel-stone), var(--panel-taupe) 70%, #cfd6c8);
+  border: 1px solid rgba(198,164,92,.85);
+  box-shadow: 0 30px 70px rgba(27,33,24,.24), inset 0 2px 18px rgba(255,255,255,.65), 0 0 0 7px rgba(198,164,92,.10);
+  transform: translateZ(-90px);
+  overflow: hidden;
 }
 .hero-glow {
   position: absolute; inset: 0;
-  background:
-    linear-gradient(104deg, transparent 30%, rgba(226,203,146,.20) 45%, rgba(226,203,146,.06) 56%, transparent 72%),
-    radial-gradient(58% 42% at 62% 26%, rgba(159,184,154,.20), transparent 72%);
-}
-.hero-frame::after {
-  content: ""; position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(241,234,218,.07) .5px, transparent .5px);
-  background-size: 3px 3px;
+  background: linear-gradient(104deg, transparent 30%, rgba(255,255,255,.55) 45%, rgba(226,203,146,.25) 56%, transparent 72%);
 }
 
+/* Result cards ride the ring's edge, before to the left, after to the right. */
+.hero-result {
+  margin: 0; width: 132px;
+  padding: 9px 9px 7px;
+  background: var(--ink); color: var(--on-dark);
+  box-shadow: 0 18px 34px rgba(27,33,24,.34);
+}
+.hero-result-shot {
+  aspect-ratio: .82; display: grid; place-items: center;
+  background: var(--panel-product); overflow: hidden;
+}
+.hero-result-shot img { width: 100%; height: 100%; object-fit: cover; }
+/* Empty panels stay quiet — the caption already names each side. */
+.hero-result-shot:empty::after {
+  content: ""; width: 26px; height: 1px; background: var(--line);
+}
+.hero-result figcaption {
+  margin-top: 7px; font-size: 8px; font-weight: 650;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--brass);
+}
+.hero-result-before { left: 0; top: 16%; transform: translateZ(30px) rotate(-4deg); translate: var(--px, 0px) var(--py, 0px); }
+.hero-result-after  { right: 0; top: 48%; transform: translateZ(55px) rotate(3.5deg); translate: var(--px, 0px) var(--py, 0px); }
+
+/* The subject, furthest forward, overlapping the ring's top edge. */
 .hero-subject {
-  right: 14%; top: -6%; width: min(400px, 70%); height: 620px;
+  left: 50%; bottom: 4%;
+  width: auto; height: 600px; max-width: none;
+  translate: calc(-50% + var(--px, 0px)) var(--py, 0px);
   object-fit: contain;
-  transform: translateZ(90px) rotate(-2deg);
-  filter: drop-shadow(0 34px 30px rgba(27,33,24,.45)) drop-shadow(0 8px 12px rgba(27,33,24,.32));
+  transform: translateZ(110px);
+  filter: drop-shadow(0 30px 26px rgba(27,33,24,.40)) drop-shadow(0 6px 10px rgba(27,33,24,.28));
   transition: transform .5s cubic-bezier(.2,.7,.3,1);
 }
 .hero-subject-empty {
   display: grid; place-items: center; text-align: center; padding: 20px;
+  width: 300px; height: 560px;
   border: 1px dashed var(--line); background: rgba(250,247,239,.62);
   font-family: var(--font-serif); font-style: italic; font-size: 15px; color: var(--muted);
 }
 
 .hero-plinth {
-  right: 16%; bottom: 4%; width: min(340px, 60%); height: 40px;
-  background: radial-gradient(50% 50% at 50% 50%, rgba(27,33,24,.34), transparent 72%);
-  transform: translateZ(-20px); filter: blur(6px);
+  left: 50%; bottom: 0;
+  width: min(320px, 60%); height: 34px;
+  translate: calc(-50% + var(--px, 0px)) var(--py, 0px);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(27,33,24,.30), transparent 72%);
+  transform: translateZ(-30px); filter: blur(7px);
 }
 
-.hero-orbit-one { transform: translateZ(-40px); }
-.hero-orbit-two { transform: translateZ(-25px); }
-.hero-handwritten { z-index: 3; }
+.hero-handwritten {
+  z-index: 3; left: 0; right: auto; bottom: 9%;
+  width: 118px; text-align: left; transform: none;
+  font-family: var(--font-serif); font-style: italic; font-size: 15px; line-height: 1.35;
+  color: var(--muted);
+}
+.hero-handwritten::before {
+  content: ""; display: block; width: 26px; height: 1px;
+  background: var(--brass); margin-bottom: 10px;
+}
 .hero-orbit { position: absolute; border: 1px solid rgba(122,95,42,.30); border-radius: 50%; }
 .hero-orbit-one { width: 520px; height: 520px; right: 0; top: 25px; }
 .hero-orbit-two { width: 340px; height: 340px; right: 90px; top: 115px; }
@@ -464,8 +501,9 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .site-header nav.nav-open { display: flex; }
   .hero { min-height: auto; grid-template-columns: 1fr; padding-top: 85px; }
   .hero-visual { min-height: 560px; margin-top: 20px; }
-  .hero-frame { right: 4%; width: min(320px, 60%); height: 400px; }
-  .hero-subject { right: 10%; height: 540px; }
+  .hero-ring { width: min(350px, 70%); }
+  .hero-subject { height: 520px; }
+  .hero-result { width: 116px; }
   .approach, .split-heading, .visit-card, .footer-main, .content-split { grid-template-columns: 1fr; gap: 55px; }
   .service-row { grid-template-columns: 45px 1fr 35px; padding-block: 32px; }
   .service-row p, .service-note { grid-column: 2 / 3; }
@@ -490,9 +528,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   h1 { font-size: 58px; }
   .hero-lede { font-size: 16px; }
   .hero-visual { min-height: 430px; }
-  .hero-stage { perspective: none; }
-  .hero-frame { right: 2%; top: 10%; width: 62%; height: 300px; }
-  .hero-subject { right: 8%; top: 0; height: 400px; transform: rotate(-2deg); }
+  .hero-stage { perspective: 700px; }
+  .hero-ring { width: 68%; }
+  .hero-subject { height: 380px; }
+  .hero-result { width: 80px; padding: 5px 5px 4px; }
+  .hero-result-before { left: 0; top: 14%; }
+  .hero-result-after { right: 0; top: 52%; }
+  .hero-result figcaption { font-size: 7px; letter-spacing: .14em; }
+  .hero-handwritten { display: none; }
   .hero-plinth { display: none; }
   .hero-card-tall { width: 74%; height: 380px; right: 5px; }
   .hero-card-small { width: 145px; height: 190px; }

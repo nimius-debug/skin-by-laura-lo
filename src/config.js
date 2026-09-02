@@ -40,9 +40,23 @@ export const RATING = { score: "5.0", count: 29 };
  * Leave `src` null and the hero falls back to the first product image.
  */
 export const HERO_IMAGE = {
-  // e.g. "/media/laura-hero.png" once the cutout is in public/media/
-  src: null,
+  src: "/media/laura-hero.webp",
   alt: "Laura Lo, licensed esthetician, in her Tampa studio",
+};
+
+/**
+ * Client results shown either side of the hero ring — before on the left,
+ * after on the right, both riding the circle's edge.
+ *
+ * Leave `src` null and each card renders a labelled placeholder, so the
+ * composition holds its shape until real photography exists. Use consenting
+ * clients' images only, and keep both shots at the same crop and distance
+ * or the comparison misleads.
+ */
+export const BEFORE_AFTER = {
+  before: { src: null, alt: "Client skin before treatment" },
+  after: { src: null, alt: "Client skin after treatment" },
+  caption: "12 weeks · barrier-first plan",
 };
 
 // Gallery images. Add entries as real photography becomes available; the page
