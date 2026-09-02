@@ -93,9 +93,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    Requires a cutout image with alpha; see HERO_IMAGE in config.js.
    --------------------------------------------------------------------- */
 .hero-stage { position: absolute; inset: 0; perspective: 1150px; perspective-origin: 52% 46%; }
-.hero-layers { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2,.7,.3,1); }
-.hero-layers.is-tracking { transition: transform .1s linear; }
-.hero-layers > * { position: absolute; }
+.hero-layers, .hero-foreground { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2,.7,.3,1); }
+.hero-layers { z-index: 1; }
+.hero-foreground { z-index: 5; pointer-events: none; }
+.hero-layers.is-tracking, .hero-foreground.is-tracking { transition: transform .1s linear; }
+.hero-layers > *, .hero-foreground > * { position: absolute; }
 
 /* The result-card orbit sits behind Laura. Keeping it as an open brass ellipse
    gives the cards a visible path without putting a coloured disc behind her. */
@@ -111,11 +113,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 }
 .hero-ring-back { clip-path: inset(49% 0 0); transform: translateZ(-140px); }
 .hero-ring-front {
-  /* Perspective makes the front plane larger and lower on screen. Offset and
-     scale this half so it reconnects with the deep back half as one ellipse. */
-  left: 50.43%; top: 67.14%;
   clip-path: inset(0 0 49%);
-  transform: translateZ(140px) scale(.783);
+  transform: translateZ(-140px);
 }
 
 /* Result cards ride the ring's edge, before to the left, after to the right. */
