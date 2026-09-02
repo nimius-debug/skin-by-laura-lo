@@ -40,8 +40,9 @@ export const RATING = { score: "5.0", count: 29 };
  * Leave `src` null and the hero falls back to the first product image.
  */
 export const HERO_IMAGE = {
+  // e.g. "/media/laura-hero.png" once the cutout is in public/media/
   src: null,
-  alt: "Laura Lo",
+  alt: "Laura Lo, licensed esthetician, in her Tampa studio",
 };
 
 // Gallery images. Add entries as real photography becomes available; the page
