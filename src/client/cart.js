@@ -219,12 +219,65 @@ export const CLIENT_JS = String.raw`
     var stage = document.querySelector("[data-hero-stage]");
     var layers = document.querySelector("[data-hero-layers]");
     if (!stage || !layers) return;
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (window.matchMedia && !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
 
     var kids = Array.prototype.slice.call(layers.children);
-    var base = kids.map(function (el) { return el.style.transform || getComputedStyle(el).transform; });
+    var resultCards = Array.prototype.slice.call(layers.querySelectorAll("[data-hero-result]"));
+    var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var finePointer = !window.matchMedia || window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     var raf = null, tx = 0, ty = 0;
+    var orbitRaf = null;
+    var orbitStart = null;
+
+    /* Both cards follow the same ellipse with enough phase offset to read as
+       separate images. Each card switches depth at the side crossings rather
+       than relying on preserve-3d's inconsistent sorting against an alpha PNG. */
+    function paintOrbit(angle) {
+      var width = stage.getBoundingClientRect().width || 600;
+      var radiusX = Math.min(270, width * 0.45);
+      var radiusY = Math.max(18, Math.min(34, width * 0.05));
+
+      resultCards.forEach(function (card) {
+        var phase = card.getAttribute("data-hero-result") === "before" ? -0.62 : 0.62;
+        var cardAngle = angle + phase;
+        var depth = Math.cos(cardAngle);
+        var front = depth >= 0;
+        var x = Math.sin(cardAngle) * radiusX;
+        var y = -depth * radiusY;
+        var shade = 0.35 + ((depth + 1) / 2) * 0.65;
+        var scale = 0.78 + ((depth + 1) / 2) * 0.16;
+
+        card.style.setProperty("--orbit-x", x.toFixed(1) + "px");
+        card.style.setProperty("--orbit-y", y.toFixed(1) + "px");
+        card.style.setProperty("--orbit-z", front ? "135px" : "-130px");
+        card.style.setProperty("--orbit-scale", scale.toFixed(3));
+        card.style.opacity = shade.toFixed(3);
+        card.style.zIndex = front ? "4" : "1";
+        card.setAttribute("data-orbit-side", front ? "front" : "back");
+      });
+    }
+
+    function orbitFrame(now) {
+      if (orbitStart === null) orbitStart = now;
+      // One unhurried revolution every 18 seconds; angle zero is the front.
+      paintOrbit(((now - orbitStart) / 18000) * Math.PI * 2);
+      orbitRaf = requestAnimationFrame(orbitFrame);
+    }
+
+    paintOrbit(0);
+    if (!reducedMotion) orbitRaf = requestAnimationFrame(orbitFrame);
+
+    document.addEventListener("visibilitychange", function () {
+      if (reducedMotion) return;
+      if (document.hidden && orbitRaf) {
+        cancelAnimationFrame(orbitRaf);
+        orbitRaf = null;
+      } else if (!document.hidden && !orbitRaf) {
+        orbitStart = null;
+        orbitRaf = requestAnimationFrame(orbitFrame);
+      }
+    });
+
+    if (reducedMotion || !finePointer) return;
 
     function apply() {
       raf = null;
@@ -236,7 +289,6 @@ export const CLIENT_JS = String.raw`
         // translate for centring and would be knocked out of position.
         el.style.setProperty("--px", (tx * depth * 5).toFixed(1) + "px");
         el.style.setProperty("--py", (ty * depth * 4).toFixed(1) + "px");
-        void base;
       });
     }
 
@@ -507,3 +559,4 @@ export const CLIENT_JS = String.raw`
   }
 })();
 `;
+
