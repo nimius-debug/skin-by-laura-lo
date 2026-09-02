@@ -107,8 +107,10 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   background: transparent;
   border: 1px solid rgba(122,95,42,.58);
   box-shadow: none;
-  transform: translateZ(-140px);
+  pointer-events: none;
 }
+.hero-ring-back { clip-path: inset(49% 0 0); transform: translateZ(108px); }
+.hero-ring-front { clip-path: inset(0 0 49%); transform: translateZ(112px); }
 
 /* Result cards ride the ring's edge, before to the left, after to the right. */
 .hero-result {
@@ -503,11 +505,20 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 }
 
 @media (max-width: 980px) {
-  .site-header { padding-inline: 24px; grid-template-columns: 1fr auto; }
+  .site-header { padding-inline: 24px; grid-template-columns: 1fr auto; backdrop-filter: none; }
   .menu-button { grid-column: 2; display: flex; width: 38px; height: 38px; flex-direction: column; gap: 7px; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; }
   .menu-button span { width: 22px; height: 1px; background: var(--ink); }
-  .site-header nav { position: fixed; inset: 122px 0 auto; padding: 35px 24px 45px; display: none; flex-direction: column; align-items: flex-start; gap: 25px; background: var(--paper); border-bottom: 1px solid var(--line); }
+  .site-header nav {
+    position: fixed; inset: 122px 0 auto; z-index: 41;
+    grid-column: 1 / -1; width: 100%; max-height: calc(100dvh - 122px);
+    padding: 20px 24px 34px; display: none; overflow-y: auto;
+    flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--paper); border-block: 1px solid var(--line);
+    box-shadow: 0 24px 50px rgba(27,33,24,.14);
+  }
   .site-header nav.nav-open { display: flex; }
+  .site-header nav a { width: 100%; padding: 15px 0; border-bottom: 1px solid var(--line); }
+  .site-header nav .cart-link { justify-content: space-between; }
   .hero { min-height: auto; grid-template-columns: 1fr; padding-top: 85px; }
   .hero-visual { min-height: 560px; margin-top: 20px; }
   .hero-subject { height: 520px; }

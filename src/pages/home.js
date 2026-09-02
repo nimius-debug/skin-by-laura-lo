@@ -67,13 +67,14 @@ export function homePage({ products, cfg }) {
         <div class="hero-stage" data-hero-stage>
           <div class="hero-layers" data-hero-layers>
             <!-- the ring the subject stands in front of and breaks out of -->
-            <div class="hero-ring" data-depth="-4"></div>
+            <div class="hero-ring hero-ring-back"></div>
             ${proofCard("before", BEFORE_AFTER.before)}
             ${proofCard("after", BEFORE_AFTER.after)}
             ${heroSrc
               ? html`<img class="hero-subject" data-depth="6" src="${heroSrc}" alt="${heroAlt}"
                        width="765" height="1318" fetchpriority="high" />`
               : html`<div class="hero-subject hero-subject-empty" data-depth="6"><span>Your image here</span></div>`}
+            <div class="hero-ring hero-ring-front"></div>
             <div class="hero-plinth" data-depth="-1"></div>
           </div>
         </div>
