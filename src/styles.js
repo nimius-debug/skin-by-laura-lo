@@ -67,9 +67,8 @@ h1 em, h2 em { font-weight: 400; font-style: italic; color: var(--clay); }
 
 .announcement { min-height: 34px; padding: 8px 24px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--ink); color: var(--on-dark); font-size: 11px; letter-spacing: .11em; text-transform: uppercase; text-align: center; }
 .site-header { height: 88px; padding: 0 44px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); background: rgba(241,234,218,.93); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 40; }
-.brand { display: flex; flex-direction: column; width: max-content; line-height: 1; }
-.brand span { font-size: 8px; letter-spacing: .36em; margin-left: 3px; margin-bottom: 4px; }
-.brand strong { font-family: var(--font-serif); font-weight: 400; font-size: 25px; letter-spacing: -.03em; }
+.brand { display: block; width: 150px; line-height: 0; }
+.brand-logo { display: block; width: 100%; height: auto; }
 .site-header nav { grid-column: 2 / 4; display: flex; justify-content: flex-end; align-items: center; gap: 31px; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .site-header nav a { transition: color .2s ease; }
 .site-header nav a:hover, .site-header nav a[aria-current="page"] { color: var(--clay); }
@@ -547,6 +546,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .announcement { font-size: 9px; }
   .announcement-detail { display: none; }
   .site-header { height: 74px; }
+  .brand { width: 128px; }
   .site-header nav { inset-block-start: 108px; }
   .hero { padding-top: 58px; padding-bottom: 60px; }
   h1 { font-size: 58px; }

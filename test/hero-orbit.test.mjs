@@ -28,8 +28,8 @@ assert.match(CLIENT_JS, /event\.pointerType !== "mouse"/, "mouse parallax remain
 assert.match(STYLES, /\.site-header nav \{[\s\S]*?width: 100%;[\s\S]*?align-items: stretch;/, "the mobile menu fills the viewport width");
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260902-hero-orbit-6/, "the orbit CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260902-hero-orbit-6/, "the orbit script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260902-brand-logo/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260902-brand-logo/, "the client script bypasses stale caches");
 
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
 
