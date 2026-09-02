@@ -218,9 +218,10 @@ export const CLIENT_JS = String.raw`
   function initHero() {
     var stage = document.querySelector("[data-hero-stage]");
     var layers = document.querySelector("[data-hero-layers]");
-    if (!stage || !layers) return;
+    var foreground = document.querySelector("[data-hero-foreground]");
+    if (!stage || !layers || !foreground) return;
 
-    var kids = Array.prototype.slice.call(layers.children);
+    var kids = Array.prototype.slice.call(stage.querySelectorAll("[data-depth]"));
     var resultCards = Array.prototype.slice.call(layers.querySelectorAll("[data-hero-result]"));
     var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var raf = null, tx = 0, ty = 0;
@@ -282,7 +283,9 @@ export const CLIENT_JS = String.raw`
 
     function apply() {
       raf = null;
-      layers.style.transform = "rotateY(" + (tx * 9).toFixed(2) + "deg) rotateX(" + (-ty * 7).toFixed(2) + "deg)";
+      var tilt = "rotateY(" + (tx * 9).toFixed(2) + "deg) rotateX(" + (-ty * 7).toFixed(2) + "deg)";
+      layers.style.transform = tilt;
+      foreground.style.transform = tilt;
       kids.forEach(function (el, i) {
         var depth = parseFloat(el.getAttribute("data-depth") || "0");
         if (!depth) return;
@@ -299,12 +302,15 @@ export const CLIENT_JS = String.raw`
       tx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width || 1)));
       ty = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height || 1)));
       layers.classList.add("is-tracking");
+      foreground.classList.add("is-tracking");
       if (!raf) raf = requestAnimationFrame(apply);
     }, { passive: true });
 
     window.addEventListener("pointerleave", function () {
       layers.classList.remove("is-tracking");
+      foreground.classList.remove("is-tracking");
       layers.style.transform = "";
+      foreground.style.transform = "";
       kids.forEach(function (el) {
         el.style.removeProperty("--px");
         el.style.removeProperty("--py");
