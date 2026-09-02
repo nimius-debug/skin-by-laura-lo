@@ -228,22 +228,28 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 
 .shop-preview { padding-top: 135px; padding-bottom: 145px; }
 .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+/* Light tile. Moss framed every product and turned each one into three
+   nested rectangles — card, inner panel, then the photo's own baked-in
+   background. The card is now alabaster with a hairline, the inner panel is
+   gone, and moss is kept for type. It still carries the bands, footer and
+   buttons; it just no longer boxes the merchandise. */
 .product-card { min-width: 0; height: 100%; position: relative; display: flex; flex-direction: column;
-  padding: 13px 13px 11px; background: var(--ink); color: var(--on-dark); }
-/* fine grain keeps a large moss field from banding */
-.product-card::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background-image: radial-gradient(rgba(241,234,218,.06) .5px, transparent .5px); background-size: 3px 3px; }
+  overflow: hidden; background: var(--white); color: var(--ink); border: 1px solid var(--line); }
 .product-card > a { display: block; position: relative; z-index: 1; }
-.product-image-wrap { aspect-ratio: .86; position: relative; overflow: hidden; background: var(--panel-product); }
-.product-image-wrap img { width: 100%; height: 100%; padding: 9%; object-fit: contain; mix-blend-mode: multiply; transition: transform .45s ease; }
+/* Square ships square photography. A 1:1 well means a square photo lands
+   exactly, and the letterbox behind anything else is the card's own colour,
+   so no second rectangle appears. */
+.product-image-wrap { aspect-ratio: 1; position: relative; overflow: hidden; background: var(--white); }
+.product-image-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .45s ease; }
 .product-card:hover img { transform: scale(1.045); }
-.product-image-fallback { width: 100%; height: 100%; display: grid; place-items: center; padding: 12%; text-align: center; font-family: var(--font-serif); font-size: 13px; font-style: italic; color: var(--muted); }
+.product-image-fallback { width: 100%; height: 100%; display: grid; place-items: center; padding: 12%; text-align: center; background: var(--panel-product); font-family: var(--font-serif); font-size: 13px; font-style: italic; color: var(--muted); }
 .product-badge { position: absolute; z-index: 2; top: 14px; left: 14px; padding: 7px 9px; background: var(--brass); color: var(--ink); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .product-badge-soldout { background: var(--ink); color: var(--on-dark); border: 0; }
+.product-quick { border: 1px solid var(--line); }
 .product-quick { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 14px; text-align: center; background: rgba(241,234,218,.94); color: var(--ink); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; transform: translateY(70px); transition: transform .3s ease; }
 .product-card:hover .product-quick { transform: translateY(0); }
-.product-info { padding: 17px 2px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.product-category { margin-bottom: 6px; font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--brass); }
+.product-info { padding: 15px 14px 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.product-category { margin-bottom: 6px; font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--clay-deep); }
 .product-info h3 { margin: 0; font-family: var(--font-serif); font-size: 18px; font-weight: 400; line-height: 1.25; }
 .product-price { margin: 1px 0 0; font-size: 12px; white-space: nowrap; }
 
@@ -306,10 +312,10 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .shop-search input { width: 100%; padding: 11px 5px; border: 0; outline: none; background: transparent; font-size: 12px; }
 .shop-count { margin-bottom: 32px; color: var(--muted); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
 .shop-product-grid { row-gap: 65px; }
-.product-short { max-width: 250px; margin: 8px 0 0; color: var(--on-dark-muted); font-size: 11px; line-height: 1.5; }
-.add-button { width: 100%; margin-top: auto; padding: 12px 0; position: relative; z-index: 1; display: flex; justify-content: space-between; border: 0; border-top: 1px solid rgba(241,234,218,.22); background: transparent; color: var(--on-dark); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; cursor: pointer; }
-.add-button:hover { color: var(--brass); }
-.add-button:disabled { color: var(--on-dark-muted); cursor: not-allowed; }
+.product-short { max-width: 250px; margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.add-button { width: 100%; margin-top: auto; padding: 12px 14px; position: relative; z-index: 1; display: flex; justify-content: space-between; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; cursor: pointer; }
+.add-button:hover { color: var(--clay-deep); }
+.add-button:disabled { color: var(--muted); cursor: not-allowed; }
 .shop-empty { min-height: 360px; display: grid; place-items: center; align-content: center; text-align: center; border: 1px solid var(--line); padding: 40px; }
 .shop-empty h2 { margin-bottom: 8px; font-size: 44px; }
 .shop-empty p { color: var(--muted); max-width: 460px; }
@@ -322,9 +328,15 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .cart-toast a { border-bottom: 1px solid currentColor; white-space: nowrap; }
 
 .product-page { padding-top: 75px; padding-bottom: 130px; display: grid; grid-template-columns: 1.08fr .92fr; gap: 9%; align-items: start; }
-.product-gallery { min-height: 680px; position: sticky; top: 150px; padding: 24px; display: grid; background: var(--ink); }
-.product-gallery-panel { display: grid; place-items: center; background: var(--panel-product); }
-.product-gallery-panel img { width: 100%; height: 632px; padding: 8%; object-fit: contain; mix-blend-mode: multiply; }
+/* Matches the light shop tile — the detail page had the same moss frame,
+   inner panel and photo background stacked three deep. */
+.product-gallery { aspect-ratio: 1; position: sticky; top: 150px; display: grid; overflow: hidden;
+  background: var(--white); border: 1px solid var(--line); }
+.product-gallery-panel { display: grid; place-items: center; overflow: hidden; background: var(--white); }
+/* contain here, cover in the grid: a square catalogue photo fills either way,
+   but where they differ the grid wants an unbroken band and the detail page
+   wants the whole product visible. Any letterbox is the panel's own colour. */
+.product-gallery-panel img { width: 100%; height: 100%; object-fit: contain; }
 .product-details { padding-top: 12px; }
 .breadcrumbs { margin-bottom: 68px; display: flex; gap: 9px; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; flex-wrap: wrap; }
 .product-details .eyebrow { margin-bottom: 14px; }
@@ -452,24 +464,22 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-card {
   transform-style: preserve-3d;
   transition: transform .5s cubic-bezier(.2,.7,.3,1), box-shadow .5s ease;
-  box-shadow: 0 10px 24px rgba(27,33,24,.14);
+  box-shadow: 0 6px 16px rgba(27,33,24,.07);
 }
-.product-card:hover { box-shadow: 0 30px 56px rgba(27,33,24,.30); }
+.product-card:hover { box-shadow: 0 20px 40px rgba(27,33,24,.16); }
 .product-card.is-tilting { transition: transform .12s linear, box-shadow .5s ease; }
 
 /* 3. Light shaft. A raking beam across moss surfaces — the signature move,
       tied to the glazed-tile and brass materials in the board. */
-.results-callout::before, .product-gallery::before {
+.results-callout::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background: linear-gradient(104deg, transparent 34%, rgba(226,203,146,.10) 46%, rgba(226,203,146,.04) 54%, transparent 68%);
 }
-.product-gallery { position: relative; overflow: hidden; }
+.product-gallery { position: relative; }
 .product-gallery-panel { position: relative; z-index: 1; }
-.product-gallery::before { transform: translateX(-32%); transition: transform 1.1s cubic-bezier(.2,.7,.3,1); }
-.product-gallery:hover::before { transform: translateX(32%); }
 
-/* 4. Layered depth on the image panel inside a moss tile. */
-.product-image-wrap { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 6px 14px rgba(27,33,24,.18); }
+/* 4. The image well sits flush in a light tile — the inset highlight and
+      drop shadow only existed to lift it off moss. */
 
 /* 5. Text links draw their underline rather than just colouring it. */
 .text-link { position: relative; }
@@ -535,8 +545,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .footer-links { padding-top: 0; }
   .shop-hero > div, .product-help, .product-page, .cart-layout { grid-template-columns: 1fr; }
   .product-gallery, .cart-summary { position: relative; top: auto; }
-  .product-gallery { min-height: 560px; padding: 18px; }
-  .product-gallery-panel img { height: 512px; }
+  .product-gallery { aspect-ratio: 1; }
   .cart-summary { margin-top: 20px; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -590,8 +599,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .shop-product-grid { row-gap: 42px; }
   .product-help { margin-top: 85px; padding: 45px 28px; }
   .product-page { padding-top: 35px; padding-bottom: 85px; gap: 45px; }
-  .product-gallery { min-height: 420px; padding: 14px; }
-  .product-gallery-panel img { height: 372px; }
+  .product-gallery { aspect-ratio: 1; }
   .breadcrumbs { margin-bottom: 38px; }
   .product-details h1 { font-size: 52px; }
   .product-buy { grid-template-columns: 100px 1fr; }
