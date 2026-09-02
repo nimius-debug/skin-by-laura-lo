@@ -248,7 +248,9 @@ export const CLIENT_JS = String.raw`
 
         card.style.setProperty("--orbit-x", x.toFixed(1) + "px");
         card.style.setProperty("--orbit-y", y.toFixed(1) + "px");
-        card.style.setProperty("--orbit-z", front ? "135px" : "-130px");
+        // Cross Laura's 110px plane continuously. The tiny depth range avoids
+        // the perspective-size jump caused by snapping between distant planes.
+        card.style.setProperty("--orbit-z", (110 + depth * 2).toFixed(2) + "px");
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
         card.style.opacity = shade.toFixed(3);
         card.style.zIndex = front ? "4" : "1";
