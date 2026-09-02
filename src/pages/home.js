@@ -74,8 +74,10 @@ export function homePage({ products, cfg }) {
               ? html`<img class="hero-subject" data-depth="6" src="${heroSrc}" alt="${heroAlt}"
                        width="765" height="1318" fetchpriority="high" />`
               : html`<div class="hero-subject hero-subject-empty" data-depth="6"><span>Your image here</span></div>`}
-            <div class="hero-ring hero-ring-front" data-depth="-4"></div>
             <div class="hero-plinth" data-depth="-1"></div>
+          </div>
+          <div class="hero-foreground" data-hero-foreground>
+            <div class="hero-ring hero-ring-front" data-depth="-4"></div>
           </div>
         </div>
         <p class="hero-handwritten">${BEFORE_AFTER.caption}</p>
