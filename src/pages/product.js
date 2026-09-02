@@ -17,9 +17,11 @@ export function productPage({ product, related, cfg }) {
   return html`
     <div class="product-page section-shell">
       <div class="product-gallery">
-        ${product.image
-          ? html`<img src="${product.image}" alt="${product.name}" width="620" height="680" />`
-          : html`<div class="product-image-fallback">${product.name}</div>`}
+        <div class="product-gallery-panel">
+          ${product.image
+            ? html`<img src="${product.image}" alt="${product.name}" width="620" height="632" />`
+            : html`<div class="product-image-fallback">${product.name}</div>`}
+        </div>
       </div>
 
       <div class="product-details">

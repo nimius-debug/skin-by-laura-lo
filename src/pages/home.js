@@ -1,6 +1,6 @@
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
-import { BOOKING_URL, STUDIO, HOURS, RATING } from "../config.js";
+import { BOOKING_URL, STUDIO, HOURS, RATING, HERO_IMAGE } from "../config.js";
 
 const REVIEWS = [
   { quote: "My skin has never been calmer. Laura actually explains what she's doing and why.", name: "Destinee G." },
@@ -28,6 +28,9 @@ const SERVICES = [
 
 export function homePage({ products, cfg }) {
   const featured = products.slice(0, 4);
+  // Falls back to the first product until a cutout is supplied.
+  const heroSrc = HERO_IMAGE.src || featured[0]?.image || null;
+  const heroAlt = HERO_IMAGE.src ? HERO_IMAGE.alt : (featured[0]?.name || "");
 
   return html`
     <section class="hero section-shell">
@@ -48,15 +51,19 @@ export function homePage({ products, cfg }) {
         </p>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <div class="hero-orbit hero-orbit-one"></div>
-        <div class="hero-orbit hero-orbit-two"></div>
-        <div class="hero-card hero-card-tall">
-          <span class="hero-card-label">The studio</span>
-          ${featured[0]?.image ? html`<img src="${featured[0].image}" alt="" />` : ""}
-        </div>
-        <div class="hero-card hero-card-small">
-          <span class="hero-card-label">Home care</span>
-          ${featured[1]?.image ? html`<img src="${featured[1].image}" alt="" />` : ""}
+        <div class="hero-stage" data-hero-stage>
+          <div class="hero-layers" data-hero-layers>
+            <div class="hero-orbit hero-orbit-one" data-depth="-3"></div>
+            <div class="hero-orbit hero-orbit-two" data-depth="-2"></div>
+            <!-- the window the subject breaks out of -->
+            <div class="hero-frame" data-depth="-4">
+              <span class="hero-glow"></span>
+            </div>
+            ${heroSrc
+              ? html`<img class="hero-subject" data-depth="5" src="${heroSrc}" alt="${heroAlt}" />`
+              : html`<div class="hero-subject hero-subject-empty" data-depth="5"><span>Your image here</span></div>`}
+            <div class="hero-plinth" data-depth="-1"></div>
+          </div>
         </div>
         <p class="hero-handwritten">healthy barrier, undeniable glow</p>
       </div>

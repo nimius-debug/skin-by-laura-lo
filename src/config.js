@@ -30,6 +30,20 @@ export const HOURS = [
 // Google rating shown on the homepage. Update as reviews accumulate.
 export const RATING = { score: "5.0", count: 29 };
 
+/**
+ * Hero cutout — the image that breaks out of the frame on the homepage.
+ *
+ * MUST have a transparent background (PNG or WebP with alpha). A photo on a
+ * white background will render as a visible rectangle and the pop-out effect
+ * will not read. Portrait orientation, ideally 1200px+ on the long edge.
+ *
+ * Leave `src` null and the hero falls back to the first product image.
+ */
+export const HERO_IMAGE = {
+  src: null,
+  alt: "Laura Lo",
+};
+
 // Gallery images. Add entries as real photography becomes available; the page
 // renders an honest empty state until then rather than fake placeholders.
 // Example: { src: "https://...", alt: "Before and after, acne treatment" }
