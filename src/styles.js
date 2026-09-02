@@ -121,7 +121,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .hero-result {
   --orbit-x: 0px;
   --orbit-y: 0px;
-  --orbit-z: 180px;
+  --orbit-z: -140px;
   --orbit-scale: 1;
   --orbit-tilt: 0deg;
   margin: 0; width: 116px;
