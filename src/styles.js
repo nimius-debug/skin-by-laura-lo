@@ -109,8 +109,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   box-shadow: none;
   pointer-events: none;
 }
-.hero-ring-back { clip-path: inset(49% 0 0); transform: translateZ(108px); }
-.hero-ring-front { clip-path: inset(0 0 49%); transform: translateZ(112px); }
+.hero-ring-back { clip-path: inset(49% 0 0); transform: translateZ(-140px); }
+.hero-ring-front {
+  /* Perspective makes the front plane larger and lower on screen. Offset and
+     scale this half so it reconnects with the deep back half as one ellipse. */
+  left: 50.43%; top: 67.14%;
+  clip-path: inset(0 0 49%);
+  transform: translateZ(140px) scale(.783);
+}
 
 /* Result cards ride the ring's edge, before to the left, after to the right. */
 .hero-result {

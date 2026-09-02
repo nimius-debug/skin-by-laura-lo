@@ -223,7 +223,6 @@ export const CLIENT_JS = String.raw`
     var kids = Array.prototype.slice.call(layers.children);
     var resultCards = Array.prototype.slice.call(layers.querySelectorAll("[data-hero-result]"));
     var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var finePointer = !window.matchMedia || window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     var raf = null, tx = 0, ty = 0;
     var orbitRaf = null;
     var orbitStart = null;
@@ -248,9 +247,9 @@ export const CLIENT_JS = String.raw`
 
         card.style.setProperty("--orbit-x", x.toFixed(1) + "px");
         card.style.setProperty("--orbit-y", y.toFixed(1) + "px");
-        // Cross Laura's 110px plane continuously. The tiny depth range avoids
-        // the perspective-size jump caused by snapping between distant planes.
-        card.style.setProperty("--orbit-z", (110 + depth * 2).toFixed(2) + "px");
+        // Cross Laura's 110px plane continuously. The wide, sinusoidal depth
+        // range keeps the original pop-out without snapping between planes.
+        card.style.setProperty("--orbit-z", (110 + depth * 145).toFixed(2) + "px");
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
         card.style.opacity = shade.toFixed(3);
         card.style.zIndex = front ? "4" : "1";
@@ -279,7 +278,7 @@ export const CLIENT_JS = String.raw`
       }
     });
 
-    if (reducedMotion || !finePointer) return;
+    if (reducedMotion) return;
 
     function apply() {
       raf = null;
@@ -295,6 +294,7 @@ export const CLIENT_JS = String.raw`
     }
 
     window.addEventListener("pointermove", function (event) {
+      if (event.pointerType && event.pointerType !== "mouse") return;
       var box = stage.getBoundingClientRect();
       tx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width || 1)));
       ty = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height || 1)));
