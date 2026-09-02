@@ -20,13 +20,15 @@ assert.match(markup, /hero-subject" data-depth="6"/, "Laura keeps her forward mo
 assert.match(STYLES, /\.hero-subject \{[\s\S]*?translateZ\(110px\)/, "Laura remains projected out of the stage");
 assert.match(markup, /hero-ring-back[\s\S]*hero-ring-front/, "the orbit wraps behind and in front of Laura");
 assert.match(markup, /hero-ring-back" data-depth="-4"[\s\S]*hero-ring-front" data-depth="-4"/, "both ring arcs counter-move against Laura");
-assert.match(STYLES, /hero-ring-back[\s\S]*?translateZ\(-140px\)[\s\S]*?hero-ring-front[\s\S]*?translateZ\(140px\)/, "the ring spans deep behind and just in front of Laura");
+assert.match(markup, /data-hero-foreground[\s\S]*hero-ring-front/, "the front arc has its own foreground stacking layer");
+assert.match(STYLES, /hero-ring-back[\s\S]*?translateZ\(-140px\)[\s\S]*?hero-ring-front[\s\S]*?translateZ\(-140px\)/, "both ring halves share one physical depth plane");
+assert.match(CLIENT_JS, /foreground\.style\.transform = tilt;/, "both ring stacking layers share the same pointer tilt");
 assert.match(CLIENT_JS, /event\.pointerType !== "mouse"/, "mouse parallax remains active even when hover media queries misreport");
 assert.match(STYLES, /\.site-header nav \{[\s\S]*?width: 100%;[\s\S]*?align-items: stretch;/, "the mobile menu fills the viewport width");
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260902-hero-orbit-4/, "the orbit CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260902-hero-orbit-4/, "the orbit script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260902-hero-orbit-5/, "the orbit CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260902-hero-orbit-5/, "the orbit script bypasses stale caches");
 
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
 
