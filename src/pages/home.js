@@ -27,10 +27,10 @@ const SERVICES = [
 ];
 
 /** One result card beside the ring. Holds its shape before photos exist. */
-function proofCard(kind, image, depth) {
+function proofCard(kind, image) {
   const label = kind === "before" ? "Before" : "After";
   return html`
-    <figure class="hero-result hero-result-${kind}" data-depth="${depth}">
+    <figure class="hero-result hero-result-${kind}" data-hero-result="${kind}">
       <div class="hero-result-shot">
         ${image.src ? html`<img src="${image.src}" alt="${image.alt}" loading="lazy" />` : ""}
       </div>
@@ -67,9 +67,9 @@ export function homePage({ products, cfg }) {
         <div class="hero-stage" data-hero-stage>
           <div class="hero-layers" data-hero-layers>
             <!-- the ring the subject stands in front of and breaks out of -->
-            <div class="hero-ring" data-depth="-4"><span class="hero-glow"></span></div>
-            ${proofCard("before", BEFORE_AFTER.before, 2)}
-            ${proofCard("after", BEFORE_AFTER.after, 3)}
+            <div class="hero-ring" data-depth="-4"></div>
+            ${proofCard("before", BEFORE_AFTER.before)}
+            ${proofCard("after", BEFORE_AFTER.after)}
             ${heroSrc
               ? html`<img class="hero-subject" data-depth="6" src="${heroSrc}" alt="${heroAlt}"
                        width="765" height="1318" fetchpriority="high" />`
@@ -189,3 +189,4 @@ export function homePage({ products, cfg }) {
     </section>
   `;
 }
+

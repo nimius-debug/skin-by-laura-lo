@@ -97,30 +97,39 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .hero-layers.is-tracking { transition: transform .1s linear; }
 .hero-layers > * { position: absolute; }
 
-/* The ring sits furthest back. It is deliberately LIGHT: Laura wears black
-   scrubs, so a moss disc would swallow her silhouette. */
+/* The result-card orbit sits behind Laura. Keeping it as an open brass ellipse
+   gives the cards a visible path without putting a coloured disc behind her. */
 .hero-ring {
-  left: 50%; top: 50%;
-  width: min(410px, 74%); aspect-ratio: 1;
+  left: 50%; top: 73%;
+  width: min(90%, 540px); aspect-ratio: 9 / 1;
   translate: calc(-50% + var(--px, 0px)) calc(-50% + var(--py, 0px));
   border-radius: 50%;
-  background: radial-gradient(62% 62% at 42% 32%, var(--panel-stone), var(--panel-taupe) 70%, #cfd6c8);
-  border: 1px solid rgba(198,164,92,.85);
-  box-shadow: 0 30px 70px rgba(27,33,24,.24), inset 0 2px 18px rgba(255,255,255,.65), 0 0 0 7px rgba(198,164,92,.10);
-  transform: translateZ(-90px);
-  overflow: hidden;
-}
-.hero-glow {
-  position: absolute; inset: 0;
-  background: linear-gradient(104deg, transparent 30%, rgba(255,255,255,.55) 45%, rgba(226,203,146,.25) 56%, transparent 72%);
+  background: transparent;
+  border: 1px solid rgba(122,95,42,.58);
+  box-shadow: none;
+  transform: translateZ(-140px);
 }
 
 /* Result cards ride the ring's edge, before to the left, after to the right. */
 .hero-result {
-  margin: 0; width: 132px;
+  --orbit-x: 0px;
+  --orbit-y: 0px;
+  --orbit-z: 180px;
+  --orbit-scale: 1;
+  --orbit-tilt: 0deg;
+  margin: 0; width: 116px;
+  left: 50%; top: 73%;
   padding: 9px 9px 7px;
   background: var(--ink); color: var(--on-dark);
   box-shadow: 0 18px 34px rgba(27,33,24,.34);
+  translate: -50% -50%;
+  transform: translate3d(
+    calc(var(--orbit-x) + var(--px, 0px)),
+    calc(var(--orbit-y) + var(--py, 0px)),
+    var(--orbit-z)
+  ) rotate(var(--orbit-tilt)) scale(var(--orbit-scale));
+  transform-origin: center;
+  will-change: transform, opacity;
 }
 .hero-result-shot {
   aspect-ratio: .82; display: grid; place-items: center;
@@ -135,8 +144,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   margin-top: 7px; font-size: 8px; font-weight: 650;
   letter-spacing: .18em; text-transform: uppercase; color: var(--brass);
 }
-.hero-result-before { left: 0; top: 16%; transform: translateZ(30px) rotate(-4deg); translate: var(--px, 0px) var(--py, 0px); }
-.hero-result-after  { right: 0; top: 48%; transform: translateZ(55px) rotate(3.5deg); translate: var(--px, 0px) var(--py, 0px); }
+.hero-result-before { --orbit-tilt: -4deg; }
+.hero-result-after  { --orbit-tilt: 3.5deg; }
 
 /* The subject, furthest forward, overlapping the ring's top edge. */
 .hero-subject {
@@ -501,7 +510,6 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .site-header nav.nav-open { display: flex; }
   .hero { min-height: auto; grid-template-columns: 1fr; padding-top: 85px; }
   .hero-visual { min-height: 560px; margin-top: 20px; }
-  .hero-ring { width: min(350px, 70%); }
   .hero-subject { height: 520px; }
   .hero-result { width: 116px; }
   .approach, .split-heading, .visit-card, .footer-main, .content-split { grid-template-columns: 1fr; gap: 55px; }
@@ -529,11 +537,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .hero-lede { font-size: 16px; }
   .hero-visual { min-height: 430px; }
   .hero-stage { perspective: 700px; }
-  .hero-ring { width: 68%; }
   .hero-subject { height: 380px; }
   .hero-result { width: 80px; padding: 5px 5px 4px; }
-  .hero-result-before { left: 0; top: 14%; }
-  .hero-result-after { right: 0; top: 52%; }
   .hero-result figcaption { font-size: 7px; letter-spacing: .14em; }
   .hero-handwritten { display: none; }
   .hero-plinth { display: none; }
@@ -588,3 +593,4 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .gallery-grid { grid-template-columns: 1fr; }
 }
 `;
+
