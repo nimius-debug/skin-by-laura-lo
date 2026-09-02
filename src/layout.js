@@ -5,7 +5,7 @@ import {
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20260902-hero-orbit-6";
+const ASSET_VERSION = "20260902-brand-logo";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -27,8 +27,7 @@ function header(cfg, current) {
     <div class="announcement">${announcement(cfg)}</div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="Skin by Laura Lo home">
-        <span>SKIN BY</span>
-        <strong>Laura Lo</strong>
+        <img class="brand-logo" src="/media/skin-logo.svg" alt="" width="750" height="300" />
       </a>
       <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="Toggle menu">
         <span></span><span></span>
