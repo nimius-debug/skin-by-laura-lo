@@ -54,9 +54,15 @@ export const HERO_IMAGE = {
  * or the comparison misleads.
  */
 export const BEFORE_AFTER = {
-  before: { src: null, alt: "Client skin before treatment" },
-  after: { src: null, alt: "Client skin after treatment" },
-  caption: "12 weeks · barrier-first plan",
+  before: {
+    src: "/media/laura-before.jpg",
+    alt: "Laura's skin before her treatment plan",
+  },
+  after: {
+    src: "/media/laura-after.jpg",
+    alt: "Laura's skin after her treatment plan",
+  },
+  caption: "Laura's own skin journey",
 };
 
 // Gallery images. Add entries as real photography becomes available; the page
