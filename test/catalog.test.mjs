@@ -5,6 +5,7 @@ const CATALOG_PAGE_1 = {
   objects: [
     { id: "ITEM_A", type: "ITEM", item_data: {
         name: "Mixi Clean", description_plaintext: "Gentle gel cleanser.",
+        ecom_visibility: "VISIBLE",
         image_ids: ["IMG_1"], reporting_category: { id: "CAT_CLEAN" },
         variations: [{ id: "VAR_A1", item_variation_data: {
           name: "150ml", pricing_type: "FIXED_PRICING",
@@ -12,6 +13,7 @@ const CATALOG_PAGE_1 = {
       } },
     { id: "ITEM_B", type: "ITEM", item_data: {
         name: "KrX Mela Défense Serum", description: "<p>Brightening <b>serum</b>.</p>",
+        ecom_visibility: "VISIBLE",
         image_ids: ["IMG_2"], categories: [{ id: "CAT_SERUM" }],
         variations: [
           { id: "VAR_B1", item_variation_data: { name: "30ml", pricing_type: "FIXED_PRICING",
@@ -22,24 +24,36 @@ const CATALOG_PAGE_1 = {
       } },
     // Sold out: tracked, zero on hand.
     { id: "ITEM_C", type: "ITEM", item_data: {
-        name: "Sold Out Toner", category_id: "CAT_TONER",
+        name: "Sold Out Toner", category_id: "CAT_TONER", ecom_visibility: "VISIBLE",
         variations: [{ id: "VAR_C1", item_variation_data: { pricing_type: "FIXED_PRICING",
           price_money: { amount: 3900, currency: "USD" }, track_inventory: true } }] } },
     // Archived — must be dropped.
     { id: "ITEM_D", type: "ITEM", item_data: { name: "Archived", is_archived: true,
         variations: [{ id: "VAR_D1", item_variation_data: { pricing_type: "FIXED_PRICING",
           price_money: { amount: 100 } } }] } },
-    // Not available online — must be dropped.
-    { id: "ITEM_E", type: "ITEM", item_data: { name: "In Studio Only", available_online: false,
+    // Appointment service, not a retail product — must be dropped.
+    { id: "ITEM_E", type: "ITEM", item_data: { name: "Brow Wax", product_type: "APPOINTMENTS_SERVICE",
+        ecom_visibility: "VISIBLE",
         variations: [{ id: "VAR_E1", item_variation_data: { pricing_type: "FIXED_PRICING",
           price_money: { amount: 100 } } }] } },
     // Variable pricing only — no sellable variation, must be dropped.
-    { id: "ITEM_F", type: "ITEM", item_data: { name: "Custom Service",
+    { id: "ITEM_F", type: "ITEM", item_data: { name: "Custom Service", ecom_visibility: "VISIBLE",
         variations: [{ id: "VAR_F1", item_variation_data: { pricing_type: "VARIABLE_PRICING" } }] } },
     // Slug collision with ITEM_A.
-    { id: "ITEM_GHIJKL", type: "ITEM", item_data: { name: "Mixi Clean",
+    { id: "ITEM_GHIJKL", type: "ITEM", item_data: { name: "Mixi Clean", ecom_visibility: "VISIBLE",
         variations: [{ id: "VAR_G1", item_variation_data: { pricing_type: "FIXED_PRICING",
           price_money: { amount: 3400, currency: "USD" } } }] } },
+    // Draft treatment bundle — REGULAR but not published online, must be dropped.
+    { id: "ITEM_H", type: "ITEM", item_data: { name: "Spicule Peel Series",
+        variations: [{ id: "VAR_H1", item_variation_data: { pricing_type: "FIXED_PRICING",
+          price_money: { amount: 20000 } } }] } },
+    // Gift card modeled as a REGULAR/VISIBLE item — name-excluded, must be dropped.
+    { id: "ITEM_I", type: "ITEM", item_data: { name: "GiftCard - The Glow", ecom_visibility: "VISIBLE",
+        variations: [{ id: "VAR_I1", item_variation_data: { pricing_type: "VARIABLE_PRICING" } }] } },
+    // Shipping charge modeled the same way — must be dropped.
+    { id: "ITEM_J", type: "ITEM", item_data: { name: "Flat Shipping ", ecom_visibility: "VISIBLE",
+        variations: [{ id: "VAR_J1", item_variation_data: { pricing_type: "FIXED_PRICING",
+          price_money: { amount: 1000, currency: "USD" } } }] } },
   ],
   related_objects: [
     { id: "IMG_1", type: "IMAGE", image_data: { url: "https://img/1.jpg" } },
@@ -94,7 +108,7 @@ function check(label, actual, expected) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${label}` + (ok ? "" : `\n        expected ${JSON.stringify(expected)}\n        actual   ${JSON.stringify(actual)}`));
 }
 
-check("drops archived / offline / variable-priced", products.length, 4);
+check("drops archived / services / drafts / gift cards / shipping / variable-priced", products.length, 4);
 check("product names sorted", products.map(p => p.name),
   ["KrX Mela Défense Serum", "Mixi Clean", "Mixi Clean", "Sold Out Toner"]);
 

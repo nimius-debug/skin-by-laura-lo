@@ -116,6 +116,9 @@ async function fetchInventory(env, variationIds) {
   return counts;
 }
 
+// Square has no product_type for these, so name is the only signal.
+const NON_RETAIL_NAME = /^gift ?card\b|^flat shipping\b/i;
+
 function categoryNameFor(item, categories) {
   const data = item.item_data || {};
   const ids = [
@@ -145,7 +148,15 @@ function normalize({ items, images, categories }, stock, cfg) {
   for (const item of items) {
     const data = item.item_data;
     if (!data || data.is_archived) continue;
-    if (data.available_online === false) continue;
+    // available_online is unset across this catalog, so it can't gate anything —
+    // filter on what Square actually sets instead: only plain retail items that
+    // are visible on the online store (this drops appointment services, draft
+    // treatment bundles, and the legacy membership listings), plus a name-based
+    // exclusion for gift cards and shipping charges, which Square models as
+    // ordinary REGULAR/VISIBLE items with no distinguishing type of their own.
+    if ((data.product_type || "REGULAR") !== "REGULAR") continue;
+    if (data.ecom_visibility !== "VISIBLE") continue;
+    if (NON_RETAIL_NAME.test(data.name || "")) continue;
 
     const variations = [];
     for (const variation of data.variations || []) {

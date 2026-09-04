@@ -3,12 +3,13 @@ import worker from "../src/index.js";
 const CATALOG = {
   objects: [
     { id: "I1", type: "ITEM", item_data: { name: "Cleanser", reporting_category: { id: "C1" },
+      ecom_visibility: "VISIBLE",
       variations: [{ id: "V1", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 3400, currency: "USD" }, track_inventory: false } }] } },
-    { id: "I2", type: "ITEM", item_data: { name: "Serum",
+    { id: "I2", type: "ITEM", item_data: { name: "Serum", ecom_visibility: "VISIBLE",
       variations: [{ id: "V2", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 7000, currency: "USD" }, track_inventory: false } }] } },
-    { id: "I3", type: "ITEM", item_data: { name: "Gone",
+    { id: "I3", type: "ITEM", item_data: { name: "Gone", ecom_visibility: "VISIBLE",
       variations: [{ id: "V3", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 1000, currency: "USD" }, track_inventory: true } }] } },
   ],
