@@ -54,15 +54,33 @@ export const HERO_IMAGE = {
  * or the comparison misleads.
  */
 export const BEFORE_AFTER = {
-  before: {
-    src: "/media/laura-before.jpg",
-    alt: "Laura's skin before her treatment plan",
-  },
-  after: {
-    src: "/media/laura-after.jpg",
-    alt: "Laura's skin after her treatment plan",
-  },
-  caption: "Laura's own skin journey",
+  pairs: [
+    {
+      before: { src: "/media/laura-before.jpg", alt: "Laura's skin before treatment" },
+      after: { src: "/media/laura-after.jpg", alt: "Laura's skin after treatment" },
+    },
+    {
+      before: { src: "/media/result-02-before.jpg", alt: "Client skin before treatment" },
+      after: { src: "/media/result-02-after.jpg", alt: "Client skin after treatment" },
+    },
+    {
+      before: { src: "/media/result-03-before.jpg", alt: "Client skin before treatment" },
+      after: { src: "/media/result-03-after.jpg", alt: "Client skin after treatment" },
+    },
+    {
+      before: { src: "/media/result-04-before.jpg", alt: "Client skin before treatment" },
+      after: { src: "/media/result-04-after.jpg", alt: "Client skin after treatment" },
+    },
+    {
+      before: { src: "/media/result-05-before.jpg", alt: "Client skin before treatment" },
+      after: { src: "/media/result-05-after.jpg", alt: "Client skin after treatment" },
+    },
+    {
+      before: { src: "/media/result-06-before.jpg", alt: "Client skin before treatment" },
+      after: { src: "/media/result-06-after.jpg", alt: "Client skin after treatment" },
+    },
+  ],
+  caption: "Real client results",
 };
 
 // Gallery images. Add entries as real photography becomes available; the page
