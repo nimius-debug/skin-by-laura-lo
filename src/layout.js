@@ -5,7 +5,7 @@ import {
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20260904-result-cycle";
+const ASSET_VERSION = "20260904-result-fade";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {

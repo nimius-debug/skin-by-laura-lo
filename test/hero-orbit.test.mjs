@@ -19,6 +19,8 @@ assert.match(markup, /data-result-images="\[\{&quot;src&quot;:/, "each orbit car
 assert.match(CLIENT_JS, /angle >= Math\.PI/, "result pairs only change once both cards reach the back");
 assert.match(CLIENT_JS, /showPair\(\(activePair \+ 1\) % pairCount\)/, "each hidden lap advances to the next matched pair");
 assert.match(CLIENT_JS, /var preload = new window\.Image\(\)/, "later result pairs preload before they enter the orbit");
+assert.match(CLIENT_JS, /swapProgress \* swapProgress \* \(3 - \(2 \* swapProgress\)\)/, "the rear swap uses a smooth eased concealment");
+assert.match(CLIENT_JS, /shade \* swapVisibility/, "both cards become fully transparent while their images change");
 assert.match(STYLES, /\.hero-result[\s\S]*?var\(--orbit-z\)/, "orbit transforms are scoped to result cards");
 assert.match(STYLES, /\.hero-ring[\s\S]*?background: transparent;/, "the orbit is an open arc, not a filled disc");
 assert.match(markup, /hero-subject" data-depth="6"/, "Laura keeps her forward mouse-parallax layer");
@@ -32,8 +34,8 @@ assert.match(CLIENT_JS, /event\.pointerType !== "mouse"/, "mouse parallax remain
 assert.match(STYLES, /\.site-header nav \{[\s\S]*?width: 100%;[\s\S]*?align-items: stretch;/, "the mobile menu fills the viewport width");
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260904-result-cycle/, "the shared CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260904-result-cycle/, "the client script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260904-result-fade/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260904-result-fade/, "the client script bypasses stale caches");
 
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
 
