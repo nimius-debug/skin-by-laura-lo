@@ -348,6 +348,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-card-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .routine-total { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
 .routine-total strong { font-family: var(--font-serif); font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.routine-total-original { font-family: var(--font-serif); font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.routine-total-original[hidden] { display: none; }
 
 /* Only meaningful once the whole routine is still checked — surfaced as a
    perk of buying the full bundle rather than picking a couple of items. */

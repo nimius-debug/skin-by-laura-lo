@@ -1,5 +1,6 @@
 import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO } from "./config.js";
 import { getCatalog, indexVariations, isConfigured, createPaymentLink } from "./square.js";
+import { bundleDiscountCents } from "./routines.js";
 import { page, htmlResponse, jsonResponse } from "./layout.js";
 import { STYLES } from "./styles.js";
 import { CLIENT_JS } from "./client/cart.js";
@@ -132,11 +133,18 @@ async function handleCheckout(request, env, cfg, url) {
 
   const shippingFeeCents = fulfillment === "shipping" ? shippingFeeFor(subtotalCents, cfg) : 0;
 
+  // Bundle discount: computed only from the cart's variation ids against
+  // the live catalog and our own routine config — never from anything the
+  // client sends. Clamped so it can never make the order total negative.
+  const cartIds = lineItems.map((item) => item.variationId);
+  const discountCents = Math.min(bundleDiscountCents(cartIds, products), subtotalCents);
+
   try {
     const checkoutUrl = await createPaymentLink(env, {
       lineItems,
       fulfillment,
       shippingFeeCents,
+      discountCents,
       shippingLabel: cfg.shippingLabel,
       redirectUrl: `${url.origin}/thank-you`,
       supportEmail: SUPPORT_EMAIL,
