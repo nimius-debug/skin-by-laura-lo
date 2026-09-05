@@ -128,9 +128,9 @@ function routineDialog(resolved) {
 
         <div class="routine-card-footer">
           <p class="routine-audit-note" data-routine-audit hidden>
-            Buying the full routine includes a complimentary <strong>Skin Audit</strong> with Laura
-            &#8212; a quick check-in to make sure it&#8217;s working for your skin, and what to adjust as you go.
-            <a class="text-link" href="${BOOKING_URL}">Book my Skin Audit <span aria-hidden="true">&#8594;</span></a>
+            Buying the full routine includes a complimentary <strong>Skin Audit</strong>
+            &#8212; a virtual consultation with Laura to make sure it&#8217;s working for your skin
+            and what to adjust as you go &#8212; plus <strong>$50 off</strong> your next treatment.
           </p>
           <div class="routine-card-footer-row">
             <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>

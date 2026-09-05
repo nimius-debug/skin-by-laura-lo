@@ -353,7 +353,6 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    perk of buying the full bundle rather than picking a couple of items. */
 .routine-audit-note { margin: 0; padding: 12px 14px; background: var(--cream); border-left: 2px solid var(--brass); font-size: 12px; line-height: 1.6; color: var(--muted); }
 .routine-audit-note strong { color: var(--ink); }
-.routine-audit-note .text-link { margin-left: 4px; font-size: 10px; }
 .routine-audit-note[hidden] { display: none; }
 
 @media (max-width: 700px) {
