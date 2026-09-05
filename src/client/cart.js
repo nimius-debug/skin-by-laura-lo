@@ -178,7 +178,33 @@ export const CLIENT_JS = String.raw`
       }, 0);
     }
 
+    function closePopovers(exceptEl) {
+      var open = Array.prototype.slice.call(document.querySelectorAll("[data-routine-more-popover]:not([hidden])"));
+      open.forEach(function (popover) {
+        if (popover !== exceptEl) popover.hidden = true;
+      });
+    }
+
     document.addEventListener("click", function (event) {
+      var moreButton = event.target.closest("[data-routine-more]");
+      if (moreButton) {
+        var card = moreButton.closest(".routine-product-card");
+        var popover = card && card.querySelector("[data-routine-more-popover]");
+        closePopovers(popover);
+        if (popover) popover.hidden = !popover.hidden;
+        return;
+      }
+
+      // A click inside an open popover would otherwise be forwarded by its
+      // parent <label> to the checkbox it wraps — swallow it here so
+      // reading the full description never toggles selection.
+      if (event.target.closest("[data-routine-more-popover]")) {
+        event.preventDefault();
+        return;
+      }
+
+      closePopovers();
+
       var opener = event.target.closest("[data-routine-open]");
       if (opener) {
         var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));

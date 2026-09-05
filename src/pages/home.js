@@ -79,11 +79,14 @@ function routineProductCard(item) {
         ${inStock ? "" : html`<span class="product-badge product-badge-soldout">Sold out</span>`}
       </div>
       <div class="product-info">
-        <div>
-          <h3>${product.name}</h3>
-          ${role ? html`<p class="product-short">${role}</p>` : ""}
-        </div>
+        <h3>${product.name}</h3>
+        ${role ? html`<p class="product-short">${role}</p>` : ""}
         <p class="product-price">${formatMoney(priceCents)}</p>
+        <button type="button" class="routine-more-trigger" data-routine-more>See details</button>
+      </div>
+      <div class="routine-more-popover" data-routine-more-popover hidden>
+        <p class="routine-more-name">${product.name}</p>
+        ${role ? html`<p>${role}</p>` : ""}
       </div>
     </label>
   `;
@@ -96,30 +99,32 @@ function routineDialog(resolved) {
     <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}">
       <div class="routine-dialog-body">
         <button class="routine-dialog-close" type="button" data-routine-close aria-label="Close">&times;</button>
-        <p class="routine-concern">${resolved.concern}</p>
-        <h3 class="routine-name">${resolved.name}</h3>
-        <p class="routine-hook">${resolved.hook}</p>
-        <p class="routine-description">${resolved.description}</p>
-        <ul class="routine-bestfor">
-          ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
-        </ul>
+        <div class="routine-dialog-scroll">
+          <p class="routine-concern">${resolved.concern}</p>
+          <h3 class="routine-name">${resolved.name}</h3>
+          <p class="routine-hook">${resolved.hook}</p>
+          <p class="routine-description">${resolved.description}</p>
+          <ul class="routine-bestfor">
+            ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
+          </ul>
 
-        <p class="routine-whats-inside">What&#8217;s inside</p>
-        <div class="routine-dialog-products">
-          ${resolved.items.map((item, index) => html`
-            ${index > 0 ? html`<span class="routine-plus" aria-hidden="true">+</span>` : ""}
-            ${routineProductCard(item)}
-          `)}
-        </div>
-        ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
-
-        ${resolved.consultation ? html`
-          <div class="routine-consultation">
-            <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
-            <p>${resolved.consultation.note}</p>
-            <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
+          <p class="routine-whats-inside">What&#8217;s inside</p>
+          <div class="routine-dialog-products">
+            ${resolved.items.map((item, index) => html`
+              ${index > 0 ? html`<span class="routine-plus" aria-hidden="true">+</span>` : ""}
+              ${routineProductCard(item)}
+            `)}
           </div>
-        ` : ""}
+          ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
+
+          ${resolved.consultation ? html`
+            <div class="routine-consultation">
+              <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
+              <p>${resolved.consultation.note}</p>
+              <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
+            </div>
+          ` : ""}
+        </div>
 
         <div class="routine-card-footer">
           <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>

@@ -277,7 +277,10 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    are the browser's problem, not ours. */
 .routine-dialog { padding: 0; border: 0; width: min(900px, calc(100% - 48px)); max-height: 85vh; background: var(--paper); color: var(--ink); }
 .routine-dialog::backdrop { background: rgba(27, 33, 24, .55); }
-.routine-dialog-body { position: relative; padding: 52px 44px 44px; max-height: 85vh; overflow-y: auto; }
+/* Body is a flex column so the footer (total + Add to Bag) stays pinned in
+   view while only the content above it scrolls. */
+.routine-dialog-body { position: relative; max-height: 85vh; display: flex; flex-direction: column; padding: 52px 44px 32px; }
+.routine-dialog-scroll { overflow-y: auto; min-height: 0; }
 .routine-dialog-close { position: absolute; top: 18px; right: 18px; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--white); font-size: 20px; line-height: 1; color: var(--ink); cursor: pointer; }
 .routine-dialog-close:hover { color: var(--clay-deep); }
 
@@ -290,16 +293,40 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-whats-inside { margin: 0 0 14px; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--clay-deep); }
 
 /* Products inside the popout, as their own shop-style cards — the "+"
-   belongs here, between the pieces that actually make up the routine. */
-.routine-dialog-products { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 0 0 24px; }
-.routine-plus { flex: 0 0 auto; font-family: var(--font-serif); font-size: 22px; color: var(--brass-deep); }
-.routine-product-card { flex: 1 1 150px; max-width: 190px; min-width: 0; cursor: pointer; transition: opacity .2s ease, border-color .2s ease; }
+   belongs here, between the pieces that actually make up the routine.
+   Every card is a fixed width (not flex-grow) with clamped text, so all
+   of them read as the same size regardless of how long a name or role
+   description happens to be. */
+.routine-dialog-products { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; margin: 0 0 24px; }
+.routine-plus { flex: 0 0 auto; align-self: center; font-family: var(--font-serif); font-size: 22px; color: var(--brass-deep); }
+.routine-product-card { flex: 0 0 156px; width: 156px; min-width: 0; cursor: pointer; transition: opacity .2s ease, border-color .2s ease; }
 .routine-product-card input[type="checkbox"] { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
 .routine-check-badge { position: absolute; top: 10px; right: 10px; z-index: 1; width: 22px; height: 22px; display: grid; place-items: center; background: var(--white); border: 1px solid var(--line); font-size: 11px; color: transparent; }
 .routine-product-card input:checked + .routine-check-badge { background: var(--clay-deep); border-color: var(--clay-deep); color: var(--on-dark); }
 .routine-product-card:has(input:not(:checked)) { opacity: .5; }
-.routine-product-card .product-info { padding: 12px; }
-.routine-product-card .product-info h3 { font-size: 14px; }
+.routine-product-card .product-info { flex-direction: column; align-items: stretch; gap: 4px; padding: 12px; }
+.routine-product-card .product-info h3 {
+  font-size: 13px; line-height: 1.3; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.routine-product-card .product-short {
+  max-width: none; margin: 0; font-size: 11px; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.routine-product-card .product-price { margin: 2px 0 0; font-size: 11.5px; }
+.routine-more-trigger {
+  align-self: flex-start; margin: 2px 0 0; padding: 0; border: 0; background: none;
+  font-size: 10px; letter-spacing: .03em; text-decoration: underline; text-underline-offset: 2px;
+  color: var(--clay-deep); cursor: pointer;
+}
+.routine-more-popover {
+  position: absolute; inset: 0; z-index: 5; padding: 16px 14px; overflow-y: auto;
+  background: var(--paper); border: 1px solid var(--line); box-shadow: 0 10px 26px rgba(27, 33, 24, .2);
+  font-size: 11.5px; line-height: 1.55; color: var(--ink); cursor: auto;
+}
+.routine-more-popover[hidden] { display: none; }
+.routine-more-name { margin: 0 0 8px; font-family: var(--font-serif); font-size: 14px; }
+.routine-more-popover p:not(.routine-more-name) { margin: 0; }
 .routine-product-soldout { cursor: not-allowed; }
 .routine-product-soldout .routine-check-badge { display: none; }
 
@@ -308,15 +335,15 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-consultation-heading { margin: 0 0 8px; font-family: var(--font-serif); font-size: 16px; }
 .routine-consultation p:not(.routine-consultation-heading) { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
 
-.routine-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.routine-card-footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 .routine-total { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
 .routine-total strong { font-family: var(--font-serif); font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--ink); }
 
 @media (max-width: 700px) {
   .routine-dialog { width: 100%; height: 100%; max-height: 100%; max-width: 100%; }
-  .routine-dialog-body { max-height: 100%; padding: 60px 22px 32px; }
+  .routine-dialog-body { max-height: 100%; padding: 60px 22px 24px; }
   .routine-name { font-size: 24px; }
-  .routine-product-card { flex: 0 1 42%; max-width: none; }
+  .routine-product-card { flex: 0 0 42%; width: 42%; }
   .routine-card-footer { flex-direction: column; align-items: stretch; gap: 14px; }
   .routine-card-footer .button { width: 100%; }
 }
