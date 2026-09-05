@@ -267,6 +267,14 @@ export const CLIENT_JS = String.raw`
       var radiusX = Math.min(270, width * 0.45);
       var radiusY = Math.max(18, Math.min(34, width * 0.05));
 
+      /* Ease both cards completely out as the pair passes through the rear
+         centre. The image source changes inside the fully transparent part
+         of that window, then the next pair eases back into view. */
+      var lapAngle = ((angle % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2);
+      var backDistance = Math.abs(lapAngle - Math.PI);
+      var swapProgress = Math.max(0, Math.min(1, (backDistance - 0.08) / 0.34));
+      var swapVisibility = swapProgress * swapProgress * (3 - (2 * swapProgress));
+
       /* Both cards are behind Laura at the middle of each lap. Swap the pair
          there, while the subject hides the change, so new photos emerge from
          behind her without popping while either card is in front. */
@@ -295,7 +303,7 @@ export const CLIENT_JS = String.raw`
         card.style.setProperty("--orbit-y", y.toFixed(1) + "px");
         card.style.setProperty("--orbit-z", "-140px");
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
-        card.style.opacity = shade.toFixed(3);
+        card.style.opacity = (shade * swapVisibility).toFixed(3);
         card.style.zIndex = front ? "4" : "1";
         card.setAttribute("data-orbit-side", front ? "front" : "back");
       });
