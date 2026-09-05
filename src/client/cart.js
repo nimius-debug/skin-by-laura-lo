@@ -159,6 +159,54 @@ export const CLIENT_JS = String.raw`
     });
   }
 
+  /* --------------------------------------------------------- routines */
+
+  // Each routine card is a checkbox list (all checked by default) plus one
+  // "Add to Bag" button. Checked items go into the same flat cart used
+  // everywhere else on the site — no new cart or checkout concept, just
+  // several ordinary variation ids added in one click.
+  function initRoutines() {
+    var cards = Array.prototype.slice.call(document.querySelectorAll("[data-routine]"));
+    if (!cards.length) return;
+
+    function totalFor(card) {
+      var boxes = Array.prototype.slice.call(card.querySelectorAll("[data-routine-item]:checked"));
+      return boxes.reduce(function (sum, box) {
+        return sum + (parseInt(box.getAttribute("data-price"), 10) || 0);
+      }, 0);
+    }
+
+    document.addEventListener("click", function (event) {
+      var toggle = event.target.closest("[data-routine-toggle]");
+      if (toggle) {
+        var card = toggle.closest("[data-routine]");
+        var body = card.querySelector("[data-routine-body]");
+        var open = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", open ? "false" : "true");
+        if (body) body.hidden = open;
+        card.classList.toggle("is-open", !open);
+        return;
+      }
+
+      var addButton = event.target.closest("[data-routine-add]");
+      if (addButton) {
+        var routineCard = addButton.closest("[data-routine]");
+        var checked = Array.prototype.slice.call(routineCard.querySelectorAll("[data-routine-item]:checked"));
+        if (!checked.length) return;
+        checked.forEach(function (box) { addToCart(box.value, 1); });
+        showToast(checked.length === 1 ? "1 item" : checked.length + " items");
+      }
+    });
+
+    document.addEventListener("change", function (event) {
+      var box = event.target.closest("[data-routine-item]");
+      if (!box) return;
+      var card = box.closest("[data-routine]");
+      var total = card && card.querySelector("[data-routine-total]");
+      if (total) total.textContent = money(totalFor(card));
+    });
+  }
+
   /* ------------------------------------------------------------ shop page */
 
   function initShopFilters() {
@@ -555,6 +603,7 @@ export const CLIENT_JS = String.raw`
     initAddButtons();
     initProductPage();
     initShopFilters();
+    initRoutines();
     initHero();
     initTilt();
     initCartPage();

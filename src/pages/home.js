@@ -1,6 +1,7 @@
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
-import { BOOKING_URL, STUDIO, HOURS, RATING, HERO_IMAGE, BEFORE_AFTER } from "../config.js";
+import { BOOKING_URL, STUDIO, HOURS, RATING, HERO_IMAGE, BEFORE_AFTER, formatMoney } from "../config.js";
+import { ROUTINES, resolveRoutine } from "../routines.js";
 
 const REVIEWS = [
   { quote: "My skin has never been calmer. Laura actually explains what she's doing and why.", name: "Destinee G." },
@@ -25,6 +26,87 @@ const SERVICES = [
     note: "Brow mapping available",
   },
 ];
+
+/** Small overlapping fan of up to 3 product photos — stands in for a single
+ *  "whole routine" photo until one exists for each kit. */
+function routineMedia(items) {
+  const shots = items.map((item) => item.product.image).filter(Boolean).slice(0, 3);
+  if (!shots.length) return html`<div class="routine-media routine-media-empty" aria-hidden="true"></div>`;
+  return html`
+    <div class="routine-media" aria-hidden="true">
+      ${shots.map((src) => html`<img src="${src}" alt="" loading="lazy" />`)}
+    </div>
+  `;
+}
+
+function routineProductRow(item) {
+  const { product, role, variationId, priceCents, inStock } = item;
+  return html`
+    <li class="routine-product-row ${inStock ? "" : "routine-product-soldout"}">
+      <label>
+        <input type="checkbox" data-routine-item value="${variationId}" data-price="${priceCents}"
+          ${inStock ? "checked" : "disabled"} />
+        <span class="routine-product-shot">
+          ${product.image
+            ? html`<img src="${product.image}" alt="" loading="lazy" />`
+            : html`<span class="product-image-fallback">${product.name}</span>`}
+        </span>
+        <span class="routine-product-info">
+          <strong>${product.name}</strong>
+          ${role ? html`<small>${role}</small>` : ""}
+          ${inStock ? "" : html`<small class="routine-product-soldout-note">Currently sold out</small>`}
+        </span>
+        <span class="routine-product-price">${formatMoney(priceCents)}</span>
+      </label>
+    </li>
+  `;
+}
+
+function routineCard(routine, products) {
+  const resolved = resolveRoutine(routine, products);
+  if (!resolved.items.length) return "";
+
+  return html`
+    <article class="routine-card" data-routine>
+      <button class="routine-card-toggle" type="button" data-routine-toggle aria-expanded="false">
+        ${routineMedia(resolved.items)}
+        <span class="routine-card-head">
+          <span class="routine-name">${resolved.name}</span>
+          <span class="routine-concern">${resolved.concern}</span>
+          <span class="routine-oneliner">${resolved.oneLiner}</span>
+        </span>
+        <span class="routine-card-arrow" aria-hidden="true">+</span>
+      </button>
+
+      <div class="routine-card-body" data-routine-body hidden>
+        <p class="routine-hook">${resolved.hook}</p>
+        <p class="routine-description">${resolved.description}</p>
+        <ul class="routine-bestfor">
+          ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
+        </ul>
+
+        <p class="routine-whats-inside">What&#8217;s inside</p>
+        <ul class="routine-products">
+          ${resolved.items.map((item) => routineProductRow(item))}
+        </ul>
+        ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
+
+        ${resolved.consultation ? html`
+          <div class="routine-consultation">
+            <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
+            <p>${resolved.consultation.note}</p>
+            <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
+          </div>
+        ` : ""}
+
+        <div class="routine-card-footer">
+          <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
+          <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
 
 /** One result card beside the ring. Holds its shape before photos exist. */
 function proofCard(kind, image) {
@@ -128,17 +210,22 @@ export function homePage({ products, cfg }) {
       </div>
     </section>
 
-    ${featured.length ? html`
-      <section class="shop-preview section-shell">
+    ${products.length ? html`
+      <section class="routines-section section-shell" id="routines">
         <div class="section-heading split-heading">
-          <h2>Laura&#8217;s <em>shelf</em></h2>
+          <h2>What does your skin <em>need right now?</em></h2>
           <div>
-            <p>The same products used in treatment, available to take home.</p>
-            <a class="text-link" href="/shop">Shop all <span aria-hidden="true">&#8594;</span></a>
+            <p>
+              No more guessing which products work together. Choose what you want for your
+              skin, and we&#8217;ll take it from there &#8212; each routine is curated to give
+              your skin the right combination of cleansing, treatment, hydration, nourishment,
+              and protection for its current needs.
+            </p>
+            <a class="text-link" href="/shop">Shop all products <span aria-hidden="true">&#8594;</span></a>
           </div>
         </div>
-        <div class="product-grid">
-          ${featured.map((product) => productCard(product))}
+        <div class="routines-list">
+          ${ROUTINES.map((routine) => routineCard(routine, products))}
         </div>
       </section>
     ` : ""}
