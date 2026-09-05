@@ -96,7 +96,8 @@ function routineProductCard(item) {
  *  with browser-native focus handling, ESC-to-close and a backdrop. */
 function routineDialog(resolved) {
   return html`
-    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}">
+    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}"
+            data-routine-discount="${resolved.discount || 0}">
       <div class="routine-dialog-body">
         <button class="routine-dialog-close" type="button" data-routine-close aria-label="Close">&times;</button>
         <div class="routine-dialog-scroll">
@@ -127,8 +128,19 @@ function routineDialog(resolved) {
         </div>
 
         <div class="routine-card-footer">
-          <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
-          <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+          <p class="routine-audit-note" data-routine-audit hidden>
+            Buying the full routine includes a complimentary <strong>Skin Audit</strong>
+            &#8212; a virtual consultation with Laura to make sure it&#8217;s working for your skin
+            and what to adjust as you go.
+          </p>
+          <div class="routine-card-footer-row">
+            <span class="routine-total">
+              Total
+              ${resolved.discount ? html`<s class="routine-total-original" data-routine-total-original>${formatMoney(resolved.totalCents)}</s>` : ""}
+              <strong data-routine-total>${formatMoney(resolved.discount ? resolved.discountedTotalCents : resolved.totalCents)}</strong>
+            </span>
+            <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+          </div>
         </div>
       </div>
     </dialog>
@@ -259,6 +271,8 @@ export function homePage({ products, cfg }) {
               <a class="text-link" href="/shop">Shop all products <span aria-hidden="true">&#8594;</span></a>
             </div>
           </div>
+
+          <p class="routines-hint">Not sure where to start? <strong>Look at the bundles below</strong> &#8212; each one is a complete routine, built for a specific concern.</p>
 
           <div class="routines-grid">
             ${resolvedRoutines.map((resolved) => routineTile(resolved))}
