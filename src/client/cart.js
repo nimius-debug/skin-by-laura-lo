@@ -180,33 +180,21 @@ export const CLIENT_JS = String.raw`
 
     // Buying the whole routine, not just some of it — sold-out items don't
     // count against that, since they were never a choice to begin with.
-    // Both the bundle discount and the Skin Audit perk key off this.
+    // The Skin Audit opt-in only stays available while this holds.
     function isFullBundle(dialog) {
       var boxes = Array.prototype.slice.call(dialog.querySelectorAll("[data-routine-item]:not(:disabled)"));
       return boxes.length > 0 && boxes.every(function (box) { return box.checked; });
     }
 
-    function updateAuditNote(dialog) {
-      var note = dialog.querySelector("[data-routine-audit]");
-      if (note) note.hidden = !isFullBundle(dialog);
-    }
-
-    // The displayed discount is cosmetic — it just mirrors what the server
-    // will actually apply at checkout once it re-verifies the cart holds
-    // the full bundle (see bundleDiscountCents in routines.js).
-    function updateTotal(dialog) {
-      var sum = totalFor(dialog);
-      var discount = parseInt(dialog.getAttribute("data-routine-discount"), 10) || 0;
-      var applies = discount > 0 && isFullBundle(dialog);
-
-      var original = dialog.querySelector("[data-routine-total-original]");
-      if (original) {
-        original.hidden = !applies;
-        original.textContent = money(sum);
-      }
-
-      var total = dialog.querySelector("[data-routine-total]");
-      if (total) total.textContent = money(applies ? sum - discount : sum);
+    // Locks the Skin Audit checkbox off (grayed, unchecked, read-only) the
+    // moment the routine stops being the full bundle, and hands it back —
+    // reset to its checked-by-default state — the moment it is again.
+    function updateAuditCheckbox(dialog) {
+      var box = dialog.querySelector("[data-routine-audit-checkbox]");
+      if (!box) return;
+      var eligible = isFullBundle(dialog);
+      box.disabled = !eligible;
+      box.checked = eligible;
     }
 
     function closePopovers(exceptEl) {
@@ -240,10 +228,7 @@ export const CLIENT_JS = String.raw`
       if (opener) {
         var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));
         if (dialog && dialog.showModal) dialog.showModal();
-        if (dialog) {
-          updateAuditNote(dialog);
-          updateTotal(dialog);
-        }
+        if (dialog) updateAuditCheckbox(dialog);
         return;
       }
 
@@ -278,8 +263,9 @@ export const CLIENT_JS = String.raw`
       if (!box) return;
       var dialog = box.closest("[data-routine]");
       if (!dialog) return;
-      updateTotal(dialog);
-      updateAuditNote(dialog);
+      var total = dialog.querySelector("[data-routine-total]");
+      if (total) total.textContent = money(totalFor(dialog));
+      updateAuditCheckbox(dialog);
     });
   }
 

@@ -65,7 +65,6 @@ check("auto taxes on", lastLinkBody.order.pricing_options.auto_apply_taxes, true
 check("shipping fee charged under threshold", lastLinkBody.checkout_options.shipping_fee.charge.amount, 1000);
 check("asks for shipping address", lastLinkBody.checkout_options.ask_for_shipping_address, true);
 check("redirects to thank-you", lastLinkBody.checkout_options.redirect_url, "https://test.skinbylauralo.com/thank-you");
-check("no bundle discount for an unrelated cart", "discounts" in lastLinkBody.order, false);
 
 // --- over threshold: 2 x $70 = $140 -> free
 r = await checkout({ items: [{ id: "V2", qty: 2 }], fulfillment: "shipping" });

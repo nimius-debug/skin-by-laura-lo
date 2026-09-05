@@ -96,8 +96,7 @@ function routineProductCard(item) {
  *  with browser-native focus handling, ESC-to-close and a backdrop. */
 function routineDialog(resolved) {
   return html`
-    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}"
-            data-routine-discount="${resolved.discount || 0}">
+    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}">
       <div class="routine-dialog-body">
         <button class="routine-dialog-close" type="button" data-routine-close aria-label="Close">&times;</button>
         <div class="routine-dialog-scroll">
@@ -128,17 +127,16 @@ function routineDialog(resolved) {
         </div>
 
         <div class="routine-card-footer">
-          <p class="routine-audit-note" data-routine-audit hidden>
-            Buying the full routine includes a complimentary <strong>Skin Audit</strong>
-            &#8212; a virtual consultation with Laura to make sure it&#8217;s working for your skin
-            and what to adjust as you go.
-          </p>
-          <div class="routine-card-footer-row">
-            <span class="routine-total">
-              Total
-              ${resolved.discount ? html`<s class="routine-total-original" data-routine-total-original>${formatMoney(resolved.totalCents)}</s>` : ""}
-              <strong data-routine-total>${formatMoney(resolved.discount ? resolved.discountedTotalCents : resolved.totalCents)}</strong>
+          <label class="routine-audit-opt">
+            <input type="checkbox" data-routine-audit-checkbox checked />
+            <span>
+              Add a complimentary <strong>Skin Audit</strong> &#8212; a virtual consultation with Laura
+              to make sure it&#8217;s working for your skin and what to adjust as you go.
+              Included free when you buy the full routine.
             </span>
+          </label>
+          <div class="routine-card-footer-row">
+            <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
             <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
           </div>
         </div>

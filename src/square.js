@@ -276,7 +276,6 @@ export async function createPaymentLink(env, {
   lineItems,
   fulfillment,
   shippingFeeCents,
-  discountCents,
   shippingLabel,
   redirectUrl,
   supportEmail,
@@ -305,14 +304,6 @@ export async function createPaymentLink(env, {
     })),
     pricing_options: { auto_apply_discounts: true, auto_apply_taxes: true },
   };
-
-  if (discountCents > 0) {
-    order.discounts = [{
-      name: "Full routine bundle",
-      amount_money: { amount: discountCents, currency: "USD" },
-      scope: "ORDER",
-    }];
-  }
 
   if (fulfillment === "pickup") {
     order.fulfillments = [{
