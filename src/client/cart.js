@@ -159,6 +159,94 @@ export const CLIENT_JS = String.raw`
     });
   }
 
+  /* --------------------------------------------------------- routines */
+
+  // Routines render as plain shop-style tiles; clicking one opens a native
+  // <dialog> popout with the full routine — products shown as their own
+  // shop-style cards (checked by default), a live total, and Add to Bag,
+  // which adds the checked items into the same flat cart used everywhere
+  // else on the site.
+  function initRoutines() {
+    var openers = Array.prototype.slice.call(document.querySelectorAll("[data-routine-open]"));
+    var dialogs = Array.prototype.slice.call(document.querySelectorAll("[data-routine-dialog]"));
+    if (!openers.length || !dialogs.length) return;
+
+    function totalFor(dialog) {
+      var boxes = Array.prototype.slice.call(dialog.querySelectorAll("[data-routine-item]:checked"));
+      return boxes.reduce(function (sum, box) {
+        return sum + (parseInt(box.getAttribute("data-price"), 10) || 0);
+      }, 0);
+    }
+
+    function closePopovers(exceptEl) {
+      var open = Array.prototype.slice.call(document.querySelectorAll("[data-routine-more-popover]:not([hidden])"));
+      open.forEach(function (popover) {
+        if (popover !== exceptEl) popover.hidden = true;
+      });
+    }
+
+    document.addEventListener("click", function (event) {
+      var moreButton = event.target.closest("[data-routine-more]");
+      if (moreButton) {
+        var card = moreButton.closest(".routine-product-card");
+        var popover = card && card.querySelector("[data-routine-more-popover]");
+        closePopovers(popover);
+        if (popover) popover.hidden = !popover.hidden;
+        return;
+      }
+
+      // A click inside an open popover would otherwise be forwarded by its
+      // parent <label> to the checkbox it wraps — swallow it here so
+      // reading the full description never toggles selection.
+      if (event.target.closest("[data-routine-more-popover]")) {
+        event.preventDefault();
+        return;
+      }
+
+      closePopovers();
+
+      var opener = event.target.closest("[data-routine-open]");
+      if (opener) {
+        var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));
+        if (dialog && dialog.showModal) dialog.showModal();
+        return;
+      }
+
+      var closer = event.target.closest("[data-routine-close]");
+      if (closer) {
+        var toClose = closer.closest("dialog");
+        if (toClose) toClose.close();
+        return;
+      }
+
+      // A click that lands on the <dialog> element itself (not something
+      // inside it) is a click on the backdrop area — dialogs have no
+      // padding of their own, so this only fires outside the content box.
+      if (event.target.tagName === "DIALOG" && event.target.hasAttribute("open")) {
+        event.target.close();
+        return;
+      }
+
+      var addButton = event.target.closest("[data-routine-add]");
+      if (addButton) {
+        var routineDialog = addButton.closest("[data-routine]");
+        var checked = Array.prototype.slice.call(routineDialog.querySelectorAll("[data-routine-item]:checked"));
+        if (!checked.length) return;
+        checked.forEach(function (box) { addToCart(box.value, 1); });
+        showToast(checked.length === 1 ? "1 item" : checked.length + " items");
+        if (routineDialog.close) routineDialog.close();
+      }
+    });
+
+    document.addEventListener("change", function (event) {
+      var box = event.target.closest("[data-routine-item]");
+      if (!box) return;
+      var dialog = box.closest("[data-routine]");
+      var total = dialog && dialog.querySelector("[data-routine-total]");
+      if (total) total.textContent = money(totalFor(dialog));
+    });
+  }
+
   /* ------------------------------------------------------------ shop page */
 
   function initShopFilters() {
@@ -598,6 +686,7 @@ export const CLIENT_JS = String.raw`
     initAddButtons();
     initProductPage();
     initShopFilters();
+    initRoutines();
     initHero();
     initTilt();
     initCartPage();
