@@ -254,11 +254,13 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-price { margin: 1px 0 0; font-size: 12px; white-space: nowrap; }
 
 .routines-section { padding-top: 135px; padding-bottom: 145px; scroll-margin-top: 110px; }
+.routines-hint { margin: -6px 0 28px; font-family: var(--font-serif); font-style: italic; font-size: 15px; color: var(--clay-deep); }
+.routines-hint strong { font-style: normal; font-weight: 600; }
 
 /* Collapsed routines read as an extension of the shop grid: same card,
    same hover treatment, no price — the price only means something once
    you've seen (and possibly unchecked) what's inside, in the popout. */
-.routines-grid { display: flex; align-items: stretch; gap: 0; }
+.routines-grid { display: flex; align-items: stretch; gap: 20px; }
 .routines-grid .product-card { flex: 1 1 0; min-width: 0; }
 .routines-grid .product-card > button { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .routine-media { position: absolute; inset: 0; }
@@ -269,8 +271,12 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-media-empty { position: absolute; inset: 0; background: var(--panel-product); }
 
 @media (max-width: 900px) {
-  .routines-grid { flex-direction: column; }
-  .routines-grid .product-card { width: 100%; }
+  /* flex: 1 1 0 (above) sizes cards along a horizontal main axis; once the
+     grid stacks to a column that same rule reads as height instead of
+     width, and with no free vertical space to grow into every card
+     collapses to ~0. Switch to a natural content height instead. */
+  .routines-grid { flex-direction: column; gap: 28px; }
+  .routines-grid .product-card { flex: 0 0 auto; width: 100%; }
 }
 
 /* The popout — a native <dialog>, so ESC, focus trapping and the backdrop
@@ -335,16 +341,24 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-consultation-heading { margin: 0 0 8px; font-family: var(--font-serif); font-size: 16px; }
 .routine-consultation p:not(.routine-consultation-heading) { margin: 0 0 12px; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
 
-.routine-card-footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.routine-card-footer { flex: 0 0 auto; display: flex; flex-direction: column; gap: 14px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.routine-card-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .routine-total { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
 .routine-total strong { font-family: var(--font-serif); font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+
+/* Only meaningful once the whole routine is still checked — surfaced as a
+   perk of buying the full bundle rather than picking a couple of items. */
+.routine-audit-note { margin: 0; padding: 12px 14px; background: var(--cream); border-left: 2px solid var(--brass); font-size: 12px; line-height: 1.6; color: var(--muted); }
+.routine-audit-note strong { color: var(--ink); }
+.routine-audit-note .text-link { margin-left: 4px; font-size: 10px; }
+.routine-audit-note[hidden] { display: none; }
 
 @media (max-width: 700px) {
   .routine-dialog { width: 100%; height: 100%; max-height: 100%; max-width: 100%; }
   .routine-dialog-body { max-height: 100%; padding: 60px 22px 24px; }
   .routine-name { font-size: 24px; }
   .routine-product-card { flex: 0 0 42%; width: 42%; }
-  .routine-card-footer { flex-direction: column; align-items: stretch; gap: 14px; }
+  .routine-card-footer-row { flex-direction: column; align-items: stretch; gap: 14px; }
   .routine-card-footer .button { width: 100%; }
 }
 

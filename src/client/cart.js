@@ -178,6 +178,16 @@ export const CLIENT_JS = String.raw`
       }, 0);
     }
 
+    // The Skin Audit perk only applies when the customer is buying the
+    // whole routine — sold-out items don't count against that, since
+    // they were never a choice to begin with.
+    function updateAuditNote(dialog) {
+      var note = dialog.querySelector("[data-routine-audit]");
+      if (!note) return;
+      var boxes = Array.prototype.slice.call(dialog.querySelectorAll("[data-routine-item]:not(:disabled)"));
+      note.hidden = !boxes.length || !boxes.every(function (box) { return box.checked; });
+    }
+
     function closePopovers(exceptEl) {
       var open = Array.prototype.slice.call(document.querySelectorAll("[data-routine-more-popover]:not([hidden])"));
       open.forEach(function (popover) {
@@ -209,6 +219,7 @@ export const CLIENT_JS = String.raw`
       if (opener) {
         var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));
         if (dialog && dialog.showModal) dialog.showModal();
+        if (dialog) updateAuditNote(dialog);
         return;
       }
 
@@ -242,8 +253,10 @@ export const CLIENT_JS = String.raw`
       var box = event.target.closest("[data-routine-item]");
       if (!box) return;
       var dialog = box.closest("[data-routine]");
-      var total = dialog && dialog.querySelector("[data-routine-total]");
+      if (!dialog) return;
+      var total = dialog.querySelector("[data-routine-total]");
       if (total) total.textContent = money(totalFor(dialog));
+      updateAuditNote(dialog);
     });
   }
 
