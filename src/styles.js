@@ -262,6 +262,9 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    you've seen (and possibly unchecked) what's inside, in the popout. */
 .routines-grid { display: flex; align-items: stretch; gap: 20px; }
 .routines-grid .product-card { flex: 1 1 0; min-width: 0; }
+/* The concern tag is the whole point of a routine tile — what it's *for* —
+   so it needs to read at a glance, not whisper like a shop category label. */
+.routines-grid .product-category { font-size: 11px; font-weight: 700; letter-spacing: .1em; margin-bottom: 8px; }
 .routines-grid .product-card > button { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .routine-media { position: absolute; inset: 0; }
 .routine-media img { position: absolute; width: 62%; height: 62%; object-fit: cover; border: 3px solid var(--white); background: var(--panel-product); }
@@ -291,7 +294,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-dialog-close:hover { color: var(--clay-deep); }
 
 .routine-name { font-family: var(--font-serif); font-size: 32px; line-height: 1.05; margin: 6px 0 18px; }
-.routine-concern { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--clay-deep); }
+.routine-concern { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--clay-deep); }
 .routine-hook { font-family: var(--font-serif); font-style: italic; font-size: 18px; color: var(--clay-deep); margin-bottom: 14px; }
 .routine-description { color: var(--muted); line-height: 1.7; font-size: 13.5px; margin-bottom: 20px; }
 .routine-bestfor { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 32px; list-style: none; }
