@@ -161,37 +161,48 @@ export const CLIENT_JS = String.raw`
 
   /* --------------------------------------------------------- routines */
 
-  // Each routine card is a checkbox list (all checked by default) plus one
-  // "Add to Bag" button. Checked items go into the same flat cart used
-  // everywhere else on the site — no new cart or checkout concept, just
-  // several ordinary variation ids added in one click.
+  // Routines render as a row of shop-style tiles, one detail panel open at
+  // a time below the row. Each panel is a checkbox list (all checked by
+  // default) plus one "Add to Bag" button — checked items go into the same
+  // flat cart used everywhere else, no new cart or checkout concept.
   function initRoutines() {
-    var cards = Array.prototype.slice.call(document.querySelectorAll("[data-routine]"));
-    if (!cards.length) return;
+    var tiles = Array.prototype.slice.call(document.querySelectorAll("[data-routine-tile]"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll("[data-routine-panel]"));
+    if (!tiles.length || !panels.length) return;
 
-    function totalFor(card) {
-      var boxes = Array.prototype.slice.call(card.querySelectorAll("[data-routine-item]:checked"));
+    function totalFor(panel) {
+      var boxes = Array.prototype.slice.call(panel.querySelectorAll("[data-routine-item]:checked"));
       return boxes.reduce(function (sum, box) {
         return sum + (parseInt(box.getAttribute("data-price"), 10) || 0);
       }, 0);
     }
 
+    function activate(slug) {
+      tiles.forEach(function (tile) {
+        tile.setAttribute("aria-current", tile.getAttribute("data-routine-tile") === slug ? "true" : "false");
+      });
+      var target = null;
+      panels.forEach(function (panel) {
+        var match = panel.getAttribute("data-routine-panel") === slug;
+        panel.hidden = !match;
+        if (match) target = panel;
+      });
+      return target;
+    }
+
     document.addEventListener("click", function (event) {
-      var toggle = event.target.closest("[data-routine-toggle]");
-      if (toggle) {
-        var card = toggle.closest("[data-routine]");
-        var body = card.querySelector("[data-routine-body]");
-        var open = toggle.getAttribute("aria-expanded") === "true";
-        toggle.setAttribute("aria-expanded", open ? "false" : "true");
-        if (body) body.hidden = open;
-        card.classList.toggle("is-open", !open);
+      var tile = event.target.closest("[data-routine-tile]");
+      if (tile) {
+        event.preventDefault();
+        var panel = activate(tile.getAttribute("data-routine-tile"));
+        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
 
       var addButton = event.target.closest("[data-routine-add]");
       if (addButton) {
-        var routineCard = addButton.closest("[data-routine]");
-        var checked = Array.prototype.slice.call(routineCard.querySelectorAll("[data-routine-item]:checked"));
+        var routinePanel = addButton.closest("[data-routine]");
+        var checked = Array.prototype.slice.call(routinePanel.querySelectorAll("[data-routine-item]:checked"));
         if (!checked.length) return;
         checked.forEach(function (box) { addToCart(box.value, 1); });
         showToast(checked.length === 1 ? "1 item" : checked.length + " items");
@@ -201,9 +212,9 @@ export const CLIENT_JS = String.raw`
     document.addEventListener("change", function (event) {
       var box = event.target.closest("[data-routine-item]");
       if (!box) return;
-      var card = box.closest("[data-routine]");
-      var total = card && card.querySelector("[data-routine-total]");
-      if (total) total.textContent = money(totalFor(card));
+      var panel = box.closest("[data-routine]");
+      var total = panel && panel.querySelector("[data-routine-total]");
+      if (total) total.textContent = money(totalFor(panel));
     });
   }
 

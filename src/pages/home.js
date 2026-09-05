@@ -62,49 +62,62 @@ function routineProductRow(item) {
   `;
 }
 
-function routineCard(routine, products) {
-  const resolved = resolveRoutine(routine, products);
-  if (!resolved.items.length) return "";
-
+/** Shop-style tile — same visual language as productCard(), reused so the
+ *  routine grid reads as an extension of the shop rather than a new widget. */
+function routineTile(resolved, isActive) {
   return html`
-    <article class="routine-card" data-routine>
-      <button class="routine-card-toggle" type="button" data-routine-toggle aria-expanded="false">
-        ${routineMedia(resolved.items)}
-        <span class="routine-card-head">
-          <span class="routine-name">${resolved.name}</span>
-          <span class="routine-concern">${resolved.concern}</span>
-          <span class="routine-oneliner">${resolved.oneLiner}</span>
-        </span>
-        <span class="routine-card-arrow" aria-hidden="true">+</span>
-      </button>
-
-      <div class="routine-card-body" data-routine-body hidden>
-        <p class="routine-hook">${resolved.hook}</p>
-        <p class="routine-description">${resolved.description}</p>
-        <ul class="routine-bestfor">
-          ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
-        </ul>
-
-        <p class="routine-whats-inside">What&#8217;s inside</p>
-        <ul class="routine-products">
-          ${resolved.items.map((item) => routineProductRow(item))}
-        </ul>
-        ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
-
-        ${resolved.consultation ? html`
-          <div class="routine-consultation">
-            <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
-            <p>${resolved.consultation.note}</p>
-            <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
-          </div>
-        ` : ""}
-
-        <div class="routine-card-footer">
-          <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
-          <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+    <article class="product-card routine-tile">
+      <a href="#routine-${resolved.slug}" data-routine-tile="${resolved.slug}"
+         aria-current="${isActive ? "true" : "false"}"
+         aria-label="View ${resolved.name} routine, ${formatMoney(resolved.totalCents)}">
+        <div class="product-image-wrap">
+          ${routineMedia(resolved.items)}
+          <div class="product-quick">View routine</div>
         </div>
-      </div>
+        <div class="product-info">
+          <div>
+            <p class="product-category">${resolved.concern}</p>
+            <h3>${resolved.name}</h3>
+            <p class="product-short">${resolved.oneLiner}</p>
+          </div>
+          <p class="product-price">${formatMoney(resolved.totalCents)}</p>
+        </div>
+      </a>
     </article>
+  `;
+}
+
+function routineDetailPanel(resolved, isActive) {
+  return html`
+    <div class="routine-detail-panel" id="routine-${resolved.slug}" data-routine data-routine-panel="${resolved.slug}"
+      ${isActive ? "" : "hidden"}>
+      <p class="routine-concern">${resolved.concern}</p>
+      <h3 class="routine-name">${resolved.name}</h3>
+      <p class="routine-hook">${resolved.hook}</p>
+      <p class="routine-description">${resolved.description}</p>
+      <ul class="routine-bestfor">
+        ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
+      </ul>
+
+      <p class="routine-whats-inside">What&#8217;s inside</p>
+      <ul class="routine-products">
+        ${resolved.items.map((item) => routineProductRow(item))}
+      </ul>
+      ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
+
+      ${resolved.consultation ? html`
+        <div class="routine-consultation">
+          <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
+          <p>${resolved.consultation.note}</p>
+          <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
+        </div>
+      ` : ""}
+
+      <div class="routine-card-footer">
+        <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
+        <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+      </div>
+    </div>
   `;
 }
 
@@ -210,25 +223,39 @@ export function homePage({ products, cfg }) {
       </div>
     </section>
 
-    ${products.length ? html`
-      <section class="routines-section section-shell" id="routines">
-        <div class="section-heading split-heading">
-          <h2>What does your skin <em>need right now?</em></h2>
-          <div>
-            <p>
-              No more guessing which products work together. Choose what you want for your
-              skin, and we&#8217;ll take it from there &#8212; each routine is curated to give
-              your skin the right combination of cleansing, treatment, hydration, nourishment,
-              and protection for its current needs.
-            </p>
-            <a class="text-link" href="/shop">Shop all products <span aria-hidden="true">&#8594;</span></a>
+    ${(() => {
+      const resolvedRoutines = ROUTINES.map((routine) => resolveRoutine(routine, products))
+        .filter((resolved) => resolved.items.length);
+      if (!resolvedRoutines.length) return "";
+
+      return html`
+        <section class="routines-section section-shell" id="routines">
+          <div class="section-heading split-heading">
+            <h2>What does your skin <em>need right now?</em></h2>
+            <div>
+              <p>
+                No more guessing which products work together. Choose what you want for your
+                skin, and we&#8217;ll take it from there &#8212; each routine is curated to give
+                your skin the right combination of cleansing, treatment, hydration, nourishment,
+                and protection for its current needs.
+              </p>
+              <a class="text-link" href="/shop">Shop all products <span aria-hidden="true">&#8594;</span></a>
+            </div>
           </div>
-        </div>
-        <div class="routines-list">
-          ${ROUTINES.map((routine) => routineCard(routine, products))}
-        </div>
-      </section>
-    ` : ""}
+
+          <div class="routines-grid">
+            ${resolvedRoutines.map((resolved, index) => html`
+              ${index > 0 ? html`<span class="routine-plus" aria-hidden="true">+</span>` : ""}
+              ${routineTile(resolved, index === 0)}
+            `)}
+          </div>
+
+          <div class="routine-detail-panels">
+            ${resolvedRoutines.map((resolved, index) => routineDetailPanel(resolved, index === 0))}
+          </div>
+        </section>
+      `;
+    })()}
 
     <section class="results-callout">
       <div class="results-inner section-shell">

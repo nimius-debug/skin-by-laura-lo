@@ -254,24 +254,28 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-price { margin: 1px 0 0; font-size: 12px; white-space: nowrap; }
 
 .routines-section { padding-top: 135px; padding-bottom: 145px; scroll-margin-top: 110px; }
-.routines-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
-.routine-card { border-bottom: 1px solid var(--line); }
-.routine-card-toggle { width: 100%; padding: 26px 4px; display: grid; grid-template-columns: 72px 1fr 24px; gap: 26px; align-items: center; border: 0; background: transparent; text-align: left; cursor: pointer; color: var(--ink); }
-.routine-card-toggle:hover { color: var(--clay-deep); }
-.routine-media { position: relative; width: 72px; height: 72px; }
-.routine-media img { position: absolute; width: 52px; height: 52px; object-fit: cover; border: 2px solid var(--paper); background: var(--panel-product); }
-.routine-media img:nth-child(1) { left: 0; top: 0; z-index: 3; }
-.routine-media img:nth-child(2) { left: 18px; top: 10px; z-index: 2; }
-.routine-media img:nth-child(3) { left: 20px; top: -8px; z-index: 1; }
-.routine-media-empty { background: var(--panel-product); }
-.routine-card-head { display: flex; flex-direction: column; gap: 4px; }
-.routine-name { font-family: var(--font-serif); font-size: 26px; line-height: 1.05; }
-.routine-concern { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--clay-deep); }
-.routine-oneliner { font-size: 13px; color: var(--muted); line-height: 1.5; }
-.routine-card-arrow { font-family: var(--font-serif); font-size: 26px; line-height: 1; color: var(--clay); transition: transform .2s ease; }
-.routine-card-toggle[aria-expanded="true"] .routine-card-arrow { transform: rotate(45deg); }
 
-.routine-card-body { padding: 0 4px 40px; max-width: 720px; }
+/* Collapsed routines read as an extension of the shop grid: same card,
+   same hover treatment. A "+" between tiles suggests "pick one of these",
+   not "combine them" — but reads as a connected system rather than five
+   unrelated products, which is the whole point of a routine. */
+.routines-grid { display: flex; align-items: stretch; gap: 0; }
+.routines-grid .product-card { flex: 1 1 0; min-width: 0; transition: border-color .2s ease, box-shadow .2s ease; }
+.routines-grid .product-card:has(a[aria-current="true"]) { border-color: var(--clay-deep); box-shadow: 0 10px 26px rgba(27,33,24,.1); }
+.routine-plus { flex: 0 0 auto; width: 34px; display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 26px; color: var(--brass-deep); }
+.routine-media { position: absolute; inset: 0; }
+.routine-media img { position: absolute; width: 62%; height: 62%; object-fit: cover; border: 3px solid var(--white); background: var(--panel-product); }
+.routine-media img:nth-child(1) { left: 4%; top: 4%; z-index: 3; }
+.routine-media img:nth-child(2) { left: 34%; top: 22%; z-index: 2; }
+.routine-media img:nth-child(3) { left: 30%; top: 2%; z-index: 1; }
+.routine-media-empty { position: absolute; inset: 0; background: var(--panel-product); }
+
+/* Detail panel — one open at a time, below the grid rather than inline in
+   it, so opening a routine never reflows the row of tiles above it. */
+.routine-detail-panels { margin-top: 56px; padding-top: 48px; border-top: 1px solid var(--line); }
+.routine-detail-panel { max-width: 720px; }
+.routine-name { font-family: var(--font-serif); font-size: 32px; line-height: 1.05; margin: 6px 0 18px; }
+.routine-concern { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--clay-deep); }
 .routine-hook { font-family: var(--font-serif); font-style: italic; font-size: 18px; color: var(--clay-deep); margin-bottom: 14px; }
 .routine-description { color: var(--muted); line-height: 1.7; font-size: 13.5px; margin-bottom: 20px; }
 .routine-bestfor { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 32px; list-style: none; }
@@ -301,11 +305,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-total { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
 .routine-total strong { font-family: var(--font-serif); font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--ink); }
 
+@media (max-width: 900px) {
+  .routines-grid { flex-direction: column; }
+  .routine-plus { display: none; }
+  .routines-grid .product-card { width: 100%; }
+}
+
 @media (max-width: 700px) {
-  .routine-card-toggle { grid-template-columns: 56px 1fr 20px; gap: 16px; }
-  .routine-media { width: 56px; height: 56px; }
-  .routine-media img { width: 42px; height: 42px; }
-  .routine-name { font-size: 21px; }
+  .routine-name { font-size: 24px; }
   .routine-product-row label { grid-template-columns: 18px 40px 1fr; }
   .routine-product-price { grid-column: 2 / -1; padding-left: 56px; }
   .routine-card-footer { flex-direction: column; align-items: stretch; gap: 14px; }
