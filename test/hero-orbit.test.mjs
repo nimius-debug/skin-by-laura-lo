@@ -15,6 +15,10 @@ assert.match(CLIENT_JS, /var destination = front \? foreground : layers/, "cards
 assert.match(CLIENT_JS, /setProperty\("--orbit-z", "-140px"\)/, "cards stay on the ring's physical plane");
 assert.match(CLIENT_JS, /paintOrbit\(0\);/, "the static composition starts at the front");
 assert.match(CLIENT_JS, /if \(!reducedMotion\) orbitRaf = requestAnimationFrame/, "reduced motion freezes the orbit");
+assert.match(markup, /data-result-images="\[\{&quot;src&quot;:/, "each orbit card carries its six-image sequence");
+assert.match(CLIENT_JS, /angle >= Math\.PI/, "result pairs only change once both cards reach the back");
+assert.match(CLIENT_JS, /showPair\(\(activePair \+ 1\) % pairCount\)/, "each hidden lap advances to the next matched pair");
+assert.match(CLIENT_JS, /var preload = new window\.Image\(\)/, "later result pairs preload before they enter the orbit");
 assert.match(STYLES, /\.hero-result[\s\S]*?var\(--orbit-z\)/, "orbit transforms are scoped to result cards");
 assert.match(STYLES, /\.hero-ring[\s\S]*?background: transparent;/, "the orbit is an open arc, not a filled disc");
 assert.match(markup, /hero-subject" data-depth="6"/, "Laura keeps her forward mouse-parallax layer");
@@ -28,8 +32,8 @@ assert.match(CLIENT_JS, /event\.pointerType !== "mouse"/, "mouse parallax remain
 assert.match(STYLES, /\.site-header nav \{[\s\S]*?width: 100%;[\s\S]*?align-items: stretch;/, "the mobile menu fills the viewport width");
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260902-brand-logo/, "the shared CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260902-brand-logo/, "the client script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260904-result-cycle/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260904-result-cycle/, "the client script bypasses stale caches");
 
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
 
