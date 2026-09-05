@@ -227,6 +227,37 @@ export const CLIENT_JS = String.raw`
     var raf = null, tx = 0, ty = 0;
     var orbitRaf = null;
     var orbitStart = null;
+    var activePair = 0;
+    var lastSwapCycle = -1;
+    var resultSets = resultCards.map(function (card) {
+      try {
+        return JSON.parse(card.getAttribute("data-result-images") || "[]");
+      } catch (_) {
+        return [];
+      }
+    });
+    var pairCount = resultSets.length
+      ? Math.min.apply(null, resultSets.map(function (images) { return images.length; }))
+      : 0;
+
+    resultSets.forEach(function (images) {
+      images.forEach(function (image) {
+        if (!image || !image.src) return;
+        var preload = new window.Image();
+        preload.src = image.src;
+      });
+    });
+
+    function showPair(index) {
+      resultCards.forEach(function (card, cardIndex) {
+        var next = resultSets[cardIndex] && resultSets[cardIndex][index];
+        var image = card.querySelector("img");
+        if (!next || !image) return;
+        image.src = next.src;
+        image.alt = next.alt || "";
+      });
+      activePair = index;
+    }
 
     /* Both cards stay on the ring's physical plane. At each side crossing the
        card moves between synchronized background and foreground groups, which
@@ -235,6 +266,17 @@ export const CLIENT_JS = String.raw`
       var width = stage.getBoundingClientRect().width || 600;
       var radiusX = Math.min(270, width * 0.45);
       var radiusY = Math.max(18, Math.min(34, width * 0.05));
+
+      /* Both cards are behind Laura at the middle of each lap. Swap the pair
+         there, while the subject hides the change, so new photos emerge from
+         behind her without popping while either card is in front. */
+      if (pairCount > 1 && angle >= Math.PI) {
+        var swapCycle = Math.floor((angle - Math.PI) / (Math.PI * 2));
+        if (swapCycle > lastSwapCycle) {
+          showPair((activePair + 1) % pairCount);
+          lastSwapCycle = swapCycle;
+        }
+      }
 
       resultCards.forEach(function (card) {
         var phase = card.getAttribute("data-hero-result") === "before" ? -0.62 : 0.62;
@@ -276,6 +318,7 @@ export const CLIENT_JS = String.raw`
         orbitRaf = null;
       } else if (!document.hidden && !orbitRaf) {
         orbitStart = null;
+        lastSwapCycle = -1;
         orbitRaf = requestAnimationFrame(orbitFrame);
       }
     });
