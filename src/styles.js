@@ -256,13 +256,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routines-section { padding-top: 135px; padding-bottom: 145px; scroll-margin-top: 110px; }
 
 /* Collapsed routines read as an extension of the shop grid: same card,
-   same hover treatment. A "+" between tiles suggests "pick one of these",
-   not "combine them" — but reads as a connected system rather than five
-   unrelated products, which is the whole point of a routine. */
+   same hover treatment, no price — the price only means something once
+   you've seen (and possibly unchecked) what's inside, in the popout. */
 .routines-grid { display: flex; align-items: stretch; gap: 0; }
-.routines-grid .product-card { flex: 1 1 0; min-width: 0; transition: border-color .2s ease, box-shadow .2s ease; }
-.routines-grid .product-card:has(a[aria-current="true"]) { border-color: var(--clay-deep); box-shadow: 0 10px 26px rgba(27,33,24,.1); }
-.routine-plus { flex: 0 0 auto; width: 34px; display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 26px; color: var(--brass-deep); }
+.routines-grid .product-card { flex: 1 1 0; min-width: 0; }
+.routines-grid .product-card > button { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .routine-media { position: absolute; inset: 0; }
 .routine-media img { position: absolute; width: 62%; height: 62%; object-fit: cover; border: 3px solid var(--white); background: var(--panel-product); }
 .routine-media img:nth-child(1) { left: 4%; top: 4%; z-index: 3; }
@@ -270,10 +268,19 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-media img:nth-child(3) { left: 30%; top: 2%; z-index: 1; }
 .routine-media-empty { position: absolute; inset: 0; background: var(--panel-product); }
 
-/* Detail panel — one open at a time, below the grid rather than inline in
-   it, so opening a routine never reflows the row of tiles above it. */
-.routine-detail-panels { margin-top: 56px; padding-top: 48px; border-top: 1px solid var(--line); }
-.routine-detail-panel { max-width: 720px; }
+@media (max-width: 900px) {
+  .routines-grid { flex-direction: column; }
+  .routines-grid .product-card { width: 100%; }
+}
+
+/* The popout — a native <dialog>, so ESC, focus trapping and the backdrop
+   are the browser's problem, not ours. */
+.routine-dialog { padding: 0; border: 0; width: min(900px, calc(100% - 48px)); max-height: 85vh; background: var(--paper); color: var(--ink); }
+.routine-dialog::backdrop { background: rgba(27, 33, 24, .55); }
+.routine-dialog-body { position: relative; padding: 52px 44px 44px; max-height: 85vh; overflow-y: auto; }
+.routine-dialog-close { position: absolute; top: 18px; right: 18px; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--white); font-size: 20px; line-height: 1; color: var(--ink); cursor: pointer; }
+.routine-dialog-close:hover { color: var(--clay-deep); }
+
 .routine-name { font-family: var(--font-serif); font-size: 32px; line-height: 1.05; margin: 6px 0 18px; }
 .routine-concern { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--clay-deep); }
 .routine-hook { font-family: var(--font-serif); font-style: italic; font-size: 18px; color: var(--clay-deep); margin-bottom: 14px; }
@@ -282,19 +289,19 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-bestfor li { padding: 7px 12px; border: 1px solid var(--line); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .routine-whats-inside { margin: 0 0 14px; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--clay-deep); }
 
-.routine-products { display: flex; flex-direction: column; gap: 1px; margin: 0 0 20px; padding: 0; list-style: none; background: var(--line); border: 1px solid var(--line); }
-.routine-product-row { background: var(--white); }
-.routine-product-row label { padding: 14px 16px; display: grid; grid-template-columns: 20px 46px 1fr auto; gap: 16px; align-items: center; cursor: pointer; }
-.routine-product-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--clay-deep); }
-.routine-product-shot { width: 46px; height: 46px; overflow: hidden; background: var(--panel-product); }
-.routine-product-shot img { width: 100%; height: 100%; object-fit: cover; }
-.routine-product-shot .product-image-fallback { font-size: 8px; padding: 4px; }
-.routine-product-info { display: flex; flex-direction: column; gap: 3px; }
-.routine-product-info strong { font-size: 13px; font-weight: 500; }
-.routine-product-info small { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
-.routine-product-soldout-note { color: var(--clay); text-transform: uppercase; letter-spacing: .06em; font-size: 9px; }
-.routine-product-price { font-size: 12px; white-space: nowrap; }
-.routine-product-soldout label { opacity: .55; cursor: not-allowed; }
+/* Products inside the popout, as their own shop-style cards — the "+"
+   belongs here, between the pieces that actually make up the routine. */
+.routine-dialog-products { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 0 0 24px; }
+.routine-plus { flex: 0 0 auto; font-family: var(--font-serif); font-size: 22px; color: var(--brass-deep); }
+.routine-product-card { flex: 1 1 150px; max-width: 190px; min-width: 0; cursor: pointer; transition: opacity .2s ease, border-color .2s ease; }
+.routine-product-card input[type="checkbox"] { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
+.routine-check-badge { position: absolute; top: 10px; right: 10px; z-index: 1; width: 22px; height: 22px; display: grid; place-items: center; background: var(--white); border: 1px solid var(--line); font-size: 11px; color: transparent; }
+.routine-product-card input:checked + .routine-check-badge { background: var(--clay-deep); border-color: var(--clay-deep); color: var(--on-dark); }
+.routine-product-card:has(input:not(:checked)) { opacity: .5; }
+.routine-product-card .product-info { padding: 12px; }
+.routine-product-card .product-info h3 { font-size: 14px; }
+.routine-product-soldout { cursor: not-allowed; }
+.routine-product-soldout .routine-check-badge { display: none; }
 
 .routine-note { margin: 0 0 20px; font-size: 11.5px; letter-spacing: .04em; color: var(--muted); font-style: italic; }
 .routine-consultation { margin: 0 0 28px; padding: 20px 22px; border-left: 2px solid var(--brass); background: var(--white); }
@@ -305,16 +312,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-total { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
 .routine-total strong { font-family: var(--font-serif); font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--ink); }
 
-@media (max-width: 900px) {
-  .routines-grid { flex-direction: column; }
-  .routine-plus { display: none; }
-  .routines-grid .product-card { width: 100%; }
-}
-
 @media (max-width: 700px) {
+  .routine-dialog { width: 100%; height: 100%; max-height: 100%; max-width: 100%; }
+  .routine-dialog-body { max-height: 100%; padding: 60px 22px 32px; }
   .routine-name { font-size: 24px; }
-  .routine-product-row label { grid-template-columns: 18px 40px 1fr; }
-  .routine-product-price { grid-column: 2 / -1; padding-left: 56px; }
+  .routine-product-card { flex: 0 1 42%; max-width: none; }
   .routine-card-footer { flex-direction: column; align-items: stretch; gap: 14px; }
   .routine-card-footer .button { width: 100%; }
 }

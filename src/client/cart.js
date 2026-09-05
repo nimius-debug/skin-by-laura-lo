@@ -161,60 +161,63 @@ export const CLIENT_JS = String.raw`
 
   /* --------------------------------------------------------- routines */
 
-  // Routines render as a row of shop-style tiles, one detail panel open at
-  // a time below the row. Each panel is a checkbox list (all checked by
-  // default) plus one "Add to Bag" button — checked items go into the same
-  // flat cart used everywhere else, no new cart or checkout concept.
+  // Routines render as plain shop-style tiles; clicking one opens a native
+  // <dialog> popout with the full routine — products shown as their own
+  // shop-style cards (checked by default), a live total, and Add to Bag,
+  // which adds the checked items into the same flat cart used everywhere
+  // else on the site.
   function initRoutines() {
-    var tiles = Array.prototype.slice.call(document.querySelectorAll("[data-routine-tile]"));
-    var panels = Array.prototype.slice.call(document.querySelectorAll("[data-routine-panel]"));
-    if (!tiles.length || !panels.length) return;
+    var openers = Array.prototype.slice.call(document.querySelectorAll("[data-routine-open]"));
+    var dialogs = Array.prototype.slice.call(document.querySelectorAll("[data-routine-dialog]"));
+    if (!openers.length || !dialogs.length) return;
 
-    function totalFor(panel) {
-      var boxes = Array.prototype.slice.call(panel.querySelectorAll("[data-routine-item]:checked"));
+    function totalFor(dialog) {
+      var boxes = Array.prototype.slice.call(dialog.querySelectorAll("[data-routine-item]:checked"));
       return boxes.reduce(function (sum, box) {
         return sum + (parseInt(box.getAttribute("data-price"), 10) || 0);
       }, 0);
     }
 
-    function activate(slug) {
-      tiles.forEach(function (tile) {
-        tile.setAttribute("aria-current", tile.getAttribute("data-routine-tile") === slug ? "true" : "false");
-      });
-      var target = null;
-      panels.forEach(function (panel) {
-        var match = panel.getAttribute("data-routine-panel") === slug;
-        panel.hidden = !match;
-        if (match) target = panel;
-      });
-      return target;
-    }
-
     document.addEventListener("click", function (event) {
-      var tile = event.target.closest("[data-routine-tile]");
-      if (tile) {
-        event.preventDefault();
-        var panel = activate(tile.getAttribute("data-routine-tile"));
-        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      var opener = event.target.closest("[data-routine-open]");
+      if (opener) {
+        var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));
+        if (dialog && dialog.showModal) dialog.showModal();
+        return;
+      }
+
+      var closer = event.target.closest("[data-routine-close]");
+      if (closer) {
+        var toClose = closer.closest("dialog");
+        if (toClose) toClose.close();
+        return;
+      }
+
+      // A click that lands on the <dialog> element itself (not something
+      // inside it) is a click on the backdrop area — dialogs have no
+      // padding of their own, so this only fires outside the content box.
+      if (event.target.tagName === "DIALOG" && event.target.hasAttribute("open")) {
+        event.target.close();
         return;
       }
 
       var addButton = event.target.closest("[data-routine-add]");
       if (addButton) {
-        var routinePanel = addButton.closest("[data-routine]");
-        var checked = Array.prototype.slice.call(routinePanel.querySelectorAll("[data-routine-item]:checked"));
+        var routineDialog = addButton.closest("[data-routine]");
+        var checked = Array.prototype.slice.call(routineDialog.querySelectorAll("[data-routine-item]:checked"));
         if (!checked.length) return;
         checked.forEach(function (box) { addToCart(box.value, 1); });
         showToast(checked.length === 1 ? "1 item" : checked.length + " items");
+        if (routineDialog.close) routineDialog.close();
       }
     });
 
     document.addEventListener("change", function (event) {
       var box = event.target.closest("[data-routine-item]");
       if (!box) return;
-      var panel = box.closest("[data-routine]");
-      var total = panel && panel.querySelector("[data-routine-total]");
-      if (total) total.textContent = money(totalFor(panel));
+      var dialog = box.closest("[data-routine]");
+      var total = dialog && dialog.querySelector("[data-routine-total]");
+      if (total) total.textContent = money(totalFor(dialog));
     });
   }
 

@@ -39,37 +39,13 @@ function routineMedia(items) {
   `;
 }
 
-function routineProductRow(item) {
-  const { product, role, variationId, priceCents, inStock } = item;
-  return html`
-    <li class="routine-product-row ${inStock ? "" : "routine-product-soldout"}">
-      <label>
-        <input type="checkbox" data-routine-item value="${variationId}" data-price="${priceCents}"
-          ${inStock ? "checked" : "disabled"} />
-        <span class="routine-product-shot">
-          ${product.image
-            ? html`<img src="${product.image}" alt="" loading="lazy" />`
-            : html`<span class="product-image-fallback">${product.name}</span>`}
-        </span>
-        <span class="routine-product-info">
-          <strong>${product.name}</strong>
-          ${role ? html`<small>${role}</small>` : ""}
-          ${inStock ? "" : html`<small class="routine-product-soldout-note">Currently sold out</small>`}
-        </span>
-        <span class="routine-product-price">${formatMoney(priceCents)}</span>
-      </label>
-    </li>
-  `;
-}
-
-/** Shop-style tile — same visual language as productCard(), reused so the
- *  routine grid reads as an extension of the shop rather than a new widget. */
-function routineTile(resolved, isActive) {
+/** Shop-style tile — same visual language as productCard(), minus the price
+ *  (that lives in the popout, where it reflects only the checked items). */
+function routineTile(resolved) {
   return html`
     <article class="product-card routine-tile">
-      <a href="#routine-${resolved.slug}" data-routine-tile="${resolved.slug}"
-         aria-current="${isActive ? "true" : "false"}"
-         aria-label="View ${resolved.name} routine, ${formatMoney(resolved.totalCents)}">
+      <button type="button" data-routine-open="${resolved.slug}"
+              aria-label="View ${resolved.name} routine">
         <div class="product-image-wrap">
           ${routineMedia(resolved.items)}
           <div class="product-quick">View routine</div>
@@ -80,44 +56,77 @@ function routineTile(resolved, isActive) {
             <h3>${resolved.name}</h3>
             <p class="product-short">${resolved.oneLiner}</p>
           </div>
-          <p class="product-price">${formatMoney(resolved.totalCents)}</p>
         </div>
-      </a>
+      </button>
     </article>
   `;
 }
 
-function routineDetailPanel(resolved, isActive) {
+/** One routine product, shown the same way a shop product tile is — image,
+ *  name, price — with a checkbox layered on as a selectable card rather
+ *  than a list row. Checked by default; unchecking dims the card. */
+function routineProductCard(item) {
+  const { product, role, variationId, priceCents, inStock } = item;
   return html`
-    <div class="routine-detail-panel" id="routine-${resolved.slug}" data-routine data-routine-panel="${resolved.slug}"
-      ${isActive ? "" : "hidden"}>
-      <p class="routine-concern">${resolved.concern}</p>
-      <h3 class="routine-name">${resolved.name}</h3>
-      <p class="routine-hook">${resolved.hook}</p>
-      <p class="routine-description">${resolved.description}</p>
-      <ul class="routine-bestfor">
-        ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
-      </ul>
-
-      <p class="routine-whats-inside">What&#8217;s inside</p>
-      <ul class="routine-products">
-        ${resolved.items.map((item) => routineProductRow(item))}
-      </ul>
-      ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
-
-      ${resolved.consultation ? html`
-        <div class="routine-consultation">
-          <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
-          <p>${resolved.consultation.note}</p>
-          <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
-        </div>
-      ` : ""}
-
-      <div class="routine-card-footer">
-        <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
-        <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+    <label class="product-card routine-product-card ${inStock ? "" : "routine-product-soldout"}">
+      <input type="checkbox" data-routine-item value="${variationId}" data-price="${priceCents}"
+        ${inStock ? "checked" : "disabled"} />
+      <span class="routine-check-badge" aria-hidden="true">&#10003;</span>
+      <div class="product-image-wrap">
+        ${product.image
+          ? html`<img src="${product.image}" alt="${product.name}" loading="lazy" />`
+          : html`<div class="product-image-fallback">${product.name}</div>`}
+        ${inStock ? "" : html`<span class="product-badge product-badge-soldout">Sold out</span>`}
       </div>
-    </div>
+      <div class="product-info">
+        <div>
+          <h3>${product.name}</h3>
+          ${role ? html`<p class="product-short">${role}</p>` : ""}
+        </div>
+        <p class="product-price">${formatMoney(priceCents)}</p>
+      </div>
+    </label>
+  `;
+}
+
+/** The routine's full detail lives in a native <dialog> — a real popout,
+ *  with browser-native focus handling, ESC-to-close and a backdrop. */
+function routineDialog(resolved) {
+  return html`
+    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}">
+      <div class="routine-dialog-body">
+        <button class="routine-dialog-close" type="button" data-routine-close aria-label="Close">&times;</button>
+        <p class="routine-concern">${resolved.concern}</p>
+        <h3 class="routine-name">${resolved.name}</h3>
+        <p class="routine-hook">${resolved.hook}</p>
+        <p class="routine-description">${resolved.description}</p>
+        <ul class="routine-bestfor">
+          ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}
+        </ul>
+
+        <p class="routine-whats-inside">What&#8217;s inside</p>
+        <div class="routine-dialog-products">
+          ${resolved.items.map((item, index) => html`
+            ${index > 0 ? html`<span class="routine-plus" aria-hidden="true">+</span>` : ""}
+            ${routineProductCard(item)}
+          `)}
+        </div>
+        ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
+
+        ${resolved.consultation ? html`
+          <div class="routine-consultation">
+            <p class="routine-consultation-heading">${resolved.consultation.heading}</p>
+            <p>${resolved.consultation.note}</p>
+            <a class="text-link" href="${BOOKING_URL}">${resolved.consultation.ctaLabel} <span aria-hidden="true">&#8594;</span></a>
+          </div>
+        ` : ""}
+
+        <div class="routine-card-footer">
+          <span class="routine-total">Total <strong data-routine-total>${formatMoney(resolved.totalCents)}</strong></span>
+          <button class="button button-dark" type="button" data-routine-add>Add to Bag</button>
+        </div>
+      </div>
+    </dialog>
   `;
 }
 
@@ -244,15 +253,10 @@ export function homePage({ products, cfg }) {
           </div>
 
           <div class="routines-grid">
-            ${resolvedRoutines.map((resolved, index) => html`
-              ${index > 0 ? html`<span class="routine-plus" aria-hidden="true">+</span>` : ""}
-              ${routineTile(resolved, index === 0)}
-            `)}
+            ${resolvedRoutines.map((resolved) => routineTile(resolved))}
           </div>
 
-          <div class="routine-detail-panels">
-            ${resolvedRoutines.map((resolved, index) => routineDetailPanel(resolved, index === 0))}
-          </div>
+          ${resolvedRoutines.map((resolved) => routineDialog(resolved))}
         </section>
       `;
     })()}
