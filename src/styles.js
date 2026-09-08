@@ -348,14 +348,16 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-card-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .routine-total { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
 .routine-total strong { font-family: var(--font-serif); font-size: 20px; text-transform: none; letter-spacing: 0; color: var(--ink); }
-.routine-total-original { font-family: var(--font-serif); font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--muted); }
-.routine-total-original[hidden] { display: none; }
 
-/* Only meaningful once the whole routine is still checked — surfaced as a
-   perk of buying the full bundle rather than picking a couple of items. */
-.routine-audit-note { margin: 0; padding: 12px 14px; background: var(--cream); border-left: 2px solid var(--brass); font-size: 12px; line-height: 1.6; color: var(--muted); }
-.routine-audit-note strong { color: var(--ink); }
-.routine-audit-note[hidden] { display: none; }
+/* Opt-in, checked by default. Only stays interactive while the whole
+   routine is checked — break the bundle and it goes gray and locks
+   unchecked, so it reads as a perk of buying the full thing, not a
+   generic freebie. */
+.routine-audit-opt { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: var(--cream); border-left: 2px solid var(--brass); font-size: 12px; line-height: 1.6; color: var(--muted); cursor: pointer; }
+.routine-audit-opt input { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 3px; accent-color: var(--clay-deep); cursor: pointer; }
+.routine-audit-opt strong { color: var(--ink); }
+.routine-audit-opt:has(input:disabled) { cursor: not-allowed; opacity: .5; border-left-color: var(--line); }
+.routine-audit-opt input:disabled { cursor: not-allowed; }
 
 @media (max-width: 700px) {
   .routine-dialog { width: 100%; height: 100%; max-height: 100%; max-width: 100%; }

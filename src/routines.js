@@ -4,15 +4,6 @@
 // stock and photos always come live from the catalog at render time; this
 // file is purely the editorial layer (names, hooks, "best for" tags, and
 // each product's role in the routine).
-//
-// `discount` (in cents) applies only when every currently in-stock item in
-// the routine is in the cart — buying the whole bundle, not a couple of
-// items from it. It's shown in the UI as soon as that's true, but the real
-// deduction happens server-side at checkout (see bundleDiscountCents below
-// and its use in index.js): the server independently re-resolves each
-// routine against the live catalog and only discounts a cart that actually
-// contains the full set. Nothing about the discount is ever trusted from
-// the client.
 
 export const ROUTINES = [
   {
@@ -24,7 +15,6 @@ export const ROUTINES = [
     description:
       "A complete brightening routine designed to improve the appearance of dark spots, uneven tone, and visible sun damage while keeping skin hydrated and protected. Brightening ingredients are paired with antioxidants, hydration, and daily SPF to help support a more even, luminous-looking complexion while protecting your progress.",
     bestFor: ["Dark spots", "Hyperpigmentation", "Uneven tone", "Sun damage", "Dullness"],
-    discount: 5000,
     products: [
       { slug: "krx-glow-gel-cleanser", role: "A brightening cleanser featuring vitamin C, tranexamic acid, cica, and hyaluronic acid." },
       { slug: "cbd-skin-mist", role: "A soothing, hydrating mist that helps keep skin feeling calm and refreshed." },
@@ -42,7 +32,6 @@ export const ROUTINES = [
     description:
       "Strips the routine back to what stressed skin actually needs: gentle cleansing, soothing hydration, barrier support, nourishment, and daily protection. No unnecessary skincare chaos — just a thoughtfully curated routine designed to help stressed, sensitive skin feel calm and comfortable again.",
     bestFor: ["Sensitive", "Reactive", "Irritated", "Red-looking", "Stressed", "Compromised barrier"],
-    discount: 5000,
     products: [
       { slug: "dermathod-moist-morning-touch-foam-cleanser", role: "A gentle foaming cleanser that clears the day without stripping the skin." },
       { slug: "krx-strengthen-protect-probiotic-face-toner", role: "A probiotic toner that helps rebuild the skin's natural defenses." },
@@ -61,7 +50,6 @@ export const ROUTINES = [
     description:
       "Combines brightening, gentle resurfacing, hydration, nourishment, and protection to help maintain smoother-looking, luminous skin. Think healthy-looking, fresh, ¿qué te hiciste? skin.",
     bestFor: ["Dullness", "Lack of radiance", "Uneven-looking texture", "Overall skin maintenance"],
-    discount: 5000,
     products: [
       { slug: "dermathod-moist-morning-touch-foam-cleanser", role: "A gentle foaming cleanser that starts the routine off clean and comfortable." },
       { slug: "skin-recovery-mist", role: "A refreshing, hydrating mist for an instant boost of moisture." },
@@ -80,7 +68,6 @@ export const ROUTINES = [
     description:
       "Addresses more than hydration alone. The routine starts by properly cleansing and gently exfoliating built-up dead surface skin. Once that buildup is addressed, replenishing toner, rich moisture, and daily protection help quench and nourish the freshly exfoliated skin. The goal? Less buildup. Less roughness. More smooth.",
     bestFor: ["Dry", "Tight", "Rough", "Flaky", "Dull", "Makeup that applies patchy"],
-    discount: 5000,
     products: [
       { slug: "corthe-dermo-essential-cleansing-oil", role: "An oil cleanser that melts away makeup and buildup without stripping skin." },
       { slug: "dermathod-moist-morning-touch-foam-cleanser", role: "A gentle second cleanse that leaves skin comfortable, never tight." },
@@ -99,7 +86,6 @@ export const ROUTINES = [
     description:
       "Intentionally different from a one-size-fits-all “acne kit.” Instead of overwhelming acne-prone skin with aggressive actives, this routine gives you a simple, acne-safe foundation with the essential cleansing, hydration, moisture, and protection your skin needs. From there, we get personal.",
     bestFor: ["Acne-prone", "Breakout-prone", "Congested skin", "Beginning your acne journey"],
-    discount: 5000,
     products: [
       { slug: "dermathod-moist-morning-touch-foam-cleanser", role: "A gentle, acne-safe cleanser that won't over-strip reactive skin." },
       { slug: "skin-recovery-mist", role: "A calming, hydrating mist for skin that's easily irritated." },
@@ -142,27 +128,5 @@ export function resolveRoutine(routine, products) {
     .filter((item) => item.inStock)
     .reduce((sum, item) => sum + item.priceCents, 0);
 
-  const discountedTotalCents = Math.max(0, totalCents - (routine.discount || 0));
-
-  return { ...routine, items, totalCents, discountedTotalCents };
-}
-
-/**
- * The real, server-side version of "is this cart buying the full bundle?" —
- * used at checkout, never the client's word for it. A routine counts as
- * fully purchased when every one of its currently in-stock items (resolved
- * fresh against the live catalog, same as everywhere else) is present in
- * the cart's variation ids. Discounts from every routine that matches are
- * summed; callers should clamp the result to the cart's subtotal.
- */
-export function bundleDiscountCents(cartVariationIds, products, routines = ROUTINES) {
-  const cartIds = new Set(cartVariationIds);
-
-  return routines.reduce((sum, routine) => {
-    if (!routine.discount) return sum;
-    const resolved = resolveRoutine(routine, products);
-    const required = resolved.items.filter((item) => item.inStock).map((item) => item.variationId);
-    const isFullBundle = required.length > 0 && required.every((id) => cartIds.has(id));
-    return isFullBundle ? sum + routine.discount : sum;
-  }, 0);
+  return { ...routine, items, totalCents };
 }
