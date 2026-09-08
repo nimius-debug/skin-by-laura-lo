@@ -306,20 +306,39 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    Every card is a fixed width (not flex-grow) with clamped text, so all
    of them read as the same size regardless of how long a name or role
    description happens to be. */
-.routine-dialog-products { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; margin: 0 0 24px; }
-.routine-plus { flex: 0 0 auto; align-self: center; font-family: var(--font-serif); font-size: 22px; color: var(--brass-deep); }
-.routine-product-card { flex: 0 0 156px; width: 156px; min-width: 0; cursor: pointer; transition: opacity .2s ease, border-color .2s ease; }
+/* A grid (not flex-wrap) so wrapping is predictable: every card sits in a
+   known column, which is what lets the "+" below know when to hide itself
+   instead of orphaning at the start of a wrapped row. */
+.routine-dialog-products { --gap-x: 34px; display: grid; grid-template-columns: repeat(4, 156px); column-gap: var(--gap-x); row-gap: 14px; justify-content: start; margin: 0 0 24px; }
+/* overflow: visible overrides .product-card's overflow: hidden — the "+"
+   pseudo-element below is deliberately positioned outside the card's own
+   box, in the grid gap, and would otherwise get clipped. */
+.routine-product-card { width: auto; min-width: 0; overflow: visible; cursor: pointer; transition: opacity .2s ease, border-color .2s ease; }
+/* The "+" is a pseudo-element on the card itself, not a separate grid item —
+   so it always travels with its card and never ends up alone on a new row.
+   Hidden on the last column of each row (nothing to connect to) and on
+   whichever card is actually last. */
+.routine-product-card:not(:last-child)::after {
+  content: "+"; position: absolute; top: 50%; left: 100%;
+  transform: translate(calc(var(--gap-x) / 2 - 50%), -50%);
+  font-family: var(--font-serif); font-size: 22px; color: var(--brass-deep); pointer-events: none;
+}
+.routine-product-card:nth-child(4n)::after { display: none; }
 .routine-product-card input[type="checkbox"] { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
 .routine-check-badge { position: absolute; top: 10px; right: 10px; z-index: 1; width: 22px; height: 22px; display: grid; place-items: center; background: var(--white); border: 1px solid var(--line); font-size: 11px; color: transparent; }
 .routine-product-card input:checked + .routine-check-badge { background: var(--clay-deep); border-color: var(--clay-deep); color: var(--on-dark); }
 .routine-product-card:has(input:not(:checked)) { opacity: .5; }
 .routine-product-card .product-info { flex-direction: column; align-items: stretch; gap: 4px; padding: 12px; }
+/* min-height reserves room for a full 2 lines even when the actual text is
+   shorter, so a short name/description never leaves its card shorter than
+   its neighbors — line-clamp alone only caps the long case, not the short
+   one. */
 .routine-product-card .product-info h3 {
-  font-size: 13px; line-height: 1.3; margin: 0;
+  font-size: 13px; line-height: 1.3; margin: 0; min-height: 2.6em;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .routine-product-card .product-short {
-  max-width: none; margin: 0; font-size: 11px; line-height: 1.45;
+  max-width: none; margin: 0; font-size: 11px; line-height: 1.45; min-height: 2.9em;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .routine-product-card .product-price { margin: 2px 0 0; font-size: 11.5px; }
@@ -363,7 +382,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .routine-dialog { width: 100%; height: 100%; max-height: 100%; max-width: 100%; }
   .routine-dialog-body { max-height: 100%; padding: 60px 22px 24px; }
   .routine-name { font-size: 24px; }
-  .routine-product-card { flex: 0 0 42%; width: 42%; }
+  .routine-dialog-products { --gap-x: 24px; grid-template-columns: repeat(2, 1fr); }
+  /* At 2 columns, "last column" is every 2nd card, not every 4th — undo the
+     desktop hiding and hide the mobile one instead. */
+  .routine-product-card:nth-child(4n)::after { display: block; }
+  .routine-product-card:nth-child(2n)::after { display: none; }
   .routine-card-footer-row { flex-direction: column; align-items: stretch; gap: 14px; }
   .routine-card-footer .button { width: 100%; }
 }
