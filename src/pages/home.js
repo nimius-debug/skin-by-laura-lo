@@ -1,6 +1,6 @@
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
-import { BOOKING_URL, STUDIO, HOURS, RATING, HERO_IMAGE, BEFORE_AFTER, formatMoney } from "../config.js";
+import { BOOKING_URL, SKIN_AUDIT_URL, STUDIO, HOURS, RATING, HERO_IMAGE, BEFORE_AFTER, formatMoney } from "../config.js";
 import { ROUTINES, resolveRoutine } from "../routines.js";
 
 const REVIEWS = [
@@ -274,6 +274,23 @@ export function homePage({ products, cfg }) {
           </div>
 
           ${resolvedRoutines.map((resolved) => routineDialog(resolved))}
+        </section>
+
+        <section class="skin-audit-section section-shell">
+          <div class="skin-audit-card">
+            <div>
+              <p class="eyebrow">Free Skin Audit</p>
+              <h2>Already using a routine? <em>Make sure it&#8217;s working.</em></h2>
+              <p>
+                A quick, personalized check-in on what you&#8217;re using right now &#8212;
+                what&#8217;s working, what&#8217;s not, and what to adjust. Takes a few
+                minutes, no appointment needed.
+              </p>
+            </div>
+            <a class="button button-dark" href="${SKIN_AUDIT_URL}" target="_blank" rel="noopener">
+              Take the Skin Audit <span aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
         </section>
       `;
     })()}

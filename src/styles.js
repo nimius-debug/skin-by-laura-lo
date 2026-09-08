@@ -391,6 +391,18 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .routine-card-footer .button { width: 100%; }
 }
 
+.skin-audit-section { padding-bottom: 40px; }
+.skin-audit-card { padding: 56px 64px; display: grid; grid-template-columns: 1.35fr .65fr; gap: 8%; align-items: center; background: var(--cream); border-left: 3px solid var(--brass); }
+.skin-audit-card .eyebrow { margin-bottom: 14px; }
+.skin-audit-card h2 { margin: 0 0 14px; font-size: clamp(28px, 3vw, 38px); line-height: 1.15; }
+.skin-audit-card p:not(.eyebrow) { margin: 0; max-width: 460px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+.skin-audit-card .button { justify-self: start; white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .skin-audit-card { grid-template-columns: 1fr; gap: 28px; padding: 42px 30px; }
+  .skin-audit-card .button { justify-self: stretch; text-align: center; }
+}
+
 .results-callout { position: relative; padding: 135px 0; text-align: center; background: var(--mahogany); color: var(--on-dark); }
 .results-callout::after { content: ""; position: absolute; inset: 0; pointer-events: none;
   background-image: radial-gradient(rgba(241,234,218,.05) .5px, transparent .5px); background-size: 3px 3px; }
