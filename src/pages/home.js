@@ -110,10 +110,7 @@ function routineDialog(resolved) {
 
           <p class="routine-whats-inside">What&#8217;s inside</p>
           <div class="routine-dialog-products">
-            ${resolved.items.map((item, index) => html`
-              ${index > 0 ? html`<span class="routine-plus" aria-hidden="true">+</span>` : ""}
-              ${routineProductCard(item)}
-            `)}
+            ${resolved.items.map((item) => routineProductCard(item))}
           </div>
           ${resolved.note ? html`<p class="routine-note">${resolved.note}</p>` : ""}
 
