@@ -458,6 +458,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .filter-pills { display: flex; gap: 8px; flex-wrap: wrap; }
 .filter-pills button { padding: 9px 14px; border: 1px solid var(--line); border-radius: 30px; background: transparent; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
 .filter-pills button:hover, .filter-pills button.active { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+/* Routines aren't a real category — a curated bundle spans several — so
+   the pill that switches to them gets a distinct accent rather than
+   reading as just another category among the rest. */
+.filter-pill-routines { border-color: var(--brass); color: var(--clay-deep); }
+.filter-pill-routines:hover, .filter-pill-routines.active { background: var(--clay-deep); border-color: var(--clay-deep); color: var(--on-dark); }
 .shop-search { min-width: 250px; display: flex; align-items: center; border-bottom: 1px solid var(--ink); }
 .shop-search input { width: 100%; padding: 11px 5px; border: 0; outline: none; background: transparent; font-size: 12px; }
 .shop-count { margin-bottom: 32px; color: var(--muted); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
@@ -470,6 +475,9 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .shop-empty h2 { margin-bottom: 8px; font-size: 44px; }
 .shop-empty p { color: var(--muted); max-width: 460px; }
 .shop-empty button { margin-top: 10px; background: transparent; border: 0; cursor: pointer; }
+
+.shop-routines { padding-bottom: 20px; }
+.shop-routines .routines-hint { margin-top: 0; }
 .product-help { margin-top: 140px; padding: 70px; display: grid; grid-template-columns: 1fr .8fr; gap: 10%; align-items: center; background: var(--panel-sage); }
 .product-help h2, .related-products h2 { margin: 0; font-size: clamp(42px, 5vw, 68px); line-height: .98; }
 .product-help > div:last-child > p { margin-bottom: 28px; color: var(--muted); line-height: 1.7; }

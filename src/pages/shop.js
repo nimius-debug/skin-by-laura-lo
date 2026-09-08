@@ -1,9 +1,13 @@
 import { html, jsonScript } from "../html.js";
 import { productCard, squareNotice } from "./components.js";
+import { routineTile, routineDialog } from "./routineComponents.js";
 import { BOOKING_URL } from "../config.js";
+import { ROUTINES, resolveRoutine } from "../routines.js";
 
 export function shopPage({ products, connected }) {
   const categories = [...new Set(products.map((product) => product.category))].sort();
+  const resolvedRoutines = ROUTINES.map((routine) => resolveRoutine(routine, products))
+    .filter((resolved) => resolved.items.length);
 
   return html`
     <div class="shop-page">
@@ -25,6 +29,9 @@ export function shopPage({ products, connected }) {
             <div class="filter-pills" role="group" aria-label="Filter by category">
               <button type="button" class="active" data-filter="all">All</button>
               ${categories.map((category) => html`<button type="button" data-filter="${category}">${category}</button>`)}
+              ${resolvedRoutines.length ? html`
+                <button type="button" class="filter-pill-routines" data-view-routines>Routines</button>
+              ` : ""}
             </div>
             <div class="shop-search">
               <label class="sr-only" for="shop-search-input">Search products</label>
@@ -51,6 +58,18 @@ export function shopPage({ products, connected }) {
               <button class="text-link" type="button" data-shop-reset>Clear filters</button>
             </div>
           </div>
+
+          ${resolvedRoutines.length ? html`
+            <div class="shop-routines" data-shop-routines hidden>
+              <p class="routines-hint">
+                Not sure where to start? Each bundle below is a complete routine, built for a specific concern.
+              </p>
+              <div class="routines-grid">
+                ${resolvedRoutines.map((resolved) => routineTile(resolved))}
+              </div>
+              ${resolvedRoutines.map((resolved) => routineDialog(resolved))}
+            </div>
+          ` : ""}
         ` : html`
           <div class="shop-empty">
             <div>

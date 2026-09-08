@@ -277,7 +277,10 @@ export const CLIENT_JS = String.raw`
 
     var items = Array.prototype.slice.call(grid.querySelectorAll("[data-product-item]"));
     var pills = Array.prototype.slice.call(document.querySelectorAll("[data-filter]"));
+    var routinesPill = document.querySelector("[data-view-routines]");
+    var routinesPanel = document.querySelector("[data-shop-routines]");
     var search = document.getElementById("shop-search-input");
+    var searchWrap = document.querySelector(".shop-search");
     var countLabel = document.querySelector("[data-shop-count]");
     var emptyState = document.querySelector("[data-shop-empty]");
     var activeFilter = "all";
@@ -299,14 +302,41 @@ export const CLIENT_JS = String.raw`
       grid.hidden = visible === 0;
     }
 
+    // Routines aren't a Square category — they're curated multi-product
+    // bundles — so picking them swaps the whole view instead of filtering
+    // the flat product grid.
+    function showProducts() {
+      if (routinesPanel) routinesPanel.hidden = true;
+      if (countLabel) countLabel.hidden = false;
+      if (searchWrap) searchWrap.hidden = false;
+      apply();
+    }
+
+    function showRoutines() {
+      grid.hidden = true;
+      if (emptyState) emptyState.hidden = true;
+      if (countLabel) countLabel.hidden = true;
+      if (searchWrap) searchWrap.hidden = true;
+      if (routinesPanel) routinesPanel.hidden = false;
+    }
+
     pills.forEach(function (pill) {
       pill.addEventListener("click", function () {
         pills.forEach(function (other) { other.classList.remove("active"); });
+        if (routinesPill) routinesPill.classList.remove("active");
         pill.classList.add("active");
         activeFilter = pill.getAttribute("data-filter");
-        apply();
+        showProducts();
       });
     });
+
+    if (routinesPill) {
+      routinesPill.addEventListener("click", function () {
+        pills.forEach(function (other) { other.classList.remove("active"); });
+        routinesPill.classList.add("active");
+        showRoutines();
+      });
+    }
 
     if (search) search.addEventListener("input", apply);
 
@@ -315,8 +345,9 @@ export const CLIENT_JS = String.raw`
       if (search) search.value = "";
       activeFilter = "all";
       pills.forEach(function (other) { other.classList.remove("active"); });
+      if (routinesPill) routinesPill.classList.remove("active");
       if (pills[0]) pills[0].classList.add("active");
-      apply();
+      showProducts();
     });
   }
 
