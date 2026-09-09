@@ -11,6 +11,7 @@ function ingredientDetails(ingredient) {
         <span class="ingredient-name">
           <strong>${ingredient.name}</strong>
           ${ingredient.aka ? html`<small>${ingredient.aka}</small>` : ""}
+          ${ingredient.component ? html`<small>Part of ${ingredient.component}</small>` : ""}
         </span>
         <span class="ingredient-role">${ingredient.role}</span>
         <span class="ingredient-toggle" aria-hidden="true"></span>
@@ -76,44 +77,76 @@ function insightIngredients(review) {
   const featured = review.ingredients.filter((ingredient) => ingredient.featured);
   return html`
     <div class="ingredient-browser">
-      <div class="featured-ingredients">
-        <div class="ingredient-section-heading">
-          <p class="eyebrow">The ingredients doing the most</p>
-          <h3>Featured ingredients</h3>
+      <div class="formula-data-status ${review.needsVerification ? "formula-data-status-caution" : ""}">
+        <div>
+          <p class="ingredient-label">Formula status</p>
+          <strong>${review.confidence}</strong>
         </div>
-        <div class="featured-ingredient-grid">
-          ${featured.map((ingredient) => html`
-            <article class="featured-ingredient featured-ingredient-${ingredient.tone}">
-              <p class="ingredient-label">${ingredient.role}</p>
-              <h4>${ingredient.name}</h4>
-              ${ingredient.aka ? html`<p class="featured-aka">${ingredient.aka}</p>` : ""}
-              <p>${ingredient.description}</p>
-            </article>
-          `)}
-        </div>
+        <p>${review.notApplicable
+          ? "This is a skincare device, so no cosmetic INCI list applies. Review the device directions and safety guidance instead."
+          : review.needsVerification
+          ? "This source match still needs confirmation against the current package before the formula is treated as final."
+          : review.partial
+            ? "Only the published ingredients or component formulas currently available are shown."
+            : "The complete published formula is available to explore below."}</p>
       </div>
 
-      <div class="all-ingredients">
-        <div class="ingredient-section-heading">
-          <p class="eyebrow">Click any ingredient to learn more</p>
-          <h3>Explore all ${review.ingredients.length} ingredients</h3>
+      ${review.hasFormula ? html`
+        ${featured.length ? html`
+          <div class="featured-ingredients">
+            <div class="ingredient-section-heading">
+              <p class="eyebrow">The ingredients doing the most</p>
+              <h3>Featured ingredients</h3>
+            </div>
+            <div class="featured-ingredient-grid">
+              ${featured.map((ingredient) => html`
+                <article class="featured-ingredient featured-ingredient-${ingredient.tone}">
+                  <p class="ingredient-label">${ingredient.role}</p>
+                  <h4>${ingredient.name}</h4>
+                  ${ingredient.aka ? html`<p class="featured-aka">${ingredient.aka}</p>` : ""}
+                  <p>${ingredient.description}</p>
+                </article>
+              `)}
+            </div>
+          </div>
+        ` : ""}
+
+        <div class="all-ingredients">
+          <div class="ingredient-section-heading">
+            <p class="eyebrow">Click any ingredient to learn more</p>
+            <h3>Explore ${review.partial ? "the" : "all"} ${review.ingredients.length} ${review.partial ? "published ingredients" : "ingredients"}</h3>
+          </div>
+          <div class="ingredient-legend" aria-label="Ingredient label guide">
+            <span><i class="legend-supportive"></i>Supportive</span>
+            <span><i class="legend-functional"></i>Formula function</span>
+            <span><i class="legend-context"></i>More context</span>
+          </div>
+          <div class="ingredient-list">
+            ${review.ingredients.map((ingredient) => ingredientDetails(ingredient))}
+          </div>
         </div>
-        <div class="ingredient-legend" aria-label="Ingredient label guide">
-          <span><i class="legend-supportive"></i>Supportive</span>
-          <span><i class="legend-functional"></i>Formula function</span>
-          <span><i class="legend-context"></i>More context</span>
+      ` : review.notApplicable ? html`
+        <div class="ingredient-empty-state">
+          <p class="eyebrow">Device guidance</p>
+          <h3>No cosmetic ingredient list applies.</h3>
+          <p>This product should be assessed using its operating directions, contraindications, eye-protection guidance, and the manufacturer&#8217;s device documentation.</p>
         </div>
-        <div class="ingredient-list">
-          ${review.ingredients.map((ingredient) => ingredientDetails(ingredient))}
+      ` : html`
+        <div class="ingredient-empty-state">
+          <p class="eyebrow">Verification in progress</p>
+          <h3>The current package panel is still needed.</h3>
+          <p>We will add the expandable ingredient review after the exact formula is confirmed. Product marketing copy alone is not enough to make an ingredient assessment.</p>
         </div>
-      </div>
+      `}
 
       <div class="ingredient-source-note">
         <p>
           Ingredient list reviewed ${review.reviewed}. Formulas can change, so always compare this information with the packaging you receive.
           This review is educational and is not medical advice.
         </p>
-        <a class="text-link" href="${review.formulaSource}" target="_blank" rel="noopener noreferrer">View formula source <span aria-hidden="true">&#8599;</span></a>
+        ${review.formulaSource
+          ? html`<a class="text-link" href="${review.formulaSource}" target="_blank" rel="noopener noreferrer">View formula source <span aria-hidden="true">&#8599;</span></a>`
+          : ""}
       </div>
     </div>
   `;
