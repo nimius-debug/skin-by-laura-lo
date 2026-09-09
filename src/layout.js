@@ -5,7 +5,7 @@ import {
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20260904-result-fade";
+const ASSET_VERSION = "20260908-ingredient-review";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -137,4 +137,5 @@ export function jsonResponse(data, status = 200) {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 }
+
 
