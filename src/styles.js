@@ -505,14 +505,21 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-overview-intro { display: grid; gap: 17px; }
 .product-description p { margin: 0; }
 .product-description strong { color: var(--ink); font-weight: 650; }
-.product-overview-section { padding-top: 26px; display: grid; gap: 14px; border-top: 1px solid var(--line); }
-.product-overview-section h2 { margin: 0; color: var(--clay-deep); font-family: var(--font-sans); font-size: 10px; font-weight: 700; letter-spacing: .16em; line-height: 1.3; text-transform: uppercase; }
+.product-details .product-overview-section { padding: 0; border-top: 1px solid var(--line); }
+.product-details .product-overview-section:last-child { border-bottom: 1px solid var(--line); }
+.product-details .product-overview-section summary { padding: 22px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: var(--clay-deep); font-size: 10px; font-weight: 700; letter-spacing: .16em; line-height: 1.3; text-transform: uppercase; }
+.product-overview-section-body { padding: 0 0 28px; display: grid; gap: 14px; }
 .product-overview-section ul { margin: 0; padding-left: 19px; display: grid; gap: 11px; }
 .product-overview-section li { padding-left: 3px; }
 .product-overview-section li::marker { color: var(--brass-deep); }
-.product-overview-callout { padding: 22px 24px; border: 1px solid var(--line); background: var(--panel-stone); }
+.product-overview-toggle { position: relative; width: 18px; height: 18px; flex: 0 0 18px; }
+.product-overview-toggle::before, .product-overview-toggle::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 1px; background: var(--ink); }
+.product-overview-toggle::after { transform: rotate(90deg); transition: transform .2s ease; }
+.product-overview-section[open] .product-overview-toggle::after { transform: rotate(0); }
+.product-overview-callout .product-overview-section-body { margin-bottom: 24px; padding: 22px 24px; border: 1px solid var(--line); background: var(--panel-stone); }
 .product-overview-tip p { color: var(--clay-deep); font-family: var(--font-serif); font-size: 17px; font-style: italic; line-height: 1.55; }
-.product-overview-caution { border-left: 3px solid var(--brass-deep); }
+.product-overview-caution .product-overview-section-body { border-left: 3px solid var(--brass-deep); }
+.product-overview-points { padding: 0 0 26px; }
 .variation-picker { margin: 26px 0 0; padding: 0; border: 0; }
 .variation-picker legend { margin-bottom: 12px; font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
 .variation-picker div { display: flex; flex-wrap: wrap; gap: 8px; }
