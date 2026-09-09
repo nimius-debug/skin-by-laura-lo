@@ -40,4 +40,3 @@ assert.match(document, /cart\.js\?v=20260908-ingredient-review/, "the client scr
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
 
 
-
