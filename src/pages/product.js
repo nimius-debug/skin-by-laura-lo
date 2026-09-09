@@ -274,4 +274,3 @@ export function productPage({ product, related, cfg }) {
     <script>window.__PRODUCT_VARIATIONS__ = ${jsonScript(variationData)};</script>
   `;
 }
-
