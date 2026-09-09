@@ -540,23 +540,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-insight-heading .eyebrow { margin-bottom: 12px; }
 .product-insight-heading h2 { margin-bottom: 14px; font-size: clamp(42px, 4.3vw, 58px); line-height: .98; }
 .product-insight-heading > p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
-.overview-formula-glance { margin-top: 58px; padding-top: 35px; border-top: 1px solid var(--line); }
-.overview-formula-glance > .eyebrow { margin-bottom: 14px; }
-.formula-summary { margin-bottom: 24px; font-family: var(--font-serif); font-size: 27px; line-height: 1.28; color: var(--ink); }
-.formula-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 35px; }
-.formula-tags span { padding: 8px 10px; border: 1px solid rgba(122,95,42,.38); background: rgba(198,164,92,.12); color: var(--clay-deep); font-size: 8px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; }
-.formula-fit { border-block: 1px solid var(--line); }
-.formula-fit > div { padding: 24px 0; }
-.formula-fit > div + div { border-top: 1px solid var(--line); }
-.formula-fit p:last-child { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .ingredient-label { margin-bottom: 11px; color: var(--clay-deep); font-size: 9px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
-
-.laura-formula-read { position: relative; padding: 5px 0 0 46px; }
-.laura-quote-mark { position: absolute; left: 0; top: -12px; margin: 0; font-family: var(--font-serif); font-size: 62px; line-height: 1; color: var(--brass); }
-.laura-formula-read blockquote { margin: 0; font-family: var(--font-serif); font-size: clamp(25px, 2.7vw, 34px); line-height: 1.34; color: var(--ink); }
-.laura-signoff { margin: 24px 0 0; color: var(--clay-deep); font-size: 9px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
-.formula-use-note { margin: 38px 0 0 -46px; padding: 22px 24px; border-left: 3px solid var(--brass); background: var(--panel-stone); }
-.formula-use-note p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 
 .formula-data-status { margin-bottom: 38px; padding: 18px 20px; display: grid; grid-template-columns: minmax(150px, .45fr) 1fr; gap: 24px; align-items: center; border: 1px solid var(--line); background: var(--panel-stone); }
 .formula-data-status-caution { border-color: rgba(140,90,34,.35); background: rgba(198,164,92,.14); }
@@ -583,7 +567,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .ingredient-legend i, .ingredient-marker { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: var(--sage); }
 .ingredient-legend .legend-functional, .ingredient-row-functional .ingredient-marker { background: var(--on-dark-muted); }
 .ingredient-legend .legend-context, .ingredient-row-context .ingredient-marker { background: var(--brass-deep); }
-.ingredient-list { border-top: 1px solid var(--line); }
+.ingredient-list { max-height: min(620px, 65vh); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border-block: 1px solid var(--line); }
 .product-details .ingredient-row { border-top: 0; border-bottom: 1px solid var(--line); }
 .product-details .ingredient-row summary { min-height: 72px; padding: 14px 6px; display: grid; grid-template-columns: 12px minmax(150px, 1fr) auto 18px; gap: 11px; align-items: center; list-style: none; cursor: pointer; font-size: inherit; letter-spacing: normal; text-transform: none; transition: background .2s ease; }
 .ingredient-row summary:hover { background: rgba(228,234,222,.45); }
@@ -865,16 +849,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .insight-tab-panel { padding-top: 30px; }
   .product-insight-heading { margin-bottom: 32px; }
   .product-insight-heading h2 { font-size: 44px; }
-  .overview-formula-glance { margin-top: 48px; }
-  .formula-summary { font-size: 25px; }
-  .formula-tags { margin-bottom: 30px; }
-  .laura-formula-read { padding-left: 44px; }
-  .laura-formula-read blockquote { font-size: 27px; }
-  .formula-use-note { margin-left: -44px; padding: 22px 20px; }
   .formula-data-status { grid-template-columns: 1fr; gap: 10px; }
   .ingredient-empty-state { padding: 28px 22px; }
   .featured-ingredient-grid { grid-template-columns: 1fr; }
   .featured-ingredient { min-height: 0; }
+  .ingredient-list { max-height: min(520px, 60vh); }
   .product-details .ingredient-row summary { grid-template-columns: 12px 1fr 18px; gap: 10px; }
   .ingredient-role { grid-column: 2; text-align: left; }
   .ingredient-toggle { grid-column: 3; grid-row: 1 / span 2; }
