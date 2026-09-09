@@ -40,13 +40,17 @@ assert.match(STYLES, /\.insight-tab-list \{[\s\S]*?display: flex;[\s\S]*?overflo
 assert.match(STYLES, /\.ingredient-list \{[\s\S]*?max-height:[\s\S]*?overflow-y: auto;/, "the complete ingredient list scrolls inside a bounded region");
 assert.match(markup, /class="ingredient-list" role="region" aria-label="Full ingredient list" tabindex="0"/, "the scrollable list is keyboard accessible");
 assert.match(markup, /Explore all 19 ingredients/, "the full formula is available");
+assert.match(markup, /class="skin-fit"/, "the best-for-your-skin block renders for a confirmed formula");
+assert.match(markup, /A fragrance-free brightening treatment that pairs moisturizing lipids/, "Arctigenin's hand-authored formula summary renders");
+assert.match(markup, /Visible dark spots, uneven tone, dullness/, "the best-for guidance renders");
+assert.match(markup, /Botanical sensitivities are possible/, "the keep-in-mind guidance renders");
 assert.match(markup, /Disodium S-Phytyl Diglycoloylcysteine/, "technical INCI names are preserved");
 assert.doesNotMatch(markup, /ingredient score|hazard score/i, "the review does not imply a context-free safety score");
 assert.match(CLIENT_JS, /function initProductInsights\(\)/, "the client bundle initializes interactive tabs");
 
 const coverage = productInsightCoverage();
 assert.equal(coverage.total, 82, "all 82 researched Square products have formula records");
-assert.equal(coverage.withFormula, 79, "79 products have at least a published or partial formula");
+assert.equal(coverage.withFormula, 80, "80 products have at least a published or partial formula");
 assert.equal(new Set(PRODUCT_FORMULAS.map((item) => item.name)).size, PRODUCT_FORMULAS.length, "formula records are unique by product name");
 for (const formula of PRODUCT_FORMULAS) {
   const insight = productInsightFor(formula.name);
@@ -69,10 +73,12 @@ assert.match(bundleMarkup, /Part of Oil Cleanser/, "set ingredients retain their
 const pendingMarkup = toString(productPage({ product: { ...product, name: "KrX Cica Recovery Bundle" }, related: [], cfg }));
 assert.match(pendingMarkup, /The current package panel is still needed/, "unverified formulas show an honest holding state");
 assert.doesNotMatch(pendingMarkup, /Explore all \d+ ingredients/, "unverified formulas do not display invented ingredient rows");
+assert.doesNotMatch(pendingMarkup, /class="skin-fit"/, "the best-for-your-skin block does not render without a confirmed formula");
 
 const deviceMarkup = toString(productPage({ product: { ...product, name: "Omnilux Contour Face Mask" }, related: [], cfg }));
 assert.match(deviceMarkup, /No cosmetic ingredient list applies/, "devices receive device guidance rather than a missing-formula warning");
 assert.doesNotMatch(deviceMarkup, /current package panel is still needed/, "devices are not mislabeled as unverified cosmetics");
+assert.doesNotMatch(deviceMarkup, /class="skin-fit"/, "the best-for-your-skin block does not render for a device");
 
 const unrelated = { ...product, name: "Another Product" };
 const unrelatedMarkup = toString(productPage({ product: unrelated, related: [], cfg }));

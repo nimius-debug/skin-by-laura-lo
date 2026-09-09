@@ -57,6 +57,26 @@ function insightIngredients(review) {
       </div>
 
       ${review.hasFormula ? html`
+        <div class="skin-fit">
+          <div class="ingredient-section-heading">
+            <p class="eyebrow">Reading the whole formula, not just the highlights</p>
+            <h3>Best for your skin</h3>
+          </div>
+          <div class="skin-fit-card">
+            <p class="skin-fit-summary">${review.summary}</p>
+            <div class="skin-fit-row">
+              <div>
+                <p class="ingredient-label">Best for</p>
+                <p>${review.bestFor}</p>
+              </div>
+              <div>
+                <p class="ingredient-label">Keep in mind</p>
+                <p>${review.keepInMind}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         ${featured.length ? html`
           <div class="featured-ingredients">
             <div class="ingredient-section-heading">

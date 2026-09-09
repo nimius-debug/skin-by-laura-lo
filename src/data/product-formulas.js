@@ -19,9 +19,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Camellia Sinensis (Green Tea) Leaf Extract Cannabis Sativa Stem (CBD) Oil Caprylyl Glycol Citrus Aurantium Dulcis (Orange) Fruit Extract Citrus Aurantium Dulcis (Orange) Peel Oil Citrus Grandis (Grapefruit) Peel Oil Citrus Limon (Lemon) Fruit Extract Citrus Tangerina (Tangerine) Peel Oil Coffea Arabica (Coffee) Seed Extract Cucumis Sativus (Cucumber) Fruit Extract Epilobium Angustifolium Flower/Leaf/Stem Extract Ethylhexylglycerin Euterpe Oleracea Fruit (Acai) Extract Garcinia Mangostana Fruit Extract Glycerin Glycosaminoglycans Hexylene Glycol Lycium Barbarum Fruit Extract Morinda Citrifolia Extract Niacinamide Organic Aloe Barbadensis Leaf Juice Panthenol PEG-40 Hydrogenated Castor Oil Pentylene Glycol Phenoxyethanol PPG-26-Buteth-26 Propanediol Punica Granatum Fruit Extract Pyrus Malus (Apple) Fruit Extract Saccharum Officinarum (Sugarcane) Extract Sodium Hyaluronate Symphytum Officinale (Comfrey) Rhizome/Root Extract",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/cbd-skin-mist/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, panthenol support surface hydration and a plumper feel. Soothing ingredients such as aloe, green tea, camellia sinensis may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A watery toning mist, not a treatment cream — glycerin, sodium hyaluronate, and panthenol carry the hydration, while niacinamide sits mid-list for tone support. CBD itself is listed after most of the formula, so it's a supporting note rather than the star.",
+    "considerations": "Four citrus peel oils and their natural terpenes (limonene, linalool) sit well up the list — real fragrance, not trace. That's the ingredient most likely to sting on reactive or recently-treated skin, not the CBD.",
+    "bestFor": "Normal to combination skin that tolerates citrus botanicals and wants a light refresh-and-tone step. Skip it if you're fragrance-reactive or rosacea-prone — the citrus oil load is the thing to weigh, not the CBD.",
     "reviewed": "September 2026"
   },
   {
@@ -30,9 +30,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Oil Cleanser: Helianthus Annuus (Sunflower) Seed Oil, Limnanthes Alba (Meadowfoam) Seed Oil, Polyglyceryl-2 Sesquioleate, Macadamia Integrifolia Seed Oil, Polyglyceryl-2 Caprate, Chamaecyparis Obtusa Wood Oil, Salvia Hispanica Seed Oil, Tocopherol, Oryza Sativa (Rice) Bran Oil Enzyme Exfoliating Powder: Sodium Lauroyl Glutamate, Synthetic Fluorphlogopite, Silica, Maltodextrin, Disodium Tetramethylhexadecenyl Succinoyl Cysteine, Protease, Lipase",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/cleansing-essentials-set/",
     "confidence": "Component formulas; verify set contents",
-    "summary": "Barrier-supportive emollients/occlusives such as meadowfoam help reduce moisture loss. Exfoliating ingredients such as protease, lipase can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "Two different vehicles bundled together: an oil cleanser (sunflower, meadowfoam, macadamia, rice bran oils emulsified to rinse clean) and a dry enzyme powder that activates with water, using protease and lipase rather than acids or scrub grit.",
+    "considerations": "The oil cleanser's Hinoki wood oil is an aromatic ingredient, not a synthetic fragrance, but it can still read as scent to reactive skin. The enzyme powder is gentle by exfoliant standards but still an active — twice a week is the usual ceiling, not a daily step.",
+    "bestFor": "Most skin types wanting a two-step first-cleanse-then-polish routine, especially anyone who reacts to gritty scrubs or standard AHA/BHA exfoliants. Very oily skin may prefer a foaming cleanser as the sole step rather than an oil base.",
     "reviewed": "September 2026"
   },
   {
@@ -41,9 +41,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Propanediol, Glycerin, 1,2-Hexanediol, Niacinamide, Betaine, Bifida Ferment Lysate, Leontopodium Alpinum Callus Culture Extract, Glycyrrhiza Glabra (Licorice) Root Extract, Diospyros Kaki Leaf Extract, Morus Alba Bark Extract, Opuntia Coccinellifera Fruit Extract, Biosaccharide Gum-1, Ammonium Acryloyldimethyltaurate/VP Copolymer, Xanthan Gum, Hydroxyethyl Acrylate/Sodium Acryloyldimethyl Taurate Copolymer, Carbomer, Tromethamine, Adenosine, Disodium EDTA, Ethylhexylglycerin",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-bifida-ampoule/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, betaine, propanediol support surface hydration and a plumper feel. Soothing ingredients such as licorice, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as niacinamide, licorice, glycyrrhiza can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine target texture and visible signs of aging.",
-    "considerations": "Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A lightweight, water-based ampoule built around Bifida Ferment Lysate for barrier/microbiome support, with niacinamide and licorice root layered in for tone, and adenosine for a gentle renewal signal — no fragrance, no essential oils.",
+    "considerations": "Nothing in this formula is a common irritant on its own; the main thing to watch is stacking adenosine here with a separate retinoid step, which just adds renewal signaling on top of renewal signaling without much added benefit.",
+    "bestFor": "Sensitized, barrier-compromised, or post-procedure skin wanting a calming, fragrance-free hydrating layer — also works for dull or uneven-tone skin thanks to the niacinamide and licorice.",
     "reviewed": "September 2026"
   },
   {
@@ -52,9 +52,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Caprylic/capric triglyceride Cetyl Ethylhexanoate PEG-20 Glyceryl Triisostearate Tocopheryl Acetate Anthemis Nobilis Flower Extract Calendula Officinalis flower extract Carthamus Tinctorius (Safflower) Seed oil Olea Europaea (olive) fruit oil Persea Gratissima (avocado) oil Rosa moschata seed oil Butylene Glycol Water Ethylhexylglycerin",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-dermo-essential-cleansing-oil/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Soothing ingredients such as calendula may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A true cleansing oil: caprylic/capric triglyceride as the main solvent, PEG-20 Glyceryl Triisostearate as the emulsifier that lets it rinse away in water, chamomile and calendula folded in for a calming finish.",
+    "considerations": "Chamomile and calendula are both in the ragweed/daisy plant family — a real (if uncommon) cross-reactor for anyone with that pollen allergy. Otherwise this is about as low-risk as a cleansing oil gets: no added fragrance, no drying alcohol.",
+    "bestFor": "Dry, normal, mature, or sensitive skin wanting a gentle first-cleanse step that lifts makeup and SPF without stripping. Oily/acne-prone skin that has broken out from olive-oil-based cleansers before should patch test on the jawline first.",
     "reviewed": "September 2026"
   },
   {
@@ -63,9 +63,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Methylpropanediol, Butylene Glycol Dicaprylate/Dicaprate, Squalane, Caprylic/Capric Triglyceride, Butyrospedrmum Parkii (Shea) Butter, Cyclopentasiloxane, Sorbitan Stearate, Undaria Pinnatifida Extract, Cetyl Dimethicone, Oenothera Biennis (Evening Primrose) Flower Extract, Fructan&lt; Centella Asiatica Leaf Extract, Portulaca Oleracea Extract, hamamelis Virginana (Witch Hazel) Extract, Algae Extract, Gelidium Cartilagineum Extract, Gelidium Sesquipedale extract, Docium Tomentosum Extract, Sodium Hyaluronate, Hydrolzed Hyaluronic Acid,Sodium Acetylated Hyaluronic Acid, Sodium PCA, Sorbitol, Serine, Glycine, Glutamic Acid, Alanine, Lysine, Threonine, Proline, Biosaccharide Gum1, Sodium Polyacryloyldimethyl Taurate, Hydrogenated Polydecene, Trideth10, Arachidyl Alcohol, Behenyl Alcohol, Arachidyl Glucoside, Tocopheryl Acetate, Polysorbate 60, Cetearyl Alcohol, Ceramide NP, Hydorgeated Lecithin, Peg10 Rapeseed Sterol, Glyceryl Stearate, Glycereth 20, Dipropylene Glycol, Arginine, Carbomer, Betaine, Allantoin, Dipotasium Glycyrrhizate, Butyleene Glycol, Illicium Verum (Anise) Fruit Extract, Scutellaria Baicalensis Root Extract, Ethylheylglycerin, 1,20Hexanediol",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-dermo-essential-rich-m-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as centella, allantoin, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as glycyrrhiza can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "The heavier of Corthe's two Rich M moisturizers: a wax-and-silicone emulsion (behenyl/arachidyl/cetearyl alcohols, cyclopentasiloxane) built to be genuinely occlusive, with ceramide NP, shea butter, and a multi-weight hyaluronic acid complex doing the actual barrier work underneath.",
+    "considerations": "Two paraben preservatives (methylparaben, propylparaben) are present — a non-issue by regulatory standards, but worth knowing if a client specifically avoids parabens. The alcohols here are fatty (non-drying), not the volatile kind.",
+    "bestFor": "Dry, mature, or barrier-compromised skin wanting a genuinely rich night or day cream. If you want the same ceramide/HA support in a lighter texture, the Rich M Lotion (below) is the better match for combination or oilier skin.",
     "reviewed": "September 2026"
   },
   {
@@ -74,9 +74,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Stearic Acid, Glycerin, Lauric Acid, Myristic Acid, Potassium Hydroxide, Cocamidopropyl Betaine, PEG-100 Stearate, Beeswax, Glyceryl Stearate, Salicylic Acid, Allantoin, Cryptomeria Japonica Leaf Extract, Nelumbo Nucifera Leaf Extract, Saccharomyces Ferment, Anthemis Nobilis Flower Extract, Calendula Officinalis Flower Extract, Butylene Glycol, Tocopheryl Acetate, Sorbitan Olivate, Sodium Chloride, Caprylyl Glycol, Disodium EDTA, Glyceryl Caprylate, Ethylhexylglycerin, 1,2-Hexanediol.",
     "source": "Seoulogy retail product catalog (published formula): https://www.lolinkabeautyclinic.co.uk/_downloads/fd5c860acedb410d02e721ecdcd6ffc5",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, betaine support surface hydration and a plumper feel. Soothing ingredients such as allantoin, calendula may improve comfort and visible redness. Exfoliating ingredients such as salicylic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A true saponified soap base (stearic/lauric/myristic acid + potassium hydroxide) rather than a syndet cleanser, with salicylic acid doing the pore-clearing work and calendula/chamomile added to soften the finish.",
+    "considerations": "Soap-based cleansers strip more than a sulfate-free syndet formula, even with soothing botanicals layered in — worth flagging for dry or eczema-prone skin that just wants oil control without the tightness.",
+    "bestFor": "Oily, combination, or acne-prone skin wanting a foaming, salicylic-acid cleanser. Dry or barrier-compromised skin will likely find this more stripping than a gel or cream cleanser, regardless of the calming extracts.",
     "reviewed": "September 2026"
   },
   {
@@ -85,9 +85,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Alcohol, Capryli,c/ Capric Triglyceride, 1,2-Hexanediol, Butylene GlVcol, Phenyl Trimethicorre, Urea, Hydrogenated Lecithin, Centella Asiatica Extract, Cryptomeria Japonica leaf extract, Nelumbo Nucifera leaf extract, Saccharomyces Ferment, Polygonum Cuspidatum Root Extract, Scutellaria Baicalensis Root Extract, Camellia Sinensis Leaf Extract, Eucalyptus Globulus Leaf Extract, Glycyrrhiza Glabra (Licorice) Root Extract, Hottuynia Cordata extract, Chamomilla Recutita (maticaria) flower extract, Rosemarinus Officinalis (rosemary) leaf extract, Arginine, Carbomer, PEG-60 hydrogenated castor oil, Capryly Glycol, Ethylhexylglycerin, Caprylhdroxamic Acid",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-dermo-pure-first-aid-lotion/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, urea support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as lecithin help reduce moisture loss. Soothing ingredients such as centella, licorice, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as licorice, glycyrrhiza can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "Alcohol sits third in this list — a real, functional amount, not a trace — giving the lotion its fast-absorbing, mattifying finish. Underneath that, centella, houttuynia, and licorice root do genuine anti-inflammatory work to calm active breakouts.",
+    "considerations": "That alcohol position is the headline caution: on dry, sensitized, or rosacea-prone skin it will likely feel tight or sting, no matter how many soothing botanicals are layered on top.",
+    "bestFor": "Oily, resilient, acne-prone skin that wants a lightweight lotion with real anti-inflammatory support. Not the right pick for dry or reactive skin — the Sensitive Cica Ampoule or Rich M Lotion are gentler options in the same line.",
     "reviewed": "September 2026"
   },
   {
@@ -96,9 +96,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water Glycerin Butylene Glycol 1,2-Hexanediol Pentylene Glycol Sodium Hyaluronate Pathenol Aloe Barbadensis Leaf Extract Sodium PCA Centella Asiatica Extract Niacinamide Cryptomeria Japonica Leaf Extract Nelumbo Nucifera Leaf Extract Saccharomyces Ferment Calendula Officinalis Flower Extract Anthemis nobilis Flower Extract Glycyrrhiza Glabra(Licorice)Root Extract AIlantoin Dipotassium Glycyrrhizate Disodium EDTA PEG-60 Hydrogenated Castor Oil Melaleuca Alternifolia (Tea Tree) Leaf Oil Ethylhexylglyerin",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-dermo-pure-first-aid-toner/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, sodium pca support surface hydration and a plumper feel. Soothing ingredients such as centella, aloe, licorice may improve comfort and visible redness. Tone-support ingredients such as niacinamide, licorice, glycyrrhiza can support a more even-looking complexion with consistent use.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "The alcohol-free sibling to the First Aid Lotion — same acne-calming botanical stack (centella, calendula, licorice) plus niacinamide, but carried in a humectant base (sodium hyaluronate, panthenol, sodium PCA) instead of a drying solvent.",
+    "considerations": "Tea tree leaf oil sits near the end of the list, so it's a small amount, but it's still an essential oil — worth a patch test for anyone with known tea-tree sensitivity.",
+    "bestFor": "Oily, combination, and acne-prone skin that wants oil control without the sting of an alcohol-forward toner. A meaningfully gentler choice than the First Aid Lotion above for the same concern.",
     "reviewed": "September 2026"
   },
   {
@@ -107,9 +107,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Isopropyl Alcohol, Water, Calamine, Glycerin, Zinc Oxide, Titanium Dioxide, Camphor, Butylene Glycol, Salicylic Acid, 1,2-Hexanediol, Sulfur, Allantoin, Centella Asiatica Extract, Saccharomyces Ferment, Nelumbo Nucifera Leaf Extract, Cryptomeria Japonica Leaf Extract, Calendula Officinalis Flower Extract, Anthemis Nobilis Flower Extract.",
     "source": "Published Corthe formula; cross-checked against professional-retailer listings. Verify the current box before client use.",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Soothing ingredients such as centella, allantoin, calendula may improve comfort and visible redness. Exfoliating ingredients such as salicylic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Ingredient review cannot verify SPF performance. Use only as labeled and reapply; the finished product's regulated testing determines protection.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "Isopropyl alcohol is the literal first ingredient — this is a classic drying-lotion format (the same category as Mario Badescu's Drying Lotion), built around calamine, sulfur, camphor, and salicylic acid to dry out one blemish fast.",
+    "considerations": "This formula is intentionally harsh in concentrated, targeted use, and that's the whole point — but used all over the face or on dry/sensitive skin it will over-dry and irritate. Dab-on only, never a spot-to-full-face swap.",
+    "bestFor": "A single inflamed pimple on oily, resilient skin — dab and leave overnight. Not for dry, sensitive, eczema-prone, or rosacea-prone skin, and not for all-over application under any circumstances.",
     "reviewed": "September 2026"
   },
   {
@@ -118,9 +118,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Propanediol, Glycerin, 1,2-Hexanediol, Betaine, Centella Asiatica Leaf Extract, Portulaca Oleracea Extract, Lavandula Angustifolia (Lavender) Extract, Monarda Didyma Leaf Extract, Mentha Piperita (Peppermint) Leaf Extract, Freesia Refracta Extract, Chamomilla Recutita (Matricaria) Flower Extract, Rosmarinus Officinalis (Rosemary) Leaf Extract, Biosaccharide Gum-1, Ethylhexylglycerin, Xanthan Gum, Ammonium Acryloyldimethyltaurate/VP Copolymer, Hydroxyethyl Acrylate/Sodium Acryloyldimethyl Taurate, Disodium EDTA",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-dermo-sensitive-cica-ampoule/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, betaine, propanediol support surface hydration and a plumper feel. Soothing ingredients such as centella may improve comfort and visible redness.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "An alcohol-free, fragrance-free gel built on centella and purslane for calming, with betaine and propanediol for hydration — genuinely one of the gentler-looking formulas in the Corthe line by ingredient count and profile.",
+    "considerations": "The one real tension with the 'Sensitive' name: lavender and peppermint leaf extracts are both present. They're extracts rather than essential oils, which lowers but doesn't eliminate the risk for anyone with a known lavender or mint sensitivity.",
+    "bestFor": "Reactive, barrier-compromised, or post-procedure skin wanting calming hydration without alcohol or synthetic fragrance. Patch test first if you have a documented lavender or peppermint reaction despite the sensitive-skin marketing.",
     "reviewed": "September 2026"
   },
   {
@@ -129,9 +129,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Butylene Glycol, Caprylic/Capric Triglyceride, Cetearyl Ethylhexanoate, Dimethicone, Glyceryl Stearate, Ceramide NP, Butyrospermum Parkii (Shea Butter), Undaria Pinnatifida Extract, Oenothera Biennis (Evening Primrose Extract), Hydrogenated Lecithin, PEG-10 Rapeseed Sterol, Glycereth-20, Dipropylene Glycol, Fructan, Algae Extract, Gelidium Cartilagineum Extract, Gelidium Sesquipedale Extract, Solanum Lycopersicum (Tomato) Extract, Centella Asiatica Leaf Extract, Portulaca Oleracea Extract, Hamamelis Virginiana (Witch Hazel) Extract, Sodium Hyaluronate, Hydrolyzed Hyaluronic Acid, Sodium Acetylated Hyaluronate, Sorbitan Stearate, Polysorbate 80, PEG-100 Stearate, Arginine, Carbomer, Xanthan Gum, Tocopheryl Acetate, Disodium EDTA, 1,2-Hexanediol, Illicium Verum (Anise) Fruit Extract, Scutellaria Baicalensis Root Extract",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/corthe-rich-m-lotion/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, shea, butyrospermum help reduce moisture loss. Soothing ingredients such as centella may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "The lighter of Corthe's two Rich M moisturizers — ceramide NP and a three-form hyaluronic acid complex for barrier support, carried in a dimethicone-smoothed lotion base rather than the Cream's wax-heavy emulsion.",
+    "considerations": "Nothing here reads as a common irritant — no parabens, no added fragrance, no phenoxyethanol. The main decision point is texture, not safety: this is meaningfully lighter than the Rich M Cream.",
+    "bestFor": "Oily, acne-prone, or combination skin wanting real barrier support (ceramides, HA) without heaviness — also works for post-procedure or eczema-prone skin needing lightweight restoration. Very dry or mature skin will likely prefer the richer Rich M Cream instead.",
     "reviewed": "September 2026"
   },
   {
@@ -140,9 +140,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Glyceryl Acrylate/Acrylic Acid Copolymer, Carbomer, PEG-32, Disodium EDTA, Tromethamine, Butylene Glycol, 1,2-Hexanediol, Polyglyceryl-4 Caprate, Polyglutamic Acid, Hydrogenated Lecithin, Polyglyceryl-10 Laurate, Bakuchiol, EGF, PDRN/Sodium DNA, Sodium Hyaluronate, Aloe Barbadensis Leaf Extract, Camellia Sinensis Leaf Water, Portulaca Oleracea Extract, Adenosine, Fragrance, Cholesteryl Isostearate, Cholesteryl Chloride, Cholesteryl Nonanoate.",
     "source": "Dermagarden published product page: https://dermagarden.vn/san-pham/dermagarden-3d-cell-repair-boost/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as lecithin help reduce moisture loss. Soothing ingredients such as aloe, camellia sinensis may improve comfort and visible redness. Renewal-support ingredients such as bakuchiol, adenosine, sodium dna target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A gel-cream built around a signaling-active trio — bakuchiol, EGF (growth factor), and PDRN/sodium DNA — layered over a standard humectant/gelling base (glycerin, carbomer, PEG-32).",
+    "considerations": "This exact ingredient combination is hard to independently verify beyond the brand's own regional listing, so treat the specific active percentages as marketing claims rather than confirmed facts until the current box panel is checked.",
+    "bestFor": "If the formula is accurate as listed, normal-to-mature skin wanting a renewal-focused treatment without a retinoid. Confirm the current packaging before making specific claims to a client with known sensitivities.",
     "reviewed": "September 2026"
   },
   {
@@ -151,9 +151,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Microcrystalline Cellulose, Sodium Lauroyl Glutamate, Kaolin, Titanium Dioxide, Oryza Sativa (Rice) Powder, Hydrolyzed Collagen, Trehalose, Methylparaben, Salicylic Acid, Dipotassium Glycyrrhizate, Salicornia Herbacea Extract, Fragrance, Lysozyme, Water, Butylene Glycol, Gleditsia Australis Fruit Extract, Polygonum Cuspidatum Root Extract, Prunella Vulgaris Leaf Extract, Cnidium Monnieri Fruit Extract.",
     "source": "Published package transcription, cross-checked against Hwahae's 19-ingredient record: https://www.hwahae.com/en/products/DERMAGARDEN-Enzyme-Powder-Cleanser/2191125/ingredients",
     "confidence": "Published formula",
-    "summary": "Humectants such as trehalose support surface hydration and a plumper feel. Soothing ingredients such as glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as glycyrrhiza can support a more even-looking complexion with consistent use. Exfoliating ingredients such as salicylic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Ingredient review cannot verify SPF performance. Use only as labeled and reapply; the finished product's regulated testing determines protection.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A dry enzyme powder cleanser — lysozyme as the named active enzyme, activated with water, plus salicylic acid and licorice root folded into a rice-powder/kaolin base.",
+    "considerations": "Fragrance is present, and as an activated enzyme powder this is a real exfoliant, not a rinse-and-done gentle cleanse — twice a week is the usual ceiling.",
+    "bestFor": "Normal to oily/combination skin wanting gentle enzymatic exfoliation as an occasional step. Fragrance-sensitive skin should confirm tolerance first, and this shouldn't be layered with other exfoliants same-day.",
     "reviewed": "September 2026"
   },
   {
@@ -162,9 +162,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Glycerin, Water, Sodium Cocoyl Isethionate, Polyglyceryl-4 Caprate, Sodium Methyl Cocoyl Taurate, Hydroxypropyl Starch Phosphate, Coco-Betaine, Sodium Chloride, Coconut Acid, Aloe Barbadensis Leaf Extract, Centella Asiatica Extract, Coptis Japonica Root Extract, 1,2-Hexanediol, Caprylyl Glycol, Sodium Isethionate, Butylene Glycol, Ethylhexylglycerin, Fragrance",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/dermathod-moist-morning-touch-foam-cleanser/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, betaine support surface hydration and a plumper feel. Soothing ingredients such as centella, aloe may improve comfort and visible redness.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A sulfate-free foaming base (sodium cocoyl isethionate, coco-betaine) rather than a harsher sulfate system, with centella and coptis root extract added for calm.",
+    "considerations": "Fragrance is listed last, so it's a small amount, but it's still the one ingredient here with real allergen potential — everything else is low-risk.",
+    "bestFor": "Normal, dry, dehydrated, or barrier-compromised skin wanting a non-stripping morning cleanse. Not a fit for a strict fragrance-free protocol or active eczema flares.",
     "reviewed": "September 2026"
   },
   {
@@ -173,9 +173,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Centella Asiatica Extract, Methyl Perfluoroisobutyl Ether, Water, Hydrolyzed Sponge, Butylene Glycol, Glycerin, Cetyl Ethylhexanoate, Potassium Cocoyl Glycinate, Niacinamide, Cetearyl Alcohol, 1,2-Hexanediol, Sodium Acrylate/Sodium Acryloyldimethyl Taurate Copolymer, Copper Tripeptide-1, Acetyl Hexapeptide-8, Palmitoyl Pentapeptide-4, Myristoyl Pentapeptide-17, Rh-oligopeptide-1, Rh-polypeptide-11, Perfluorodecalin, Sodium Hyaluronate, Ceramide Np, Betaine, Adenosine, Isohexadecane, Polysorbate 80, Lavandula Angustifolia, Thuja Occidentalis Leaf Oil, Cetearyl Olivate, Sorbitan Olivate, Glyceryl Stearate, Peg-100 Stearate, Polyglyceryl-3 Methylglucose Distearate, Xanthan Gum, Disodium Edta, Allantoin, Chlorphenesin",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/dermathod-o2-tox-peel-spicule-treatment/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, betaine support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide help reduce moisture loss. Soothing ingredients such as centella, allantoin may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine, peptide, oligopeptide target texture and visible signs of aging.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine. Spicule/sponge-based resurfacing can cause prickling and barrier disruption; this is not a casual daily-use product.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "This isn't a leave-on treatment — freshwater sponge spicules physically micro-channel the skin, and niacinamide plus a peptide stack (copper tripeptide-1, acetyl hexapeptide-8) ride in behind that mechanical opening.",
+    "considerations": "Two essential oils (lavender, thuja) sit in a formula designed to penetrate past the barrier — a real sensitizer risk right when skin is most open to irritation. This is an in-office, provider-applied product, not a DIY step.",
+    "bestFor": "Clients under professional supervision wanting texture and pigmentation support who can tolerate a short healing window. Not appropriate for active cold sores, broken skin, or recent isotretinoin use.",
     "reviewed": "September 2026"
   },
   {
@@ -184,9 +184,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene glycol, Gluconolactone, Dipropylene glycol, Tromethamine, 1,2-Hexanediol, Polyglyceryl-10 myristate, Glycerin, Ethylhexylglycerin, Witis Vinifera (Grape) seed extract, Tocopheryl acetate, Polyquaternium-51, Disodium EDTA, Hamamelis virginiana (Witch hazel) extract, Citrus aurantium bergamia (Bergamot) fruit oil, Lavandula angustifolia (Lavender) Oil, Capryloyl salicylic acid, Rosmarinus officinalis (Rosemary) leaf oil, Milk protein extract, vitis vinifera (Grape) fruit extract, Diospyros kaki fruit extract, Castanea crenata (Chestnut) shell extract, Camellia sinensis leaf extract, Scutellaria baicalensis root extract, Tocopherol, Glutathione, Cinnamomum cassia bark extract",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/dermathod-priming-peel-booster/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Soothing ingredients such as camellia sinensis may improve comfort and visible redness. Tone-support ingredients such as glutathione can support a more even-looking complexion with consistent use. Exfoliating ingredients such as salicylic acid, gluconolactone can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A PHA/LHA pre-peel formula — gluconolactone and capryloyl salicylic acid, both gentler/slower-acting than glycolic acid or free salicylic acid — meant to prep skin before a professional peel, not stand alone.",
+    "considerations": "Three essential oils stack here (bergamot, lavender, rosemary), and bergamot specifically carries phototoxicity risk if the oil isn't furocoumarin-free and sun exposure follows use.",
+    "bestFor": "Oily, congested, or textured skin being prepped for a professional chemical peel, used under esthetician guidance. A poor match for fragrance-sensitive, eczema-prone, or highly reactive skin.",
     "reviewed": "September 2026"
   },
   {
@@ -195,9 +195,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Ethylhexyl Methoxycinnamate, 4-Methylbenzylidene Camphor, Cyclopentasiloxane, Caprylyl Dimethicone Ethoxy Glucoside, Triethylhexanoin, Cyclomethicone, Glycerin, C12-15 Alkyl Benzoate, Phenyl Trimethicone, Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine, Dimethicone/Vinyl Dimethicone Crosspolymer, Dimethicone, Titanium Dioxide, Bentonite, Cetyl PEG/PPG-10/1 Dimethicone, PEG-10 Dimethicone, Sodium Chloride, Hyaluronic Acid, rh-Oligopeptide-1, Zanthoxylum Piperitum Fruit Extract, Pulsatilla Koreana Extract, Usnea Barbata (Lichen) Extract, Portulaca Oleracea Extract, Dipotassium Glycyrrhizate, Snail Secretion Filtrate, Aloe Barbadensis Leaf Juice Powder, Aluminum Hydroxide, Stearic Acid, Chlorphenesin, Disodium EDTA, Parfum",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-clean-gel-cleanser/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as dimethicone help reduce moisture loss. Soothing ingredients such as aloe, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as glycyrrhiza can support a more even-looking complexion with consistent use. Renewal-support ingredients such as peptide, oligopeptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine. Ingredient review cannot verify SPF performance. Use only as labeled and reapply; the finished product's regulated testing determines protection.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A silicone-forward SPF 40 built on two chemical UV filters (Ethylhexyl Methoxycinnamate, 4-Methylbenzylidene Camphor) plus snail secretion filtrate and an EGF-mimicking peptide (rh-Oligopeptide-1) for the 'waterdrop' finish and repair positioning.",
+    "considerations": "4-Methylbenzylidene Camphor (Enzacamene) is not on the FDA's approved filter list for U.S. OTC sunscreen sale — this is a Korean-formulated import, not an FDA-monographed sunscreen. Worth disclosing if a client is relying on this as their primary U.S.-regulated SPF.",
+    "bestFor": "Normal, combination, or dry skin wanting a lightweight, hydrating daily SPF and comfortable with chemical filters and added fragrance (Parfum is listed). Not the pick for melasma-prone or fragrance-sensitive skin, or anyone who specifically needs an FDA-monographed filter.",
     "reviewed": "September 2026"
   },
   {
@@ -206,9 +206,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua, Glycerin, 1,2-Hexanediol, Beta Glucan",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/homme-serum/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "The only ingredients that could be confirmed are water, glycerin, 1,2-hexanediol, and beta-glucan — an unusually short list for an 'all in one' toner-essence-moisturizer hybrid, which suggests the disclosed panel is incomplete rather than the full formula.",
+    "considerations": "Marketing copy references spirulina extract and other actives that don't appear in the four ingredients that could be verified. Treat this as a partial disclosure, not a complete formula, until the current packaging is checked.",
+    "bestFor": "Hold on specific skin-type claims until the full panel is confirmed — what's verified so far (glycerin, beta-glucan) is broadly hydrating and low-risk, but that's not the whole story.",
     "reviewed": "September 2026"
   },
   {
@@ -217,9 +217,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Helianthus Annuus (Sunflower) Seed Oil, Limnanthes Alba (Meadowfoam) Seed Oil, Polyglyceryl-2 Sesquioleate, Macadamia Integrifolia Seed Oil, Polyglyceryl-2 Caprate, Chamaecyparis Obtusa Wood Oil, Salvia Hispanica Seed Oil, Tocopherol, Oryza Sativa (Rice) Bran Oil",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/epicutis-oil-cleanser/",
     "confidence": "Published formula",
-    "summary": "Barrier-supportive emollients/occlusives such as meadowfoam help reduce moisture loss.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "A short, nine-ingredient cleansing oil — sunflower, meadowfoam, macadamia, and rice bran oils emulsified with two plant-derived emulsifiers so it rinses clean rather than leaving a film.",
+    "considerations": "Hinoki wood oil is the one ingredient here that functions partly as fragrance despite the brand's 'clean' framing — worth a patch test for anyone who reacts to aromatic/essential oils.",
+    "bestFor": "Dry, normal, or combination skin wanting a gentle makeup-dissolving first cleanse. This is also the base formula sold in the Cleansing Essentials Set, so if you already own that bundle you don't need both.",
     "reviewed": "September 2026"
   },
   {
@@ -228,9 +228,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Petrolatum, Squalane, Butyrospermum Parkii (Shea) Butter, Tocopheryl Acetate, Citrus Paradisi (Grapefruit) Peel Oil, Citrus Aurantium Dulcis (Orange) Peel Oil, Bisabolol, Pelargonium Graveolens Flower Oil, Rosmarinus Officinalis (Rosemary) Leaf Oil, Panthenol, Retinyl Palmitate, Saccharomyces Lysate Extract, BHT, Tocopherol, Yeast Extract, Phenoxyethanol, Citronellol, Limonene, Linalool, Citral, Geraniol.",
     "source": "GlyMed official global product page: https://glymed.global/products/us-gm-088r",
     "confidence": "Official/current",
-    "summary": "Humectants such as panthenol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as squalane, shea, butyrospermum help reduce moisture loss. Soothing ingredients such as bisabolol may improve comfort and visible redness. Renewal-support ingredients such as retinyl target texture and visible signs of aging.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A genuinely occlusive balm — petrolatum first on the list, backed by squalane and shea butter — with retinyl palmitate (a mild vitamin A ester) and bisabolol folded in for repair and calm.",
+    "considerations": "Four essential-oil-derived fragrance components (citronellol, limonene, linalool, citral, geraniol) come from the rosemary and citrus peel oils used for scent. Real fragrance load in a barrier-repair balm, worth knowing before using post-procedure.",
+    "bestFor": "Very dry, compromised, or post-procedure skin (post-peel, post-laser, chapped areas) needing serious occlusion. Oily or acne-prone skin will find this too heavy for regular use, and fragrance-sensitive skin should skip it despite the repair-focused ingredients.",
     "reviewed": "September 2026"
   },
   {
@@ -239,9 +239,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Aluminum Oxide Crystals, Helianthus Annuus (Sunflower) Seed Oil, Cetearyl Alcohol, Glyceryl Stearate Citrate, Glycerin , Acetyl Hexapeptide-8, Tetrahexyldecyl Ascorbate, Magnesium Aspartate , Zinc Gluconate , Copper Gluconate, Magnesium Ascorbyl Phosphate, Capryloyl Glycine, Tocopherol, Simmondsia Chinensis (Jojoba) Oil , Vitis Vinifera (Grape) Seed Oil, Lavandula Angustifolia (Lavender) Oil, Lavandula Hybrida (Lavandin) Oil, Rosmarinus Officinalis (Rosemary) Leaf Oil, Salvia Sclarea (Clary) Sage Oil, Cetearyl Glucoside, Xanthan Gum, Boswellia Serrata Extract, Olea Europaea (Olive) Leaf Extract, Rubus Idaeus (Raspberry) Extract, Cymbopogon Schoenanthus (Lemongrass) Extract, Chamomilla Recutita Flower Extract, Potassium Sorbate, Diazolidinyl Urea, Iodopropynyl Butylcarbamate",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/brilliant-tone/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, urea support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as jojoba help reduce moisture loss. Tone-support ingredients such as ascorb can support a more even-looking complexion with consistent use. Renewal-support ingredients such as peptide target texture and visible signs of aging.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A dual-action exfoliant — aluminum oxide crystals for physical polish plus acetyl hexapeptide-8 and two stable vitamin C forms for a chemical/signaling boost — genuinely a once- or twice-weekly treatment, not a daily scrub.",
+    "considerations": "Four essential oils (lavender, lavandin, rosemary, clary sage) plus a formaldehyde-releasing preservative (diazolidinyl urea) stack real irritation risk on top of physical abrasion — a combination worth flagging for anyone sensitized or with broken capillaries.",
+    "bestFor": "Normal, oily, or resilient combination skin wanting manual plus light chemical exfoliation for texture and dullness. Skip it on sensitized, rosacea-prone, actively acneic, or thin/fragile skin.",
     "reviewed": "September 2026"
   },
   {
@@ -250,9 +250,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water/Eau), Butylene Glycol, Polysorbate 20, Caprylic/Capric Triglyceride, Glycerin, Citrus Unshiu Peel Extract, Pentylene Glycol, Kojic Acid, Propanediol, Niacinamide, Hydroxyethylcellulose, Phenoxyethanol, Arbutin, Lactic Acid, Aloe Barbadensis Leaf Juice, Ethylhexylglycerin, Rumex Occidentalis Extract, Arctostaphylos Uva Ursi Leaf Extract, Magnesium Ascorbyl Phosphate, L-Ascorbic Acid, Glycyrrhiza Glabra Root Extract, Diacetyl Boldine, Sodium Hydroxide",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/glymed-brilliant-tone/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, propanediol support surface hydration and a plumper feel. Soothing ingredients such as aloe, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as niacinamide, ascorb, kojic can support a more even-looking complexion with consistent use. Exfoliating ingredients such as lactic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A layered brightening serum: kojic acid, arbutin/bearberry extract, two vitamin C forms, and lactic acid all stacked toward the same hyperpigmentation goal, with niacinamide and licorice root softening the acid load.",
+    "considerations": "That's four separate brightening/exfoliating actives in one serum — a real cumulative irritation risk for reactive or rosacea-prone skin, and kojic acid specifically is a known sensitizer with heavy use. Daily SPF is non-negotiable with this much photosensitizing content.",
+    "bestFor": "Normal to oily skin with hyperpigmentation or melasma-adjacent tone concerns that already tolerates actives well. Not a good first exfoliating/brightening product for someone new to acids — the stacked-actives load is a lot to introduce at once.",
     "reviewed": "September 2026"
   },
   {
@@ -261,9 +261,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aloe Barbadensis Leaf Juice, Petrolatum, Squalane, Glycerin, Water, Cetyl Alcohol, Glyceryl Stearate, PEG-100 Stearate, Arbutin, Phenoxyethanol, Allantoin, Carbomer, Ethylhexylglycerin, Sodium Hydroxide, Glycyrrhiza Glabra Extract, Epigallocatechin Gallatyl Glucoside, Gallyl Glucoside, Propyl Gallate, Anthemis Nobilis Flower Extract, Calendula Officinalis Flower Extract, Tetrahydrodiferuloylmethane, Hyaluronic Acid.",
     "source": "GlyMed product information and current retailer panel: https://glymedplus.com/products/US-GM-056R",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as squalane, petrolatum help reduce moisture loss. Soothing ingredients such as allantoin, aloe, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as arbutin, glycyrrhiza can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "Aloe vera juice leads the list, backed by petrolatum and squalane for occlusion, with arbutin and licorice root added for mild brightening — built as a calming barrier cream, not a treatment product.",
+    "considerations": "No essential oils or added fragrance are listed — one of the cleaner, lower-risk formulas in the GlyMed line. Benzyl alcohol is present as a mild preservative and can trigger sensitivity in a small subset of users.",
+    "bestFor": "Reactive, post-procedure (waxing, peels, laser), sun-exposed, or generally irritated skin needing a fragrance-free calming cream. Very oily skin may find the petrolatum/squalane base too rich for all-over daily use.",
     "reviewed": "September 2026"
   },
   {
@@ -272,9 +272,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water), Ammonium Laureth Sulfate, Cocamidopropyl Betaine, Bambusa arundinacea Stem Extract, Polysorbate 80, Jojoba Esters, Prunus Armeniaca (Apricot) Seed Powder, Luffa Cylindrica Fruit, Lactic Acid, Aloe Barbadensis Leaf Juice, Anthemis Nobilis Flower Extract, Glycolic Acid, Malic Acid, Mentha Viridis (Spearmint) Leaf Oil, Mentha Piperita (Peppermint) Leaf Oil, Eugenia Caryophyllus (Clove) Flower Oil, Zingiber Officinale (Ginger) Root Oil, Prunus Amygdalus Dulcis (Sweet Almond) Oil, Salix Alba (Willow) Bark Extract, Pentylene Glycol, Acrylates/ C10-30 Alkyl Acrylate Crosspolymer, Sodium Hydroxide, Potassium Sorbate, Phenoxyethanol, Caprylyl Glycol",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/glymed-refining-body-scrub/",
     "confidence": "Published formula",
-    "summary": "Humectants such as betaine support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as jojoba help reduce moisture loss. Soothing ingredients such as aloe may improve comfort and visible redness. Exfoliating ingredients such as lactic acid, glycolic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A dual physical-plus-chemical body scrub — apricot seed powder and polylactic acid beads for texture, lactic/glycolic/malic acid for chemical exfoliation — with menthol-family oils (peppermint, spearmint, clove, ginger) for the tingling finish.",
+    "considerations": "This is a body product only, not for the face. The AHA blend increases sun sensitivity on scrubbed skin, and the menthol-containing oils are a recognized irritant on sensitive or compromised skin.",
+    "bestFor": "Normal-to-oily body skin with rough texture, keratosis-pilaris-type bumps, or dullness. Not for sensitive, eczema-prone, sunburned, or broken skin, and daytime sun protection matters on treated areas.",
     "reviewed": "September 2026"
   },
   {
@@ -283,9 +283,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Petrolatum, Hydrogenated Polyisobutene, Jojoba Esters, Beeswax, Helianthus Annuus Seed Oil, Butyrospermum Parkii Butter, Olea Europaea Fruit Oil, Vitis Vinifera Seed Oil, Persea Gratissima Oil, Tocopheryl Acetate, Ethylene/Propylene/Styrene Copolymer, Butylene/Ethylene/Styrene Copolymer, Mentha Piperita (Peppermint) Oil, Mentha Viridis (Spearmint) Leaf Oil, Limonene, Linalool.",
     "source": "GlyMed official global product page: https://glymed.global/products/us-gm-035r",
     "confidence": "Official/current",
-    "summary": "Barrier-supportive emollients/occlusives such as butyrospermum, petrolatum, jojoba help reduce moisture loss.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "A rich, occlusive lip balm — petrolatum, beeswax, and five plant oils/butters — with a minty finish from peppermint and spearmint oil.",
+    "considerations": "Limonene and linalool (naturally occurring in the mint oils) are recognized fragrance allergens, and the cooling sensation itself can sting on chapped or cracked lips despite the 'hydrating' name.",
+    "bestFor": "Normal lips wanting a rich, occlusive balm with a minty sensory finish. Not the best pick for already-cracked or very sensitized lips, where the cooling oils are more likely to sting than soothe.",
     "reviewed": "September 2026"
   },
   {
@@ -294,9 +294,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water/Eau), Coco-Caprylate/Caprate, Glycerin, Glyceryl Stearate, Oryza Sativa Starch, Cetearyl Alcohol, Chromium Oxide Greens (CI 77288), Ceteareth-20, Aloe Barbadensis Leaf Juice, Tocopheryl Acetate, Phenoxyethanol, Allantoin, Ascorbyl Palmitate, Fragrance/Parfum, Sodium Chloride, Squalane, Ethylhexylglycerin, Thioctic Acid, Calendula Officinalis Flower Extract, Cymbopogon Schoenanthus Extract, Hordeum Distichon Extract, Hypnea Musciformis Extract, Lavandula Spica Flower/Leaf/Stem Extract, Lecithin, Olea Europaea Leaf Extract, Rubus Suavissimus, Taraxacum Officinale Rhizome/Root Extract, Triticum Aestivum Seed Extract, Sodium Hyaluronate, Citric Acid, Carbomer/Papain Crosspolymer, Sodium Benzoate, Leuconostoc/Radish Root Ferment Filtrate, Bromelain, Coumarin, Benzyl Benzoate, Citronellol, Hexyl Cinnamal, Benzyl Salicylate, Eugenol, Hydroxycitronellal.",
     "source": "Matched to GlyMed Hydrating Masque with Enzymes: https://glymed.global/products/us-gm-061r — confirm the shortened Square name refers to this SKU.",
     "confidence": "Identity check needed",
-    "summary": "Humectants such as glycerin, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as squalane, lecithin help reduce moisture loss. Soothing ingredients such as allantoin, aloe, calendula may improve comfort and visible redness. Tone-support ingredients such as ascorb can support a more even-looking complexion with consistent use.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A cream-textured enzyme mask — papain and bromelain for gentle exfoliation, layered with sodium hyaluronate, squalane, and a mild retinyl palmitate for hydration and light renewal support.",
+    "considerations": "Fragrance is present and, given the enzyme activity, this formula is more active than its 'hydrating' name suggests — leave-on time matters, and compromised or actively inflamed skin can sting from the enzymes.",
+    "bestFor": "Normal, combination, or mildly congested skin wanting gentle enzymatic exfoliation plus hydration. Fragrance-sensitive or eczema-prone skin should patch test first, and this shouldn't be your only reason to skip a gentler weekly mask if you're already reactive.",
     "reviewed": "September 2026"
   },
   {
@@ -305,9 +305,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Caprylic/ Capric Triglyceride, Propanediol, Glycerin, Butyrospermum Parkii (Shea) Butter, Pentylene Glycol, Limnanthes Alba Meadowfoam Seed Oil, Glyceryl Stearate SE, Stearyl Alcohol, Steareth-20, Tocopherol, Salvia Hispanica Seed Oil, DSD (Disodium S-Phytyl Diglycoloylcysteine), Spilanthes Acmella Flower Extract, Ceramide NP, Isocetyl Alcohol, Cetyl Alcohol, Phytosterols, Ferulic Acid, Oenothera Biennis (Evening Primrose) Seed Extract, Butylene Glycol, Carbomer, Sodium Phytate, Potassium Hydroxide",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/hyvia-creme/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, propanediol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, shea, butyrospermum help reduce moisture loss. Tone-support ingredients such as ferulic can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A ceramide- and phytosterol-based barrier cream built around Epicutis's HYVIA (chia seed oil) complex, with ferulic acid and tocopherol for antioxidant support — deliberately fragrance-free and essential-oil-free.",
+    "considerations": "Nothing here is a common irritant; the only real consideration is texture, not safety — the shea butter and chia oil base is genuinely rich.",
+    "bestFor": "Dry, dehydrated, or barrier-compromised skin wanting a rich, ceramide-based daily moisturizer, including sensitive skin given the fragrance-free formula. Very oily or acne-prone skin will likely find it too heavy for all-over daily use.",
     "reviewed": "September 2026"
   },
   {
@@ -316,9 +316,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water), Sodium C14-16 Olefin Sulfonate, Glycerin, PEG-18 Glyceryl Oleate/Cocoate, Cocamidopropyl Betaine, Mandelic Acid, Propanediol, PEG-120 Methyl Glucose Dioleate, Decyl Glucoside, Pentylene Glycol, Sodium Chloride, Phenoxyethanol, Panthenol, Caprylyl Glycol, Sodium Sulfate, Tetradecene, Ethylhexylglycerin, Hexylene Glycol, Sodium Benzoate, Hexadecene, Sodium Citrate, Tocopherol, Disodium EDTA, Anthemis Nobilis Flower Extract, Camellia Sinensis Leaf Extract, Symphytum Officinale Rhizome/Root Extract.",
     "source": "GlyMed published product panel: https://glymedplus.com/products/US-GM-74ER",
     "confidence": "Official/current",
-    "summary": "Humectants such as glycerin, betaine, panthenol support surface hydration and a plumper feel. Soothing ingredients such as camellia sinensis may improve comfort and visible redness. Exfoliating ingredients such as mandelic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A cleanser-format acid treatment — 3% mandelic acid, one of the gentler/larger-molecule AHAs, carried in a sulfate-ish surfactant base (sodium C14-16 olefin sulfonate, cocamidopropyl betaine) rather than a fully gentle glucoside system.",
+    "considerations": "Short contact time in a rinse-off format lowers the acid's irritation potential compared to a leave-on. Chamomile is present, so anyone with a ragweed/daisy-family sensitivity should patch test.",
+    "bestFor": "Oily, acne-prone, or textured/dull skin wanting gentle chemical exfoliation built into the cleanse step. Reasonable even for mild rosacea given mandelic acid's gentler profile, but very dry skin may find the surfactant base drying with frequent use.",
     "reviewed": "September 2026"
   },
   {
@@ -327,9 +327,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene Glycol, Glycerin, Niacinamide, Diisostearyl Malate, Pentaerythrityl Tetraethylhexanoate, Propanediol, 1,2-Hexanediol, Vinyl Dimethicone, Hydrogenated Polyisobutene, Caprylic/Capric/Myristic/Stearic Triglyceride, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Arginine, Bis-Diglyceryl Polyacyladipate-2, Ammonium Acryloyldimethyltaurate/Beheneth-25 Methacrylate Crosspolymer, Panthenol, Sodium Polyacryloyldimethyl Taurate, Glyceryl Acrylate/Acrylic Acid Copolymer, Ethylhexylglycerin, Dipotassium Glycyrrhizate, Allantoin, Adenosine, Disodium EDTA, Fragrance, Hydrolyzed Elastin, Tremella Fuciformis Polysaccharide, Sodium Hyaluronate, Cynanchum Atratum Extract, Hydrolyzed Collagen, Hydrolyzed Hyaluronic Acid, Lactobacillus Ferment, Panax Ginseng Root Extract, Atelocollagen, Desamido Collagen, Anemarrhena Asphodeloides Root Extract, Soluble Collagen, Sodium Acetylated Hyaluronate, Collagen, Collagen Amino Acids, Palmitoyl Tetrapeptide-7, Tocopherol, Palmitoyl Tripeptide-1, Palmitoyl Tripeptide-5, Palmitoyl Pentapeptide-4, Nonapeptide-1, Procollagen, Hexapeptide-9, Acetyl Hexapeptide-8, Copper Tripeptide-1, Tripeptide-1, Acetyl Tetrapeptide-2.",
     "source": "KrX regional distributor panel: https://www.krx-aesthetics.info/product/krx-active-31-revitalizing-eye-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as dimethicone help reduce moisture loss. Soothing ingredients such as allantoin, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as niacinamide, glycyrrhiza can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A dense peptide-and-collagen eye cream — seven named peptides plus multiple collagen forms acting as surface humectants and film-formers, with niacinamide and adenosine for brightening and renewal signaling.",
+    "considerations": "Fragrance is present, which matters more here than in a face product — the eye-area skin is thinner and more reactive, so this is the one caution worth flagging specifically for this product.",
+    "bestFor": "Normal to dry skin wanting a peptide- and HA-forward eye cream for fine lines and dehydration. Skip it if you're fragrance-sensitive or prone to periorbital irritation — that's a real, not hypothetical, risk here.",
     "reviewed": "September 2026"
   },
   {
@@ -338,9 +338,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Dipropylene Glycol, Butylene Glycol, Propanediol, Niacinamide, Betaine, Glycerin, Saccharomyces/Rice Ferment Filtrate, 1,2-Hexanediol, Panthenol, Trehalose, Ethyl Ascorbyl Ether, Pentylene Glycol, Carbomer, Polyglyceryl-10 Oleate, Tromethamine, Tranexamic Acid, Hippophae Rhamnoides Water, Ethylhexylglycerin, Dipotassium Glycyrrhizate, Allantoin, Adenosine, Sodium Hyaluronate, Xanthan Gum, Saccharomyces/Panax Ginseng Flower Ferment Extract, Nymphaea Alba Flower Extract, Malus Domestica Fruit Extract, Lycopodium Clavatum Extract, Equisetum Arvense Extract, Backhousia Citriodora Leaf Extract, Ascorbyl Glucoside, Ascorbic Acid, Hippophae Rhamnoides Extract, Polyglyceryl-4 Laurate, Polyglyceryl-6 Laurate, Tocopherol, Hydrogenated Lecithin, Palmitoyl Tripeptide-5, Sphingomonas Ferment Extract, Palmitoyl Tetrapeptide-7, Phytosphingosine, Palmitoyl Tripeptide-1, Caprylic/Capric Triglyceride, Glutathione, Cetyl Alcohol, Stearyl Alcohol, Myristyl Alcohol, Sorbitan Stearate, Lauryl Alcohol, Glyceryl Stearate, Cetearyl Alcohol, Ceramide NP",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-all-day-glow-serum/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, betaine support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, lecithin help reduce moisture loss. Soothing ingredients such as allantoin, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as niacinamide, ascorb, tranexamic can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A layered vitamin C serum — pure ascorbic acid alongside two gentler stabilized forms (ascorbyl glucoside, ethyl ascorbyl ether) — plus tranexamic acid and a palmitoyl peptide trio, all carried in a fragrance-free, alcohol-free base.",
+    "considerations": "Pure ascorbic acid is the most irritation-prone vitamin C form; even softened by the other two forms, it can sting on first use or on compromised skin. Ease in rather than pairing immediately with a strong acid or retinoid.",
+    "bestFor": "Normal, combination, or mature skin with dullness or uneven tone wanting a fragrance-free brightening serum. Very reactive or rosacea-prone skin should patch test given the ascorbic acid content, even though the rest of the formula is gentle.",
     "reviewed": "September 2026"
   },
   {
@@ -349,9 +349,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua, Glycerine, Rice Milk Extract, Calendula Officinalis Flower Extract, Citric Acid, Lemon Extract, Phenoxyethanol, Panthenol, Sodium Citrate, Butylene Glycol.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-aqua-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, panthenol support surface hydration and a plumper feel. Soothing ingredients such as calendula may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A short, calendula- and citrus-based hydrating gel — glycerin as the main humectant, with rice milk extract and a touch of citrus for a light brightening note.",
+    "considerations": "The published list is unusually short for a stable gel-cream, which suggests it may be an abbreviated marketing panel rather than the complete formula — worth confirming against the box before making allergy-specific claims.",
+    "bestFor": "Oily, combination, or acne-prone skin wanting a lightweight, non-greasy hydrator. Patch test for ragweed/daisy-family allergies given the calendula.",
     "reviewed": "September 2026"
   },
   {
@@ -360,9 +360,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene Glycol, Sodium Hyaluronate, Wild Flower Extract, Hydrolyzed Sea Sponge, Allantoin, Betaine, Carbomer, Croscarmellose, Pentylene Glycol.",
     "source": "KrX professional product catalog / published retailer panel; verify current packaging.",
     "confidence": "Published formula",
-    "summary": "Humectants such as sodium hyaluronate, betaine support surface hydration and a plumper feel. Soothing ingredients such as allantoin may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A physical exfoliant, not a chemical peel despite the name — hydrolyzed sea sponge provides roughly 50,000 microdermabrasion-style particles, with sodium hyaluronate and allantoin added to offset the friction.",
+    "considerations": "The mechanical exfoliation is the real active here and can aggravate broken, actively inflamed, or very reactive/rosacea-prone skin — this isn't a gentle daily product despite the soothing ingredients layered in.",
+    "bestFor": "Normal, oily, combination, or resilient skin wanting at-home physical resurfacing between professional treatments. Not for active acne with open lesions, a compromised barrier, or rosacea.",
     "reviewed": "September 2026"
   },
   {
@@ -371,9 +371,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Butylene Glycol, Methylpropanediol, Hydroxyacetophenone, Allantoin, Centella Asiatica, Carbomer, Triethanolamine, Sodium Hyaluronate, Caprylhydroxamic Acid, PEG-40 Hydrogenated Castor Oil, Glyceryl Caprylate, Fragrance, Polygonum Cuspidatum Root, Scutellaria Baicalensis Root, Camellia Sinensis Leaf, Licorice Root, Chamomilla Recutita Flower, Rosemary Leaf",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-cica-home-care-masks/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, propanediol support surface hydration and a plumper feel. Soothing ingredients such as centella, allantoin, licorice may improve comfort and visible redness. Tone-support ingredients such as licorice can support a more even-looking complexion with consistent use.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A sheet-mask essence built around centella, licorice root, and chamomile for calm, in a fragrance-containing gel base.",
+    "considerations": "Fragrance is disclosed but not itemized, and chamomile carries a small ragweed-family cross-reaction risk — the two things to flag despite the otherwise gentle, soothing ingredient list.",
+    "bestFor": "Dry, dehydrated, or post-procedure (laser/peel) skin wanting calming hydration in mask form. Not a fit for a strict fragrance-free protocol.",
     "reviewed": "September 2026"
   },
   {
@@ -382,9 +382,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Laury, Glucoside, Butylene Glycol, Methyl Perfluoroisbutyl Ether, Acrylates Copolymer, Lauryl Betaine, Cocamidopropyl Betaine, Methyl Perfluorobuty, Ether, Arginine, Sodium Chloride, Hydroxyacetophenone, Fragrance, Panthenol, Ethylhexyl glycerin,Melia Azadirachta Leaf Extract, Propanediol, Houttuynia Cordata Extract, 1,2-Hexanediol, Melia Azadirachta Flower Extract, Centella Asiatica Root Extract, Centella Asiatica Extract, Centella Asiatica Leaf Extract, Centella Asiatica Flower/Leaf/Stem Extract, Adenosine, Maltodextrin, Saccharide Hydrolysate, Salix Alba (Willow) Bark Extract, Sodium Hyaluronate, Origanum Vulgare Leaf Extract, Chamaecyparis Obtusa Leaf Extract, Cinnamomum Cassia Bark Extract, Lactobacillus/Soybean Ferment Extract, Hydrolyzed Pea Protein, Portulaca Oleracea Extract, Scutellaria Baicalensis Root Extract, Phytosterols, Squalane, Olea Europaea (Olive) Fruit Oil, Lecithin, Hydrolyzed Sodium Hyaluronate, Hydrolyzed Hyaluronic Acid, Opuntia Ficus-Indica Fruit Extract, Madecassoside, Asiaticoside, Ceramide NP, Butyrospermum Parkii (Shea) Butter, Sodium Benzoate, Tripeptide-1, Acetyl Tetrapeptide-2, Sodium AcetylatedHyaluronate, Nonapeptide-1, Palmitoyl Pentapeptide-4, PalmitoyTetrapeptide-7, Palmitoyl Tripeptide- 1, Palmitoyl Tripeptide-5, Acetyl Hexapeptide-8, Copper Tripeptide-1, Hexapeptide-9, Hydroxypropyltrimonium Hyaluronate, Dimethylsilanol, Hyaluronate, Sodium Hyaluronate Crosspolymer, Pentylene Glycol, Hyaluronic Acid, Potassium Hyaluronate",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-cica-recovery-2-in-1-cleanser/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as centella, madecassoside may improve comfort and visible redness. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A dense (60+ ingredient) clay-to-foam cleanser that doubles as a leave-on cica mask — centella in multiple forms, ceramide NP, and a full peptide complex layered over a gentle glucoside/betaine surfactant base.",
+    "considerations": "Fragrance is disclosed, and the sheer ingredient count means more cumulative allergen exposure than a minimalist formula — worth flagging for clients juggling several known sensitivities, even though no single ingredient stands out as high-risk.",
+    "bestFor": "Combination, dry, or barrier-compromised/post-procedure skin wanting a calming clay cleanser that can also be left on as a mask. If you prefer a short ingredient list, this isn't it.",
     "reviewed": "September 2026"
   },
   {
@@ -393,9 +393,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Cyclopentasiloxane, Hydrogenated Polydecene, Dipropylene Glycol, Cyclohexasiloxane, Pentaerythrityl Tetraethylhexanoate, Triethylhexanoin, Bis-PEG-18 Methyl Ether Dimethyl Silane, 1,2-Hexanediol, Stearyl Alcohol, Glyceryl Stearate, Butylene Glycol, PEG-100 Stearate, Dimethicone, Cetearyl Olivate, Betaine, Panthenol, Sorbitan Stearate, Sorbitan Olivate, Cetyl Alcohol, Palmitic Acid, Stearic Acid, Dimethicone/Vinyl Dimethicone, Crosspolymer, Menthol, Tromethamine, Tocopheryl Acetate, Methyl Lactate, Xanthan Gum, Carbomer, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Ethylhexylglycerin, Myristyl Alcohol, Melia Azadirachta Leaf Extract, Fragrance, Disodium EDTA, Allantoin, Lauryl Alcohol, Adenosine, Melia Azadirachta Flower Extract, Limonene, Arachidic Acid, BHT, Tripropylene Glycol, Sodium Hyaluronate, Lauric Acid, Oleic Acid, Myristic Acid, Propanediol, Maltodextrin, Saccharide Hydrolysate, Propylene Glycol, Centella Asiatica Root Extract, Centella Asiatica Extract, Centella Asiatica Leaf Extract, Houttuynia Cordata Extract, Sodium Hyaluronate Crosspolymer, Hydrolyzed Glycosaminoglycans, Chamaecyparis Obtusa Leaf Extract, Salix Alba (Willow) Bark Extract, Origanum Vulgare Leaf Extract, Benzyl Glycol, Cinnamomum Cassia Bark Extract, Hydrolyzed Pea Protein, Lactobacillus/Soybean Ferment Extract, Scutellaria Baicalensis Root Extract, Portulaca Oleracea Extract, Phytosterols, Squalane, Lecithin, Olea Europaea(Olive) Fruit Oil, Hydrolyzed Hyaluronic Acid, Palmitoyl Tripeptide-5, Opuntia Ficus-Indica Fruit Extract, Hydrolyzed Collagen, Asiaticoside, Madecassoside, Palmitoyl Tetrapeptide-7, Ceramide NP, Butyrospermum Parkii (Shea) Butter, Palmitoyl Tripeptide-1, Hyaluronic Acid, Raspberry Ketone.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-cica-recovery-all-day-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as centella, madecassoside, allantoin may improve comfort and visible redness. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A silicone-smoothed cica cream — centella in three forms plus its isolated actives (madecassoside, asiaticoside) and ceramide NP for barrier repair, in a lightweight all-day-wear base.",
+    "considerations": "Fragrance plus limonene (a named EU allergen) and menthol are all present — real sensitization and cooling-sting risk despite the 'recovery' name, and worth weighing against a fragrance-free alternative for very reactive skin.",
+    "bestFor": "Dry, compromised, or post-procedure skin needing barrier repair and rich hydration. Not the gentlest option in the KrX cica line — the fragrance-free Essence Cream Pads (below) are the better pick for very reactive skin.",
     "reviewed": "September 2026"
   },
   {
@@ -404,9 +404,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "",
     "source": "No reliable full public INCI located; current package panel required.",
     "confidence": "Set contents verification needed",
-    "summary": "A complete INCI panel was not located in a reliable public source.",
-    "considerations": "Do not score this formula or make client-specific compatibility claims until the current packaging is checked.",
-    "bestFor": "Photograph the box/bottle panel and update this entry before publishing the review online.",
+    "summary": "A four-step bundle (cleanser, toner, serum, moisturizer) built around the same cica/centella positioning as the standalone Cica Recovery products.",
+    "considerations": "Because this bundles four separate formulas, a single-ingredient sensitivity — like the fragrance in the cleanser or cream — should be checked against each component individually rather than assumed to apply across the whole kit.",
+    "bestFor": "Clients wanting a complete step-by-step barrier-recovery routine in one purchase, especially post-procedure. Verify current set contents against the individual product listings before recommending it for a specific sensitivity.",
     "reviewed": "September 2026"
   },
   {
@@ -415,9 +415,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Cyclopentasiloxane, Hydrogenated Polydecene, Dipropylene Glycol, Cyclohexasiloxane, Pentaerythrityl Tetraethylhexanoate, Triethylhexanoin, Bis-PEG-18 Methyl Ether Dimethyl Silane, 1,2-Hexanediol, Stearyl Alcohol, Glyceryl Stearate, Butylene Glycol, PEG-100 Stearate, Dimethicone, Cetearyl Olivate, Betaine, Panthenol, Sorbitan Stearate, Sorbitan Olivate, Cetyl Alcohol, Palmitic Acid, Stearic Acid, Dimethicone/Vinyl Dimethicone, Crosspolymer, Menthol, Tromethamine, Tocopheryl Acetate, Methyl Lactate, Xanthan Gum, Carbomer, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Ethylhexylglycerin, Myristyl Alcohol, Melia Azadirachta Leaf Extract, Fragrance, Disodium EDTA, Allantoin, Lauryl Alcohol, Adenosine, Melia Azadirachta Flower Extract, Limonene, Arachidic Acid, BHT, Tripropylene Glycol, Sodium Hyaluronate, Lauric Acid, Oleic Acid, Myristic Acid, Propanediol, Maltodextrin, Saccharide Hydrolysate, Propylene Glycol, Centella Asiatica Root Extract, Centella Asiatica Extract, Centella Asiatica Leaf Extract, Houttuynia Cordata Extract, Sodium Hyaluronate Crosspolymer, Hydrolyzed Glycosaminoglycans, Chamaecyparis Obtusa Leaf Extract, Salix Alba (Willow) Bark Extract, Origanum Vulgare Leaf Extract, Benzyl Glycol, Cinnamomum Cassia Bark Extract, Hydrolyzed Pea Protein, Lactobacillus/Soybean Ferment Extract, Scutellaria Baicalensis Root Extract, Portulaca Oleracea Extract, Phytosterols, Squalane, Lecithin, Olea Europaea(Olive) Fruit Oil, Hydrolyzed Hyaluronic Acid, Palmitoyl Tripeptide-5, Opuntia Ficus-Indica Fruit Extract, Hydrolyzed Collagen, Asiaticoside, Madecassoside, Palmitoyl Tetrapeptide-7, Ceramide NP, Butyrospermum Parkii (Shea) Butter, Palmitoyl Tripeptide-1, Hyaluronic Acid, Raspberry Ketone.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-cica-recovery-all-day-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as centella, madecassoside, allantoin may improve comfort and visible redness. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The same formula as the KrX Cica Recovery All Day Cream, sold as the 100g/3.5oz full-size jar rather than a separate product — same centella/ceramide barrier-repair positioning.",
+    "considerations": "Same caution as the All Day Cream: fragrance, limonene, and menthol are all present, which matters more here than the size does.",
+    "bestFor": "Same as the All Day Cream — dry, compromised, or post-procedure skin needing rich barrier repair.",
     "reviewed": "September 2026"
   },
   {
@@ -426,9 +426,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Butylene Glycol, 1,2-Hexanediol, Betaine, Panthenol, Polyglyceryl-10 Laurate, Ethylhexylglycerin, Propanediol, Dipotassium Glycyrrhizate, Adenosine, Ammonium Acryloyldimethyltaurate/VP Copolymer, Fragrance, Sodium Hyaluronate, Tremella Fuciformis Polysaccharide, Centella Asiatica Extract, Limonene, Artemisia Vulgaris Extract, Houttuynia Cordata Extract, Hydrolyzed Hyaluronic Acid, Centella Asiatica Root Extract, Origanum Vulgare Leaf Extract, Centella Asiatica Leaf Extract, Chamaecyparis Obtusa Leaf Extract, Salix Alba (Willow) Bark Extract, Atelocollagen, Desamido, Collagen, Cinnamomum Cassia Bark Extract, Hydrolyzed Pea Protein, Lactobacillus/Soybean Ferment Extract, Scutellaria Baicalensis Root Extract, Portulaca Oleracea Extract, Saccharide Hydrolysate, Maltodextrin, Phytosterols, Hydrolyzed Collagen, Olea Europaea (Olive) Fruit Oil, Lecithin, Squalane, Soluble Collagen, Sodium Acetylated Hyaluronate, Opuntia Ficus-Indica Fruit Extract, Collagen, Collagen Amino Acids, Ceramide NP, Shea Butter, Palmitoyl Tripeptide-5, Procollagen, Madecassoside, Asiaticoside, Palmitoyl Tetrapeptide-7, Palmitoyl Tripeptide-1.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-cica-recovery-ultra-healing-toner/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as centella, madecassoside, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as glycyrrhiza can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A hydrating cica toner — centella and its isolated actives plus multiple hyaluronic-acid and collagen forms for layered surface hydration, positioned as an aftercare step following light professional treatments.",
+    "considerations": "Fragrance and limonene are both present, which is worth knowing before using this directly on freshly resurfaced or broken skin — 'recovery' positioning doesn't mean fragrance-free.",
+    "bestFor": "Dry, dehydrated, sensitized, or barrier-compromised skin, including light post-procedure aftercare once skin is intact (not raw/broken).",
     "reviewed": "September 2026"
   },
   {
@@ -437,9 +437,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene Glycol, Glycerin, Di-propylene Glycol, Alcohol, 1,2-Hexane-diol, PEG-60 Hydrogenated Castor Oil, Melaleuca Alterifolia (Tea Tree) Extract, Dimethyl Sulfone, Sodium Citrate, Ethylhexylglycerin, Hydroxy- ethylcellulose, Schisandra Sphena-nthera Fruit Extract, Maltodextrin, Disodium EDTA, Allantoin, Zinc PCA, Gluconolactone, Undaria Pinnatifida Extract, Ulva Lactuca Extract, Sargassum Muticum Extract, Sargassum Fulvellum Extract, Salicornia Herba-cea Extract, Porphyra Yezoensis Ex-tract, Laminaria Japonica Extract, Hizikia Fusiforme Extract, Euglena Gracilis Extract, Enteromorpha Com-pressa Extract, Ecklonia Cava Extract, Codium Fragile Extract, Chlorella Vulgaris Extract, Chlorella Ferment, Capryloyl Salicylic Acid, Hydrolyzed Ulva Lactuca Extract, Hydrolyzed En-teromorpha Compressa, Sodium Nitrate, Houttuynia Cordata Extract, Centella Asiatica Extract, Polysorbate 60, Disodium Phosphate, Melaleuca Alterifolia (Tea Tree) Leaf Water, Hamamelis Virginiana (Witch Hazel) Extract, Sodium Phosphate",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-clear-prevent-anti-toner/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Soothing ingredients such as centella, allantoin may improve comfort and visible redness. Exfoliating ingredients such as salicylic acid, gluconolactone can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "An LHA-based toner — capryloyl salicylic acid (a slow-release, oil-soluble BHA derivative) plus zinc PCA for oil control, with a marine-algae complex and centella softening the formula.",
+    "considerations": "Alcohol and witch hazel both sit mid-list — a real drying combination for anyone already using retinoids or other exfoliants, even though the LHA itself is gentler than standard salicylic acid.",
+    "bestFor": "Oily, congested, and acne-prone skin wanting a gentler alternative to standard BHA toners. Not ideal for dry, sensitive, or already-actives-heavy routines given the alcohol content.",
     "reviewed": "September 2026"
   },
   {
@@ -448,9 +448,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene Glycol, Glycerin, Caprylic/Capric Triglyceride, 1,2-Hexanediol, Caprylyl Glycol, Sodium Polyacrylate, Sodium Hyaluronate, Madecassoside, Asiaticoside, Asiatic Acid, Madecassic Acid, Glycine Soja (Soybean) Oil, Ethylhexylglycerin, Trideceth-6, Hydrogenated Polydecene, Hydroxyethyl Acrylate/Sodium Acryloyldimethyl Taurate Copolymer, Allantoin, Ceramide NP, Octyldodecanol, Hydrogenated Lecithin, Disodium EDTA, Matricaria Extract, Lonicera Japonica (Honeysuckle) Flower Extract, Rosa Rugosa Flower Extract, Sophora Japonica Bud Extract, Rosa Centifolia Flower Extract.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-essence-cream-pads/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, lecithin help reduce moisture loss. Soothing ingredients such as madecassoside, allantoin may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A fragrance-free essence pad built on isolated centella actives (madecassoside, asiaticoside, asiatic acid, madecassic acid) plus ceramide NP — genuinely one of the cleaner cica-line formulas by ingredient risk.",
+    "considerations": "Allantoin is present as a soothing agent, not an exfoliant — the 'gently exfoliating' framing sometimes used in marketing overstates what this ingredient actually does.",
+    "bestFor": "Sensitive, reactive, or post-procedure skin needing calming hydration as a toning layer. The fragrance-free profile makes this the safer soothing option compared to the All Day Cream or Ultra Healing Toner in the same line.",
     "reviewed": "September 2026"
   },
   {
@@ -459,9 +459,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, PEG-7 Glyceryl Cocoate, Dipropylene Glycol, Chamaecyparis Obtusa Water, Arginine, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Hydroxyacetophenone, Allantoin, Butylene Glycol, Caprylyl Glycol, Calendula Officinalis Extract, Hippophae Rhamnoides Fruit Extract, Bambusa Vulgaris Extract, 1,2-Hexanediol, Chamaecyparis Obtusa Oil, Pinus Densiflora Leaf Extract, Biota Orientalis Leaf Extract, Salix Alba (Willow) Bark Extract",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-gentle-enzyme-milk-cleanser-makeup-remover/",
     "confidence": "Published formula",
-    "summary": "Soothing ingredients such as allantoin, calendula may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "A milky enzyme cleanser — papain for gentle exfoliation, centella in multiple forms for calm — with a small amount of alcohol positioned mid-list rather than up front.",
+    "considerations": "Two different ingredient panels circulate for this product publicly; the one used here is the longer, retailer-consistent version. Confirm against the current box before making allergy-specific claims to a client.",
+    "bestFor": "Normal to oily/combination skin wanting a milky first cleanse or makeup removal step. The centella content makes it reasonably calming, but the alcohol means very reactive skin should patch test.",
     "reviewed": "September 2026"
   },
   {
@@ -470,9 +470,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Cocamidopropyl Betaine, Sodium Lauroyl Methyl Isethionate, Polysorbate 20, Butylene Glycol, Evening Primrose Flower Extract, Tea Tree Lead Extract, Aloe Barbadensis Leaf Extract, Glycerine, Allantoin, Cucumis Melo Cantalupensis Fruit Extract, Citric Acid, Tocopherol Acetate, Trisodium Ethylenediamine Disuccinate, Sodium Benzoate, Disodium EDTA.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-glow-gel-cleanser/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, betaine support surface hydration and a plumper feel. Soothing ingredients such as allantoin, aloe may improve comfort and visible redness.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A mild, sulfate-free gel cleanser (cocamidopropyl betaine, sodium lauroyl methyl isethionate) with tea tree leaf extract and vitamin E — notably, no vitamin C, tranexamic acid, or hyaluronic acid appear in this formula.",
+    "considerations": "If this product is being marketed with those three actives, that copy belongs to the KrX All-Day Glow Vitamin Serum instead — worth checking the product page against this ingredient list before it goes further.",
+    "bestFor": "Normal, oily, combination, or acne-prone skin wanting a gentle double-cleanse step. Don't recommend it specifically for brightening or hyperpigmentation — the ingredients that would support that claim aren't in this formula.",
     "reviewed": "September 2026"
   },
   {
@@ -481,9 +481,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene Glycol, Niacinamide, Glycereth-26, Betaine, 1,2-Hexanediol, Propanediol, Sodium Lactate, Gellan Gum, Glycerin, Ethylhexylglycerin, Allantoin, Disodium EDTA, Saccharomyces/Panax Ginseng Flower Ferment Extract, Lycopodium Clavatum Extract, Equisetum Arvense Extract, Hydrogenated Lecithin, Cynanchum Atratum Extract, Ficus Carica (Fig) Fruit Extract, Citrus Unshiu Peel Extract, Centella Asiatica Extract, Sodium Hyaluronate, Hippophae Rhamnoides Extract, Ceramide NP, Hydrolyzed Hyaluronic Acid, Hydroxypropyl Cyclodextrin, Sodium Acetylated Hyaluronate, Glutathione.",
     "source": "KrX regional distributor panel: https://www.krx-aesthetics.info/product/krx-jelly-mist/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, lecithin help reduce moisture loss. Soothing ingredients such as centella, allantoin may improve comfort and visible redness. Tone-support ingredients such as niacinamide, glutathione can support a more even-looking complexion with consistent use.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A fragrance-free gel mask — niacinamide at a meaningful concentration (third on the list), gellan gum for the jelly texture, and ceramide NP plus layered hyaluronic acid for hydration.",
+    "considerations": "No fragrance, essential oils, or common irritants are listed — one of the lowest-risk formulas in the whole catalog.",
+    "bestFor": "Most skin types wanting a lightweight hydrating/brightening gel mask, including sensitive and post-procedure skin, given the clean formula.",
     "reviewed": "September 2026"
   },
   {
@@ -492,9 +492,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Tranexamic Acid, Propanediol, Niacinamide, Butylene Glycol, Propylene Glycol Dibenzoate, Glycereth-26, 1,2-Hexanediol, Panthenol, Ethylhexyl Palmi- tate, PEG-60 Hydrogenated Castor Oil, Bisabolol, Polyacry- late Crosspolymer-6, Polyacrylate-13, Polyisobutene, Ethyl- hexylglycerin, Punica Granatum Fruit Extract, Polyquater- nium-51, Morus Alba Fruit Extract, Ginkgo Biloba Nut Extract, Ficus Carica (Fig) Fruit Extract, Disodium EDTA, Polysorbate 20, Sorbitan Isostearate, Tocopherol, Saccharomyces/Panax Ginseng Flower Ferment Extract, Hexylresorcinol, t-Butyl Alcohol, Lycopodium Clavatum Extract, Equisetum Arvense Extract, Cynanchum Atratum Extract, Vitis Vinifera (Grape) Fruit Extract, Pyrus Malus (Apple) Fruit Extract, Prunus Mume Fruit Extract, Carica Papaya (Papaya) Fruit Extract, Hydro-Xypropyl Cyclodextrin, Glutathione",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-mela-defense-whitening-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, panthenol, propanediol support surface hydration and a plumper feel. Soothing ingredients such as bisabolol may improve comfort and visible redness. Tone-support ingredients such as niacinamide, tranexamic, glutathione can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A tranexamic-acid-led brightening cream (5% per marketing, third on the ingredient list) plus hexylresorcinol, in a richer fatty-alcohol-and-silicone base than its companion serum — notably, no niacinamide despite marketing that describes the line as niacinamide-plus-tranexamic-acid.",
+    "considerations": "That niacinamide claim applies to the companion serum, not this cream — worth correcting if the product copy conflates the two. Otherwise this is fragrance-free with no major irritant flags.",
+    "bestFor": "Post-inflammatory hyperpigmentation or melasma on normal-to-dry skin wanting a richer brightening moisturizer. Oily or acne-prone skin will likely prefer the lighter Mela Défense Serum instead.",
     "reviewed": "September 2026"
   },
   {
@@ -503,9 +503,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Tranexamic Acid, Propane- diol, Niacinamide, Butylene Glycol, Propylene Glycol Di- benzoate, Glycereth-26, 1,2- Hexanediol, Panthenol, Eth- ylhexyl Palmitate, PEG-60 Hydrogenated Castor Oil, B- isabolol, Polyacrylate Cross- polymer-6, Polyacrylate-13, Polyisobutene, Ethylhexyl- glycerin, Punica Granatum Fruit Extract, Polyquaterni- um-51, Morus Alba Fruit Ex- tract, Ginkgo Biloba Nut Ex- tract, Ficus Carica (Fig) Fruit Extract, Disodium EDTA, Po- lysorbate 20, Sorbitan Isos- tearate, Tocopherol, Saccha- romyces/Panax Ginseng Flo- wer Ferment Extract, Hexy- lresorcinol, t-Butyl Alcohol, Lycopodium Clavatum Ext- ract, Equisetum Arvense Ex- tract, Cynanchum Atratum Extract, Vitis Vinifera (Grape) Fruit Extract, Pyrus Malus (Apple) Fruit Extract, Prunus Mume Fruit Extract, Carica Papaya (Papaya) Fruit Ext- ract, Hydroxypropyl Cyclo- dextrin, Glutathione",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-mela-defense-whitening-serum/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, panthenol support surface hydration and a plumper feel. Tone-support ingredients such as niacinamide, tranexamic, glutathione can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "Tranexamic acid and niacinamide together (both listed early, ~5% and ~3% per marketing) plus hexylresorcinol, carried in a lighter gel-serum base than the companion cream — better suited to layering under other products.",
+    "considerations": "No SPF is included, and this much brightening-active load needs consistent daily sunscreen to work and to avoid pigment rebound — that's the real caution here, not the formula's tolerability.",
+    "bestFor": "Hyperpigmentation, melasma, or post-inflammatory marks across most skin types, including oily/combination given the lighter texture than the companion cream.",
     "reviewed": "September 2026"
   },
   {
@@ -514,9 +514,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Prunus Amygdalus Dulcis (Sweet Almond) Oil, Glycerin, Cetyl Ethylhexanoate, Cetyl Alcohol, Niacinamide, 1,2-Hexanediol, Cyclopentasiloxane, Butylene Glycol, Stearyl Alcohol, Cyclohexasiloxane, Sodium Polyacrylate, Glyceryl Stearate, Dimethicone, Copernicia Cerifera (Carnauba) Wax, Polysorbate 60, PEG-100 Stearate, Olea Europaea (Olive) Fruit Oil, Myristyl Alcohol, Palmitic Acid, Hydrogenated Polyisobutene, Stearic Acid, Hydrogenated Lecithin, Carbomer, Arginine, Lauryl Alcohol, Fragrance, Ethylhexylglycerin, Adenosine, Disodium EDTA, Propanediol, Arachidic Acid, Sodium Hyaluronate, Atelocollagen, Desamido Collagen, Hydrolyzed Collagen, Lauric Acid, Myristic Acid, Oleic Acid, Soluble Collagen, Hydrolyzed Hyaluronic Acid, Hydrolyzed Elastin, Panax Ginseng Root Extract, Piper Methysticum Leaf/Root/Stem Extract, Collagen, Anemarrhena Asphodeloides Root Extract, Collagen Amino Acids, Hydrolyzed Pea Protein, Phytosterols, Squalane, Lecithin, Procollagen, Sodium Acetylated Hyaluronate, Palmitoyl Tetrapeptide-7, Lactobacillus Ferment, Camellia Sinensis Leaf Water, Tocopherol, Palmitoyl Tripeptide-1, Palmitoyl Tripeptide-5, Palmitoyl Pentapeptide-4, Nonapeptide-1, Tripeptide-1, Acetyl Tetrapeptide-2, Acetyl Hexapeptide-8, Copper Tripeptide-1, Hexapeptide-9, Ceramide NP, Butyrospermum Parkii (Shea) Butter",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-neck-lift-intensive-firming-neck-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as camellia sinensis may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Fragrance may be a concern for fragrance-sensitive, eczema-prone, or recently treated skin. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A dense firming cream — six collagen forms and a nine-peptide complex acting mainly as surface humectants and film-formers, plus niacinamide and adenosine, in a silicone-and-fatty-alcohol base.",
+    "considerations": "Fragrance is present, which is the top irritant risk here for atopic or contact-dermatitis-prone skin — everything else in the formula is low-risk.",
+    "bestFor": "Normal-to-dry, mature or sagging neck and décolletage skin wanting a rich, firming, fragranced cream. Oily or acne-prone skin will find the silicone/fatty-alcohol base too heavy for that area.",
     "reviewed": "September 2026"
   },
   {
@@ -525,9 +525,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Cyclopentasiloxane, Ethylhexyl Methoxycinnamate, Titanium Dioxide, Ethylhexyl Salicylate, Zinc Oxide, Butyloctyl Salicylate, Caprylic/Capric Triglyceride, Octocrylene, Cetyl PEG/PPG-10/1 Dimethicone, Glycerin, Methylpropanediol, Niacinamide, 1,2-Hexanediol, Dimethicone, Disteardimonium Hectorite, Sorbitan Olivate, Sorbitan Sesquioleate, Microcrystalline Wax, Lauroyl Lysine, Magnesium Sulfate, PEG-30 Dipolyhydroxystearate, Quaternium-18 Bentonite, CI 77492, Silica, Triethoxycaprylylsilane, CI 77491, Crataegus Cuneata Fruit Extract, Prunus Persica (Peach) Fruit Extract, Pyrus Communis (Pear) Fruit Extract, Ethylhexylglycerin, CI 77499, Adenosine, Hedera Helix (Ivy) Extract, Vanilla Planifolia Fruit Extract, Musa Sapientum (Banana) Fruit Extract, Disodium EDTA, BHT, Pentaerythrityl Tetra-di-t-butyl Hydroxyhydrocinnamate",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-skin-filter-tinted-sunscreen-spf-50-pa/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, propanediol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as dimethicone help reduce moisture loss. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Acne-support ingredients such as zinc oxide may help oiliness or active breakouts. Renewal-support ingredients such as adenosine target texture and visible signs of aging.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine. Ingredient review cannot verify SPF performance. Use only as labeled and reapply; the finished product's regulated testing determines protection.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A hybrid mineral-plus-chemical sunscreen — titanium dioxide (5.78%) and zinc oxide (3.94%) alongside octocrylene, octinoxate, and two salicylate filters, tinted with iron oxide pigments and boosted with niacinamide.",
+    "considerations": "Despite some retailers calling this 'mineral tinted,' it is not mineral-only — octocrylene and octinoxate are both present and are among the more commonly reported chemical-filter sensitizers.",
+    "bestFor": "All skin types wanting broad-spectrum SPF 50 with a tinted, blurring finish and minimal white cast. Not the right pick for anyone who specifically needs a chemical-filter-free sunscreen — the zinc/titanium content alone doesn't make that claim true.",
     "reviewed": "September 2026"
   },
   {
@@ -536,9 +536,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Cyclopentasiloxane, Ethylhexyl Methoxycinnamate, Titanium Dioxide, Ethylhexyl Salicylate, Zinc Oxide, Butyloctyl Salicylate, Caprylic/Capric Triglyceride, Octocrylene, Cetyl PEG/PPG-10/1 Dimethicone, Glycerin, Methylpropanediol, Niacinamide, 1,2-Hexanediol, Dimethicone, Disteardimonium Hectorite, Sorbitan Olivate, Sorbitan Sesquioleate, Microcrystalline Wax, Lauroyl Lysine, Magnesium Sulfate, PEG-30 Dipolyhydroxystearate, Quaternium-18 Bentonite, CI 77492, Silica, Triethoxycaprylylsilane, CI 77491, Crataegus Cuneata Fruit Extract, Prunus Persica (Peach) Fruit Extract, Pyrus Communis (Pear) Fruit Extract, Ethylhexylglycerin, CI 77499, Adenosine, Hedera Helix (Ivy) Extract, Vanilla Planifolia Fruit Extract, Musa Sapientum (Banana) Fruit Extract, Disodium EDTA, BHT, Pentaerythrityl Tetra-di-t-butyl Hydroxyhydrocinnamate",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-skin-filter-tinted-sunscreen-spf-50-pa/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, propanediol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as dimethicone help reduce moisture loss. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Acne-support ingredients such as zinc oxide may help oiliness or active breakouts. Renewal-support ingredients such as adenosine target texture and visible signs of aging.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine. Ingredient review cannot verify SPF performance. Use only as labeled and reapply; the finished product's regulated testing determines protection.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The same hybrid mineral-plus-chemical filter system as the Light/Medium shade, with the iron-oxide pigment ratio adjusted to produce the deeper tint — not a different formula, just a different shade.",
+    "considerations": "Same caution as the Light/Medium shade: this is a hybrid formula, not mineral-only, and contains octocrylene and octinoxate.",
+    "bestFor": "Same as the Light/Medium shade, for deeper skin tones wanting a closer tint match — all skin types wanting broad-spectrum SPF 50, not a fit for a chemical-filter-free requirement.",
     "reviewed": "September 2026"
   },
   {
@@ -547,9 +547,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Caprylic/Capric Triglyceride, 1,2-Hexanediol, Polysorbate 60, Butylene Glycol, Betaine, Polyglyceryl-10 Oleate, Panthenol, Inulin, Steareth-21, Isohexadecane, Steareth-20, Pentylene Glycol, Carbomer, Arginine, Cetearyl Alcohol, Diglycerin, Palmitic Acid, Ethylhexylglycerin, PEG-30 Dipolyhydroxystearate, Stearic Acid, Lactobacillus Ferment, Bifida Ferment Filtrate, Lactococcus Ferment, Alpha-Glucan Oligosaccharide, Disodium EDTA, Allantoin, Caprylyl Glycol, Dipotassium Glycyrrhizate, Hydroxyethylcellulose, Tocopheryl Acetate, Sodium Hyaluronate, Tocopherol, Galactomyces Ferment Filtrate, Centella Asiatica Extract, Artemisia Vulgaris Extract, Sodium Phosphate, Disodium Phosphate, Saccharomyces Ferment Filtrate, Lactobacillus/Punica Granatum Fruit Ferment Extract, Lactobacillus Ferment Lysate, Hydrolyzed Hyaluronic Acid, Bacillus Ferment, Sodium Acetylated Hyaluronate.",
     "source": "Current professional-retailer panel: https://leinemedspa.com/products/krx-strengthen-protect-probiotic-face-toner",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Soothing ingredients such as centella, allantoin, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as glycyrrhiza can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A fermented-ingredient toner — six probiotic ferments (Lactobacillus, Bifida, Lactococcus, Bacillus, Galactomyces, Saccharomyces) plus centella and a multi-weight hyaluronic acid complex, with no fragrance or essential oils.",
+    "considerations": "Nothing here reads as a common irritant. Very oily/acne-prone users layering several humectant-heavy products may find it adds tack, and anyone with a known fermentation/yeast sensitivity should patch test.",
+    "bestFor": "Sensitive, reactive, and barrier-compromised skin (including post-procedure or rosacea-prone), and combination/normal skin wanting a hydrating, calming toner.",
     "reviewed": "September 2026"
   },
   {
@@ -558,20 +558,20 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Coco-Betaine, Sodium C14-16 Olefin Sulfonate, Cocamidopropyl Betaine, Sodium Chloride, Coco-Glucoside, 1,2-Hexanediol, Ethylhexylglycerin, Disodium EDTA, Lactococcus Ferment, Lactobacillus Ferment, Bifida Ferment Filtrate, Xylitol, Tocopherol, Inulin, Alpha-Glucan Oligosaccharide, Fructan.",
     "source": "Current professional-retailer panel: https://leinemedspa.com/products/krx-strengthen-protect-probiotic-face-wash",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, betaine support surface hydration and a plumper feel.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "The cleanser companion to the probiotic toner — same three-ferment complex (Lactococcus, Lactobacillus, Bifida) plus prebiotic sugars, but built on a sulfate-type surfactant (sodium C14-16 olefin sulfonate) rather than a fully gentle glucoside base.",
+    "considerations": "Despite the gentle-sounding probiotic marketing, the sulfate-type surfactant can still be more drying than a fully glucoside-based cleanser for very dry or eczema-prone skin.",
+    "bestFor": "Normal-to-combination skin interested in microbiome-supportive, fragrance-free cleansing. Very dry or barrier-compromised skin may find it a touch stripping despite the ferment content.",
     "reviewed": "September 2026"
   },
   {
     "name": "KrX The Face Lift Intensive Firming Serum",
     "brand": "KrX Aesthetics",
-    "formula": "",
-    "source": "The prior store panel duplicated the Active 31 eye formula and was rejected. A current complete package panel is required.",
-    "confidence": "Packaging verification needed",
-    "summary": "A complete INCI panel was not located in a reliable public source.",
-    "considerations": "Do not score this formula or make client-specific compatibility claims until the current packaging is checked.",
-    "bestFor": "Photograph the box/bottle panel and update this entry before publishing the review online.",
+    "formula": "Water, Glycerin, Glycol, Propanediol, Methyl Gluceth-20, Dipropylene Glycol, 1,2-Hexanediol, Helianthus Annuus (Sunflower) Seed Oil, Glyceryl Stearate, C14-22 Alcohols, Butyrospermum Parkii (Shea) Butter, Sodium Acrylate/Sodium Acryloyldimethyl Taurate Copolymer, Sodium Polyacrylate, Polyisobutene, Hydrogenated Lecithin, C12-20 Alkyl Glucoside, Tromethamine, Carbomer, Glyceryl Acrylate/Acrylic Acid Copolymer, Ethylhexylglycerin, Atelocollagen, Desamido Collagen, Hydrolyzed Collagen, Disodium EDTA, Sorbitan Oleate, Caprylyl/Capryl Glucoside, Soluble Collagen, Collagen, Collagen Amino Acids, Biosaccharide Gum-1, Glucose, Procollagen, Undaria Pinnatifida Extract, Dioscorea Japonica Root Extract",
+    "source": "Independently confirmed word-for-word across two professional retailers, distinct from the Active 31 Eye Cream formula that was previously rejected: https://artofskincare.com/products/krx-the-face-lift-intensive-firming-serum and https://sweetskinla.com/products/krx-the-face-lift-intensive-firming-serum",
+    "confidence": "Published formula",
+    "summary": "A collagen-and-humectant gel serum — several collagen forms functioning as surface humectants and film-formers, plus biosaccharide gum-1 and shea butter for a temporary firming, cushioned feel.",
+    "considerations": "No fragrance, essential oils, or classic irritants are listed, making this a low-risk layer even for reactive skin. As with any collagen-peptide serum, expect hydration and surface plumping rather than dramatic lifting.",
+    "bestFor": "Normal-to-dry, mature skin wanting a lightweight, fragrance-free hydrating and firming layer; also fine for sensitive or fragrance-reactive skin given the clean formula.",
     "reviewed": "September 2026"
   },
   {
@@ -580,9 +580,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Hydrogenated Polydecene, Cyclopentasiloxane, Dipropylene Glycol, Cyclohexasiloxane, Triethylhexanoin, Pentaerythrityl Tetraethylhexanoate, Bis-PEG-18 Methyl Ether Dimethyl Silane, 1,2-Hexanediol, Stearyl Alcohol, Glyceryl Stearate, Butylene Glycol, PEG-100 Stearate, Dimethicone, Cetearyl Olivate, Cetearyl Alcohol, Betaine, Sorbitan Stearate, Panthenol, Sorbitan Olivate, Palmitic Acid, Dimethicone/Vinyl Dimethicone Crosspolymer, Stearic Acid, Tromethamine, Tocopheryl Acetate, Hydrogenated Lecithin, Xanthan Gum, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Carbomer, Ethylhexylglycerin, Adenosine, Allantoin, Disodium EDTA, Hydrogenated Polyisobutene, Propanediol, BHT, Arachidic Acid, Sodium Hyaluronate, Oleic Acid, Lauric Acid, Myristic Acid, Caprylyl Glycol, Hydrolyzed Pea Protein, Phytosterols, Squalane, Lecithin, Olea Europaea (Olive) Fruit Oil, Acetyl Hexapeptide-8, Ceramide NP, Butyrospermum Parkii (Shea) Butter, Anemarrhena Asphodeloides Root Extract, Copper Tripeptide-1, Palmitoyl Pentapeptide-4, Palmitoyl Tripeptide-1, Tripeptide-1, Tocopherol, Hexapeptide-9, Nonapeptide-1",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-youthplex-face-lift-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, betaine support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Soothing ingredients such as allantoin may improve comfort and visible redness. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A rich firming cream marketed around 'Volufiline' — that trade name doesn't appear as a discrete listed ingredient, so treat it as a marketing claim rather than a verified formula component. The actual formula leans on ceramide NP, squalane, phytosterols, and a peptide complex (copper tripeptide-1, acetyl hexapeptide-8).",
+    "considerations": "No fragrance is listed. The silicone-and-fatty-alcohol base is genuinely rich, so oily or acne-prone skin will likely find it heavy for daily use.",
+    "bestFor": "Mature, normal-to-dry skin wanting a rich, fragrance-free firming moisturizer with real barrier-supportive lipids and peptides underneath the branded name.",
     "reviewed": "September 2026"
   },
   {
@@ -591,9 +591,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Butylene Glycol, Cyclohexasiloxane, Isopropyl Palmitate, Glycerin, 1,2-Hexanediol, Polyglyceryl-10 Myristate, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Helianthus Annuus (Sunflower) Seed Oil, Arginine, Ethylhexylglycerin, Adenosine, Disodium EDTA, Sodium Hyaluronate, Hydrogenated Polyisobutene, Propanediol, Caprylyl Glycol, Hydrolyzed Pea Protein, Phytosterols, Squalane, Lecithin, Olea Europaea (Olive) Fruit Oil, Acetyl Hexapeptide-8, Ceramide NP, Butyrospermum Parkii (Shea) Butter, Anemarrhena Asphodeloides Root Extract, Copper Tripeptide-1, Palmitoyl Pentapeptide-4, Palmitoyl Tripeptide-1, Tripeptide-1, Tocopherol, Hexapeptide-9, Nonapeptide-1",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/krx-youthplex-face-lift-serum/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, propanediol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, squalane, shea help reduce moisture loss. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The lighter, serum-format sibling to the Youthplex Cream, with the same 'Volufiline'-marketing caveat — the real actives are acetyl hexapeptide-8, copper tripeptide-1, and a rich lipid base (ceramide NP, squalane, shea butter).",
+    "considerations": "Isopropyl palmitate sits mid-list and carries a mild-to-moderate comedogenic reputation — worth a patch test for acne-prone or very congestion-prone skin before layering under other products.",
+    "bestFor": "Normal, dry, and mature skin wanting a peptide- and lipid-rich lifting serum. Acne-prone or congestion-prone skin should patch test given the isopropyl palmitate.",
     "reviewed": "September 2026"
   },
   {
@@ -602,9 +602,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water), Helianthus Annuus (Sunflower) Seed Oil, Xylitol, Glycerin, Glyceryl Stearate, Vitis Vinifera (Grape) Seed Oil, Theobroma Cacao (Cocoa) Seed Butter, Cetearyl Glucoside, Acetyl Hexapeptide-3, Caprylic Acid, Glycine, Butyrospermum Parkii (Shea) Butter, Hydroxyproline, Tocopherol (Vitamin E), Xanthan Gum, Mentha Piperita (Peppermint) Leaf Oil, Methyl Nicotinate.",
     "source": "GlyMed published full panel: https://www.glymedpluscanada.com/lip-enhancer-with-warming-actives",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as shea, butyrospermum help reduce moisture loss. Renewal-support ingredients such as peptide target texture and visible signs of aging.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A cosmetic lip plumper — methyl nicotinate drives the warming/tingling flush by increasing local blood flow, backed by cocoa and shea butter for conditioning.",
+    "considerations": "Peppermint oil adds to the tingling effect and is a real irritant on chapped or broken lip skin, despite the plumping being the intended sensation.",
+    "bestFor": "People wanting a temporary, cosmetic lip-plumping sensation on intact, healthy lips. Not for chapped, cracked, or eczematous lips, where the warming actives will likely sting rather than help — and skip it during pregnancy/nursing out of general essential-oil caution.",
     "reviewed": "September 2026"
   },
   {
@@ -613,9 +613,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Propanediol, Caprylic/ Capric Triglyceride, Hydroxyethyl Urea, Pentylene Glycol, Glycerin, Ammonium Acryloyldimethyltaurate/VP Copolymer, Caffeine, Triethyl Citrate, Salvia Hispanica Seed Oil, Spilanthes Acmella Flower Extract, Sodium Hyaluronate, Nepheium Longana Seed Extract, Glucosyl Hesperidin, Tocopherol, Dihydroxylignoceroyl Phytosphingosine, Ceramide AP, Sodium Phytate, Citric Acid",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/lipid-body-treatment/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, urea support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide help reduce moisture loss.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A caffeine- and Spilanthes-based body treatment for a temporary firming/tightening sensation, with chia seed oil (Epicutis's HYVIA complex) for hydration.",
+    "considerations": "The brand's own directions note mild warming on initial use from the caffeine and Spilanthes — expected, not a defect, but worth mentioning in advance to a client sensitive to warming sensations.",
+    "bestFor": "Dry, crepey, or barrier-compromised body skin wanting hydration plus a temporary firming feel; fragrance-free formula suits sensitive skin too.",
     "reviewed": "September 2026"
   },
   {
@@ -624,9 +624,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Propanediol, Pentylene Glycol, Glycerin, Sodium Hyaluronate, Disodium Tetramethylhexadecenyl Succinoyl Cysteine, Sodium Phytate, Citric Acid",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/lipid-serum/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, propanediol support surface hydration and a plumper feel.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "An unusually minimalist eight-ingredient serum built around Epicutis's patented TSC complex (Disodium Tetramethylhexadecenyl Succinoyl Cysteine) for calming and antioxidant support, plus sodium hyaluronate for hydration.",
+    "considerations": "Nothing here raises an irritation flag — this is about as low-risk as a serum gets. The tradeoff is that it's a calming/hydrating layer, not an actives-forward treatment for pigmentation or texture.",
+    "bestFor": "Sensitive, reactive, inflamed, or post-procedure skin needing a simple, calming, hydrating serum with minimal risk of triggering a reaction.",
     "reviewed": "September 2026"
   },
   {
@@ -635,9 +635,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Lipid Serum: Water, Propanediol, Pentylene Glycol, Glycerin, Sodium Hyaluronate, Disodium Tetramethylhexadecenyl Succinoyl Cysteine, Sodium Phytate, Citric Acid Hyvia® Crème: Water, Caprylic/ Capric Triglyceride, Propanediol, Glycerin, Butyrospermum Parkii (Shea) Butter, Pentylene Glycol, Limnanthes Alba Meadowfoam Seed Oil, Glyceryl Stearate SE, Stearyl Alcohol, Steareth-20, Tocopherol, Salvia Hispanica Seed Oil, DSD (Disodium S-Phytyl Diglycoloylcysteine), Spilanthes Acmella Flower Extract, Ceramide NP, Isocetyl Alcohol, Cetyl Alcohol, Phytosterols, Ferulic Acid, Oenothera Biennis (Evening Primrose) Seed Extract, Butylene Glycol, Carbomer, Sodium Phytate, Potassium Hydroxide",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/luxury-skincare-set/",
     "confidence": "Component formulas; verify set contents",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, propanediol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as ceramide, shea, butyrospermum help reduce moisture loss. Tone-support ingredients such as ferulic can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A two-product bundle pairing the Lipid Serum's minimalist calming formula with the Hyvia Crème's richer ceramide-and-lipid barrier cream — a full AM/PM routine from one line rather than a single formula.",
+    "considerations": "Assess each component on its own card — the serum is close to risk-free, and the crème's richness is the only real consideration, for very oily skin.",
+    "bestFor": "Sensitive, inflamed, redness-prone, or post-procedure skin wanting a complete routine from a fragrance-free, low-irritant line.",
     "reviewed": "September 2026"
   },
   {
@@ -646,9 +646,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Hypochlorous acid 0.018% Ionized water 99.918% Sodium chloride (salt) 0.06% Hypochlorite ion 0.004%",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/magic-molecule-hypochlorous-acid-spray/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "The published list is primarily a vehicle/conditioning formula; benefits depend heavily on concentration, pH, and finished-product testing.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "About as simple as a formula gets — hypochlorous acid at 0.018% in a saline-buffered water base, with no fragrance, alcohol, parabens, or sulfates.",
+    "considerations": "None. This is one of the gentlest, most minimalist formulas in the whole catalog — the main practical note is that HOCl degrades with light/heat exposure over time, so storage matters more than any ingredient-safety concern.",
+    "bestFor": "All skin types, including sensitive, acne-prone, eczema-prone, rosacea-prone, and post-procedure skin needing a gentle antimicrobial mist.",
     "reviewed": "September 2026"
   },
   {
@@ -657,9 +657,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Hypochlorous acid 0.018% Ionized water 99.918% Sodium chloride (salt) 0.06% Hypochlorite ion 0.004%",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/magic-molecule-hypochlorous-acid-spray/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "The published list is primarily a vehicle/conditioning formula; benefits depend heavily on concentration, pH, and finished-product testing.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "The identical hypochlorous acid formula as the 2oz bottle, just a larger fill size — no concentration change between sizes.",
+    "considerations": "None, same as the 2oz. The larger size suits estheticians, clinics, or daily users wanting more volume per bottle.",
+    "bestFor": "Same as the 2oz — all skin types, including sensitive, acne-prone, and post-procedure skin.",
     "reviewed": "September 2026"
   },
   {
@@ -668,9 +668,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Active ingredient: Colloidal Sulfur 10%. Inactive ingredients: Aqua, Bentonite, Kaolin Clay, Glycerin, Citrus Grandis (Grapefruit) Peel Oil, Phenoxyethanol, Caprylyl Glycol.",
     "source": "GlyMed official global product page: https://glymed.global/products/us-gm-51ar",
     "confidence": "Official/current",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Acne-support ingredients such as sulfur may help oiliness or active breakouts.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A 10% sulfur clay mask — bentonite and kaolin absorb oil while sulfur does the antibacterial/keratolytic work, with grapefruit peel oil for scent.",
+    "considerations": "The clay base plus grapefruit oil and sulfur together are genuinely drying — expected for a targeted oily-skin treatment, but not a fit for dry or reactive skin used all over or too often.",
+    "bestFor": "Oily, acne-prone, and combination skin dealing with breakouts or clogged pores, used as a spot- or full-face treatment mask. Not for dry, dehydrated, or fragrance-sensitive skin.",
     "reviewed": "September 2026"
   },
   {
@@ -679,9 +679,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycereth-26, Butylene Glycol, Propanediol, Hydrolyzed Collagen, Sodium Hyaluronate, Hydrolyzed Hyaluronic Acid, Sodium Acetylated Hyaluronate, 1,2-Hexanediol, Niacinamide, Betaine, Hydroxyethyl Urea, Soy Isoflavones, Polyglyceryl-10 Laurate, Arginine, Allantoin, Carbomer, Hydroxyethyl Cellulose, Dipotassium Glycyrrhizate, Ethylhexylglycerin, Disodium EDTA, Centella Asiatica Extract, Scutellaria Baicalensis Root Extract, Chamomilla Recutita Flower Extract, Camellia Sinensis Leaf Extract, Glycyrrhiza Glabra Root Extract, Rosmarinus Officinalis Leaf Extract, Apium Graveolens Extract, Brassica Oleracea Capitata Leaf Extract, Oryza Sativa Extract, Solanum Lycopersicum Fruit/Leaf/Stem Extract, Brassica Rapa Leaf Extract, Daucus Carota Sativa Root Extract, Brassica Italica Extract, Acetyl Hexapeptide-8, Copper Tripeptide-4, Palmitoyl Pentapeptide-1, Palmitoyl Tripeptide-4, Tripeptide-1, Hexapeptide-1, Nonapeptide-1.",
     "source": "Matched to Medipair Calming Booster formula: https://www.skinaccord.com/products/medi-pair-calming-booster — confirm that the Square item named 'Calming Serum' is this same SKU.",
     "confidence": "Identity check needed",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Soothing ingredients such as centella, allantoin, glycyrrhiza may improve comfort and visible redness. Tone-support ingredients such as niacinamide, glycyrrhiza can support a more even-looking complexion with consistent use. Renewal-support ingredients such as peptide target texture and visible signs of aging.",
-    "considerations": "Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The closest verified match is Medipair's 'Calming Booster' — a hyaluronic-acid and niacinamide serum layered with a seven-botanical soothing complex (centella, licorice, chamomile, rosemary, green tea) and a peptide stack.",
+    "considerations": "The exact product name doesn't match anything in Medipair's published catalog under 'Calming Serum' — confirm with the distributor whether this Square listing is the Calming Booster under a shortened name before publishing specific ingredient claims to customers.",
+    "bestFor": "If the Calming Booster match is correct: sensitive, reactive, or barrier-compromised skin of any type needing redness relief and hydration. Hold off on specific claims until the identity is confirmed.",
     "reviewed": "September 2026"
   },
   {
@@ -690,9 +690,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, 1,2-Hexanediol, Polyglyceryl-10 Laurate, Ammonium Acryloyldimethyltaurate/VP Copolymer, Squalane, Allantoin, Arginine, Ethylhexylglycerin, Disodium EDTA, Citric Acid, Mentha Rotundifolia Leaf Extract, Camellia Sinensis Leaf Extract, Thymus Vulgaris (Thyme) Leaf Extract.",
     "source": "Published Medipair distributor panel: https://www.pureraum.com/products/plasma-serum",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as squalane help reduce moisture loss. Soothing ingredients such as allantoin, camellia sinensis may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A short, calming serum — squalane and allantoin for barrier support, green tea and thyme/apple mint extracts for soothing, with no fragrance listed.",
+    "considerations": "Mint-family extracts can occasionally sensitize very reactive skin even without added fragrance, though this is a mild risk given the low position in the list.",
+    "bestFor": "Post-procedure care and daily use for inflammation, redness, and acne-prone or atopic skin; the fragrance-free formula suits sensitive skin generally.",
     "reviewed": "September 2026"
   },
   {
@@ -701,9 +701,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, 1,2-Hexanediol, Ethylhexylglycerin, Arginine, Sodium Nitrate, Allantoin, Citric Acid.",
     "source": "Matched to Medipair Plasma Mist formula: https://www.pureraum.com/products/plasma-mist — confirm that the Square item named 'Plasma Toner' is this same SKU.",
     "confidence": "Identity check needed",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Soothing ingredients such as allantoin may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "The closest verified match is Medipair's 'Plasma Mist' — a very short, low-irritant formula (water, two glycol preservatives, arginine, allantoin, citric acid).",
+    "considerations": "No product literally named 'Plasma Toner' exists in Medipair's published Plasma line — confirm with the distributor whether this Square listing is the Plasma Mist under a shortened name before publishing specific claims.",
+    "bestFor": "If the Plasma Mist match is correct: sensitive, reactive, post-procedure, or barrier-compromised skin, given the short, low-irritant formula. Hold off on specific claims until the identity is confirmed.",
     "reviewed": "September 2026"
   },
   {
@@ -712,9 +712,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Watermelon Extract, Prickly Pear Extract, Cranberry Extract, Cucumber Extract, Japanese Green Tea Extract, and Calendula Flower Extracts",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-clean/",
     "confidence": "Published formula",
-    "summary": "Soothing ingredients such as green tea, calendula may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "A sulfate-free gel cleanser — lauryl glucoside and potassium laureth-3 phosphate as the surfactant base, with aloe and several calming botanicals (arnica, calendula, chamomile) folded in.",
+    "considerations": "Only about 18 of an estimated 31 total ingredients are publicly confirmed — the remaining ones aren't disclosed anywhere checked, so a client with a specific known allergy can't be fully screened against this list yet.",
+    "bestFor": "Sensitive and acne-prone skin wanting a gentle, sulfate-free gel cleanse. Flag the incomplete disclosure before recommending it to anyone with a documented ingredient allergy.",
     "reviewed": "September 2026"
   },
   {
@@ -723,9 +723,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Active ingredient disclosed: Benzoyl Peroxide 2.8%. Full inactive ingredient panel was not located in a reliable public source.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-clear-plex-2-8/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Acne-support ingredients such as benzoyl peroxide may help oiliness or active breakouts.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Benzoyl peroxide can bleach fabrics and commonly causes dryness; strength matters.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A straightforward 2.8% benzoyl peroxide gel — glycerin for a touch of humectant support, otherwise a simple functional base (carbomer, glycol).",
+    "considerations": "Benzoyl peroxide is genuinely drying, especially on first use, and will bleach colored fabric on contact — expected at this entry-level strength, not a formula flaw.",
+    "bestFor": "Oily, acne-prone, or inflammatory-breakout-prone skin that can tolerate benzoyl peroxide, positioned as the gentler end of Mixi's BPO strengths.",
     "reviewed": "September 2026"
   },
   {
@@ -734,9 +734,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Active ingredient disclosed: Benzoyl Peroxide 5%. Full inactive ingredient panel was not located in a reliable public source.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-clear-plex-5-2/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Acne-support ingredients such as benzoyl peroxide may help oiliness or active breakouts.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Benzoyl peroxide can bleach fabrics and commonly causes dryness; strength matters.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The same base formula as the 2.8% version, with the benzoyl peroxide concentration nearly doubled.",
+    "considerations": "Stronger antibacterial effect than the 2.8%, but also more drying/irritating potential — not a good starting strength for first-time BPO users or dry/sensitive skin.",
+    "bestFor": "Oilier or more resilient acne-prone skin that has already tolerated the 2.8% and needs a step-up within the same line.",
     "reviewed": "September 2026"
   },
   {
@@ -745,9 +745,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Propanediol, Sodium Carboxymethyl Beta-Glucan, Citrullus Lanatus Fruit Extract, Pyrus Malus Fruit Extract, Lens Esculenta Fruit Extract, Sodium Lactate, Sodium PCA, Benzyl Alcohol, PEG-12 Dimethicone, Allantoin, Sodium Hyaluronate, Potassium Sorbate, Aloe Barbadensis Leaf Juice, Glycyrrhiza Glabra Root Extract, Centella Asiatica Extract, Panthenol, Disodium EDTA, Caprylic/Capric Triglyceride, Citrus Limon Peel Extract, Citrus Aurantium Dulcis Fruit Extract, Citrus Aurantifolia Peel Extract, Salvia Officinalis Leaf Extract, Vanilla Planifolia Fruit Extract, Cucumis Sativus Fruit Extract.",
     "source": "Mixi published product panel: https://mixiskincare.com/skincare-products/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, panthenol support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as dimethicone help reduce moisture loss. Soothing ingredients such as centella, allantoin, aloe may improve comfort and visible redness. Tone-support ingredients such as glycyrrhiza can support a more even-looking complexion with consistent use.",
-    "considerations": "A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A beta-glucan and fruit-extract serum for hydration and antioxidant support — the published list includes several named fruit extracts (watermelon, apple, lentil) alongside sodium hyaluronate and centella.",
+    "considerations": "The cited source page doesn't currently show this product by name — worth a quick re-check against the live Mixi catalog or the physical box before treating this list as fully confirmed.",
+    "bestFor": "Likely dehydrated or dull-looking skin wanting a lightweight antioxidant hydrator, based on the ingredients shown — verify the source before making specific claims to a client.",
     "reviewed": "September 2026"
   },
   {
@@ -756,9 +756,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Main Ingredients: Water, Hydrogen Peroxide, Salicylic, Retinal Palmitate, Panthenol (Pro-Vitamin B5)",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-clear-plex-5/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Humectants such as panthenol support surface hydration and a plumper feel.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "Despite the name, this isn't a hydroxy-acid exfoliant — hydrogen peroxide is the namesake active, an antibacterial oxidizer, with salicylic acid as a secondary BHA and retinyl palmitate for mild renewal support.",
+    "considerations": "Lavender oil is present, and the hydrogen-peroxide-plus-salicylic-acid combination is more drying than a single-active alternative — both worth flagging before daily use.",
+    "bestFor": "Mild-to-moderate inflammatory acne on skin that tolerates hydrogen peroxide and isn't fragrance-sensitive. Don't market it internally as a hydroxy-acid product — that's not what drives its effect.",
     "reviewed": "September 2026"
   },
   {
@@ -767,9 +767,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Actives disclosed: L-Mandelic Acid 11%, Lactic Acid, Niacinamide, Green Tea Extract. Full vehicle/preservative panel was not located in a reliable public source.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-mandelic-11-serum/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Soothing ingredients such as green tea may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Exfoliating ingredients such as mandelic acid, lactic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "One step below the top of Mixi's mandelic acid range — same base formula (lactic acid, niacinamide, licorice root, green tea) as the 5%/8% versions, at a higher acid concentration.",
+    "considerations": "The specific ingredient list for this exact strength wasn't independently confirmed — it's inferred from the verified 5%/8% base formula, so treat as reliable but not independently verified for 11% specifically.",
+    "bestFor": "Skin that has already built tolerance through 5%/8% and wants stronger exfoliation for active breakouts or stubborn post-acne marks. Not a starting strength for sensitive or first-time acid users.",
     "reviewed": "September 2026"
   },
   {
@@ -778,9 +778,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Actives disclosed: L-Mandelic Acid 15%, Lactic Acid, Niacinamide, Green Tea Extract. Full vehicle/preservative panel was not located in a reliable public source.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-mandelic-15-serum/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Soothing ingredients such as green tea may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Exfoliating ingredients such as mandelic acid, lactic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The top of Mixi's mandelic acid range — same base formula as the lower strengths, at the highest acid concentration in the line.",
+    "considerations": "At 15%, irritation risk rises meaningfully regardless of the gentle supporting formula; comparable products in this category are often positioned for body use rather than face-first application.",
+    "bestFor": "Resilient, thicker skin that has already tolerated the 11% well. Not for facial use without prior mandelic acid tolerance, and not for sensitive, thin, or rosacea-prone skin.",
     "reviewed": "September 2026"
   },
   {
@@ -789,9 +789,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Actives disclosed: L-Mandelic Acid 5%, Lactic Acid, Niacinamide, Green Tea Extract. Full vehicle/preservative panel was not located in a reliable public source.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-mandelic-5-serum/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Soothing ingredients such as green tea may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Exfoliating ingredients such as mandelic acid, lactic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A gentle-entry AHA serum — 5% mandelic acid (larger-molecule, slower-acting than glycolic) plus lactic acid, niacinamide, and licorice root in an alcohol-free, fragrance-free-looking base.",
+    "considerations": "One retailer listing shows a trace green-tea fragrance component and another doesn't — worth confirming the current formula if a client has a documented fragrance allergy.",
+    "bestFor": "Beginners to chemical exfoliation, and sensitive or rosacea-prone skin easing into an acid routine — a genuinely mild starting strength.",
     "reviewed": "September 2026"
   },
   {
@@ -800,9 +800,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Actives disclosed: L-Mandelic Acid 8%, Lactic Acid, Niacinamide, Green Tea Extract. Full vehicle/preservative panel was not located in a reliable public source.",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/mixi-mandelic-8-serum/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Soothing ingredients such as green tea may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Exfoliating ingredients such as mandelic acid, lactic acid can help texture, congestion, and post-blemish discoloration when tolerated.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "The same supporting formula as the 5% version, with the mandelic acid concentration stepped up for more noticeable exfoliation.",
+    "considerations": "Same fragrance-listing uncertainty as the 5% — confirm the current formula for a fragrance-allergic client. Otherwise still one of the gentler AHA strengths available.",
+    "bestFor": "Combination or oily/acne-prone skin that has built some tolerance to the 5% and wants moderate exfoliation for texture or early pigmentation.",
     "reviewed": "September 2026"
   },
   {
@@ -811,9 +811,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Dipropylene Glycol, Dimethicone, Cyclopentasiloxane, Dimethiconol, Aloe Barbadensis Leaf Extract, Sodium Hyaluronate, Sciadopitys Verticillata Root Extract, Canavalia Gladiata Fruit Extract, Panthenol, Allantoin, Betaine, Acrylates/C10-30 Alkyl Acrylate Crosspolymer, Tocopheryl Acetate, Disodium, Centella Asiatica Extract, Portulaca Oleracea Extract, Hydrogenated Lecithin, Butylene Glycol, Hydroxyethyl Acrylate/Sodium Acrloyldimethyl Taurate Copolymer, Carbomer, Ethylhexylglycerin, Glyceryl Caprylate, Potassium Hydroxide, Chlorphenesin",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/dermo-essential-moisture-rx-recharging-cream/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, betaine support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as dimethicone, lecithin help reduce moisture loss. Soothing ingredients such as centella, allantoin, aloe may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dry, dehydrated, or barrier-stressed skin; richer occlusives may feel heavy on very oily users.",
+    "summary": "A silicone-forward gel-cream (dimethicone, cyclopentasiloxane) for reducing water loss, with centella and purslane for calm — no fragrance, no essential oils, no drying alcohol.",
+    "considerations": "Methylparaben is present as a preservative — a non-issue by regulatory standards, but worth flagging for a paraben-avoidant client.",
+    "bestFor": "Dry, dehydrated, or barrier-compromised skin wanting a rich occlusive-humectant gel-cream, including post-procedure recovery. Very oily or congestion-prone skin may find the silicone base too rich.",
     "reviewed": "September 2026"
   },
   {
@@ -822,9 +822,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua, Glycerin, 1,2-Hexanediol, Beta Glucan",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/neogenesis-beta-glucan-serum/",
     "confidence": "Partial ingredient disclosure",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "An extremely short four-ingredient formula — beta-glucan (from shiitake mushroom, ~4,000ppm per retailer copy) as the sole active, in a water-glycerin base.",
+    "considerations": "None. This is about as minimal and low-risk as a serum gets — no fragrance, essential oils, drying alcohol, or common allergens.",
+    "bestFor": "Very sensitive, reactive, rosacea-prone, or post-procedure skin needing simple barrier support without added actives. Also works layered under other treatments for virtually any skin type.",
     "reviewed": "September 2026"
   },
   {
@@ -833,9 +833,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "",
     "source": "Device; no cosmetic INCI applies. Manufacturer: https://omniluxled.com/products/omnilux-contour-face",
     "confidence": "Not applicable - device",
-    "summary": "A complete INCI panel was not located in a reliable public source.",
-    "considerations": "Do not score this formula or make client-specific compatibility claims until the current packaging is checked.",
-    "bestFor": "Photograph the box/bottle panel and update this entry before publishing the review online.",
+    "summary": "This is an LED light-therapy device (132 medical-grade LEDs, red 633nm plus near-infrared 830nm), not a topical formula — there's no cosmetic ingredient list because nothing is applied to skin as part of how it works.",
+    "considerations": "Standard LED-device precautions apply: photosensitizing medications, active/uncontrolled skin cancer, seizure disorders triggered by light, or pregnancy should be discussed with a physician first.",
+    "bestFor": "Anyone seeking a non-invasive, at-home anti-aging adjunct — fine lines, uneven tone, loss of firmness. It is not marketed for acne; that's a different Omnilux wavelength device.",
     "reviewed": "September 2026"
   },
   {
@@ -844,9 +844,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua, Isononyl Isononanoate, Isodecyl Neopentanoate, Glycerin, Polyacrylate Crosspolymer-6, Arachidyl Alcohol, Phenoxyethanol, Sorbitol, Behenyl Alcohol, Tocopheryl Acetate, Arachidyl Glucoside, Citrus Paradisi (Grapefruit) Peel Oil, Ethylhexylglycerin, Lactobacillus/Wasabia Japonica Root Ferment Extract, Tetrahexyldecyl Ascorbate, Tropaeolum Majus Flower/Leaf/Stem Extract, T-Butyl Alcohol, Sodium Phytate, Hydrolyzed Candida Saitoana Extract, Rice Ferment Filtrate (Sake), Glucose, Alcohol, Limonene, Linalool.",
     "source": "GlyMed official global product page: https://glymed.global/products/us-gm-029r",
     "confidence": "Official/current",
-    "summary": "Humectants such as glycerin support surface hydration and a plumper feel. Tone-support ingredients such as ascorb can support a more even-looking complexion with consistent use.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. A volatile alcohol appears in the list; it may feel drying or sting on compromised skin, depending on concentration.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "A lightweight vitamin C brightening cream — tetrahexyldecyl ascorbate (a stable, lower-irritation vitamin C form) plus a fermented brightening complex, without silicones, parabens, or sulfates per brand claims.",
+    "considerations": "Grapefruit peel oil is present and carries some phototoxicity risk with sun exposure — worth pairing with diligent daytime SPF.",
+    "bestFor": "Normal-to-oily or dull, uneven-toned skin wanting a lightweight vitamin C cream. This is a leave-on cream, distinct from the Oxygen Deep Pore Masque below.",
     "reviewed": "September 2026"
   },
   {
@@ -855,9 +855,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua, Perfluorohexane, Glycerin, Acrylates/Palmeth-25 Acrylate Copolymer, Sodium Lauroyl Methyl Isethionate, Cocamidopropyl Betaine, Perfluorodecalin, Carrageenan, Pentafluoropropane, Citrus Grandis (Grapefruit) Peel Oil, Phenoxyethanol, Sorbitol, Sodium Chloride, Xylitylglucoside, Potassium Sorbate, Anhydroxylitol, Xylitol, Mica, CI 77891, Ethylhexylglycerin, Lactobacillus/Wasabia Japonica Root Ferment Extract, Panthenol, Trisodium Ethylenediamine Disuccinate, Mucor Miehei Extract, Agaricus Bisporus (Mushroom) Cap/Stem Extract, Rice Ferment Filtrate (Sake), Citrullus Lanatus Fruit Extract, Lens Esculenta Fruit Extract, Pyrus Malus (Apple) Fruit Extract, Sodium Lactate, Sodium PCA, Leuconostoc/Radish Root Ferment Filtrate, Sodium Benzoate, Methylchloroisothiazolinone/Methylisothiazolinone, Limonene, Linalool, Citral.",
     "source": "GlyMed official global product page: https://glymed.global/products/us-gm-016r",
     "confidence": "Official/current",
-    "summary": "Humectants such as glycerin, betaine, panthenol support surface hydration and a plumper feel.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users.",
-    "bestFor": "Match to skin type and routine role after checking texture, directions, and the current package panel.",
+    "summary": "A clarifying clay-adjacent mask — sulfate-free surfactants for cleansing plus a fermented wasabi-root complex and grapefruit peel oil for the brand's 'oxygenating' brightening claim.",
+    "considerations": "Grapefruit peel oil discloses real fragrance allergens (Citral, Limonene) on the brand's own label — a genuine consideration for fragrance-sensitive or eczema-prone skin, not just a trace note.",
+    "bestFor": "Oily, combination, and congested/blackhead-prone skin wanting a deep-cleansing pore treatment. Not for very dry or fragrance-sensitive skin given the surfactant base and disclosed citrus allergens.",
     "reviewed": "September 2026"
   },
   {
@@ -866,9 +866,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Propanediol, Diethylamino Hydroxybenzoyl Hexyl Benzoate, Polymethylsilsesquioxane, Ethylhexyl Triazone, Niacinamide, Methylene Bis-benzotriazolyl Tetramethylbutylphenol, Coco-caprylate/Caprate, Caprylyl Methicone, Diethylhexyl Butamido Triazone, Glycerin, Sodium Hyaluronate, Butylene Glycol, Camellia Sinensis Leaf Extract, Saccharum Officinarum (Sugarcane) Extract, Acetyl Hexapeptide-8, Macrocystis Pyrifera (Kelp) Extract, Cocos Nucifera (Coconut) Fruit Extract, Panax Ginseng Root Extract, Panthenol, Pentylene Glycol, Polyglyceryl-3 Methylglucose Distearate, Decyl Glucoside, Tromethamine, Carbomer, 1,2-Hexanediol, Sodium Stearoyl Glutamate, Polyacrylate Crosspolymer-6, Carbomer, Ethylhexylglycerin, Adenosine, Xanthan Gum, Glutathione, Tocopherol",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/pfect-a-solar-elixir-serum-sunscreen/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, sodium hyaluronate, panthenol support surface hydration and a plumper feel. Soothing ingredients such as camellia sinensis may improve comfort and visible redness. Tone-support ingredients such as niacinamide, glutathione can support a more even-looking complexion with consistent use. Renewal-support ingredients such as adenosine, peptide target texture and visible signs of aging.",
-    "considerations": "Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine. Ingredient review cannot verify SPF performance. Use only as labeled and reapply; the finished product's regulated testing determines protection.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "An all-chemical, serum-textured SPF built on four modern organic filters (including Tinosorb M and Tinosorb S), with niacinamide, sodium hyaluronate, and glutathione layered in for hydration and antioxidant support.",
+    "considerations": "No zinc oxide or titanium dioxide — this is not the pick for anyone specifically wanting a mineral-only sunscreen. Tinosorb M is common in Asia and Europe but not yet FDA-monographed for U.S. OTC sale, worth knowing for U.S.-regulated-sunscreen requirements.",
+    "bestFor": "Normal, combination, or oily skin wanting a lightweight, no-white-cast daily SPF with added hydration and brightening support. Not for clients who specifically need mineral-only or FDA-monographed filters.",
     "reviewed": "September 2026"
   },
   {
@@ -877,9 +877,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water), Cetearyl Ethylhexanoate, Caprylic/Capric Triglyceride, Hyaluronic Acid, Retinol (Vitamin A), Palmitoyl Dipeptide-5 Diaminobutyroyl Hydroxythreonine, Palmitoyl Dipeptide-5 Diaminohydroxybutyrate, Olea Europaea (Olive) Oil, Limnanthes Alba (Meadowfoam) Seed Oil, Tocopheryl Acetate (Vitamin E Acetate), Retinyl Palmitate (Vitamin A Ester), Glycerin, Sucrose Tristearate, Bis-Diglyceryl Polyacyladipate -2, Polysorbate 60, PEG-20, Acrylates/C10- 30 Alkyl Acrylate Crosspolymer, Butylene Glycol, Rosmarinus Officinalis (Rosemary) Leaf Oil, Pelargonium Graveolens (Geranium) Oil, Phenoxyethanol, Ethylhexylglycer- in, Triethanolamine",
     "source": "Prior Skin by Laura Lo published product page: https://skinbylauralo.com/product/retinol-rejuvenation-serum/",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as meadowfoam help reduce moisture loss. Renewal-support ingredients such as retinol, retinyl, peptide target texture and visible signs of aging.",
-    "considerations": "Aromatic oils, menthol/camphor, or fragrant botanicals can sting or trigger sensitivity in some users. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A genuinely high-strength retinol serum — 5% per brand claims, not encapsulated, paired with a milder retinyl palmitate ester and two collagen-supporting peptides.",
+    "considerations": "Two essential oils (geranium, rosemary) and their associated fragrance allergens (limonene, linalool, citral, geraniol) are layered on top of an already-strong retinol — a real combined irritation risk, not just a retinol caution alone.",
+    "bestFor": "Experienced retinoid users with oily, combination, resilient, non-reactive skin wanting a potent anti-aging and anti-acne treatment. Not for retinol beginners, pregnant/nursing clients, or anyone with rosacea, eczema, or a compromised barrier.",
     "reviewed": "September 2026"
   },
   {
@@ -888,9 +888,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Aqua (Water/Eau), Seaweed Extract, Glycerin, Hyaluronic Acid, Allantoin, Panthenol, Aloe Barbadensis Leaf Juice, Diazolidinyl Urea, Iodopropynyl Butylcarbamate.",
     "source": "GlyMed official global product page: https://glymed.global/products/us-gm-121r",
     "confidence": "Official/current",
-    "summary": "Humectants such as glycerin, hyaluronic, panthenol support surface hydration and a plumper feel. Soothing ingredients such as allantoin, aloe may improve comfort and visible redness.",
-    "considerations": "No obvious high-alert ingredient stands out from the label alone, but allergy, concentration, pH, and the complete finished formula still matter.",
-    "bestFor": "Most likely to suit dehydrated or reactive-feeling skin, subject to fragrance/botanical tolerance.",
+    "summary": "A light hydrating mist — aloe, glycerin, hyaluronic acid, and panthenol for comfort, with algae extract for the brand's 'acne-safe' positioning.",
+    "considerations": "Two preservatives here (diazolidinyl urea, iodopropynyl butylcarbamate) are recognized contact allergens for a meaningful minority — worth knowing for anyone with a documented formaldehyde-releaser sensitivity, despite the otherwise gentle formula.",
+    "bestFor": "Normal, combination, and acne-prone skin wanting a light hydrating refresher, including post-procedure use. Skip it if a client has a known reaction to diazolidinyl urea or iodopropynyl butylcarbamate specifically.",
     "reviewed": "September 2026"
   },
   {
@@ -899,9 +899,9 @@ export const PRODUCT_FORMULAS = [
     "formula": "Water, Glycerin, Dipropylene Glycol, Caprylyl Methicone, Dimethicone, Beeswax, Niacinamide, Trehalose, Squalane, Lactobacillus/Germinated Phaseolus Vulgaris Seed Extract Ferment, Dimethyl Sulfone, Madecassoside, Sodium Hyaluronate, Sodium Hyaluronate Crosspolymer, Hydrolyzed Hyaluronic Acid, Hyaluronic Acid, Hydroxypropyltrimonium Hyaluronate, Sodium Acetylated Hyaluronate, Hydrolyzed Sodium Hyaluronate, Potassium Hyaluronate, sh-Oligopeptide-1, Polygonum Fagopyrum (Buckwheat) Seed Extract, Asiaticoside, Pueraria Lobata Root Extract, Pinus Palustris Leaf Extract, Ulmus Davidiana Root Extract, Oenothera Biennis (Evening Primrose) Flower Extract, Adenosine, Allantoin, Tartaric Acid, Betaine Salicylate, Gluconolactone, Salicylic Acid, Sodium Chloride, Butylene Glycol, 1,2-Hexanediol, Hydroxyacetophenone, Hippophae Rhamnoides Fruit Oil, Propanediol, Rehmannia Chinensis Root Extract, Caprylyl Glycol, Pentylene Glycol, PEG-9 Polydimethylsiloxyethyl Dimethicone, PEG-10 Dimethicone.",
     "source": "Published Dermathod formula: https://www.hwahae.com/en/products/DERMATHOD-Soba-Calm-Cream/2161552/ingredients",
     "confidence": "Published formula",
-    "summary": "Humectants such as glycerin, hyaluronic, sodium hyaluronate support surface hydration and a plumper feel. Barrier-supportive emollients/occlusives such as squalane, dimethicone help reduce moisture loss. Soothing ingredients such as madecassoside, allantoin may improve comfort and visible redness. Tone-support ingredients such as niacinamide can support a more even-looking complexion with consistent use. Exfoliating ingredients such as salicylic acid, betaine salicylate, gluconolactone can help texture, congestion, and post-blemish discoloration when tolerated. Renewal-support ingredients such as adenosine, peptide, oligopeptide target texture and visible signs of aging.",
-    "considerations": "Exfoliants/acne actives can increase dryness or irritation. Introduce gradually and use daily broad-spectrum sunscreen. Retinoid/renewal actives can irritate. Avoid stacking with strong exfoliants unless a professional has planned the routine.",
-    "bestFor": "Best suited to a goal-directed routine with gradual introduction; not automatically appropriate for sensitized or over-exfoliated skin.",
+    "summary": "A 'water-burst' cream-to-fluid moisturizer — niacinamide and MSM (dimethyl sulfone) for calm, madecassoside for barrier support, and seven forms of hyaluronic acid layered for hydration; 'soba' here refers to buckwheat seed extract, not perilla oil.",
+    "considerations": "Betaine salicylate and salicylic acid are both present in small amounts — worth flagging for salicylate/aspirin-sensitive or pregnant clients. Several silicones give the texture its lightness but some very oily or silicone-averse users prefer to skip them.",
+    "bestFor": "Combination, oily-prone, or dehydration-prone skin, including reactive or post-treatment skin wanting a redness-calming, lightweight hydrator.",
     "reviewed": "September 2026"
   }
 ];

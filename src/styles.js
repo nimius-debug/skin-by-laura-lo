@@ -547,6 +547,11 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .formula-data-status .ingredient-label { margin-bottom: 5px; }
 .formula-data-status strong { font-family: var(--font-serif); font-size: 18px; font-weight: 400; }
 .formula-data-status > p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.skin-fit { margin-bottom: 46px; }
+.skin-fit-card { padding: 26px 28px; border: 1px solid var(--line); border-left: 3px solid var(--sage); background: var(--white); }
+.skin-fit-summary { margin: 0 0 22px; color: var(--ink); font-size: 15px; line-height: 1.7; }
+.skin-fit-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.skin-fit-row p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .ingredient-empty-state { padding: 35px; border: 1px solid var(--line); background: var(--panel-stone); }
 .ingredient-empty-state h3 { max-width: 540px; margin: 0 0 14px; font-family: var(--font-serif); font-size: 34px; font-weight: 400; line-height: 1.05; }
 .ingredient-empty-state > p:last-child { max-width: 610px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
@@ -852,6 +857,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .formula-data-status { grid-template-columns: 1fr; gap: 10px; }
   .ingredient-empty-state { padding: 28px 22px; }
   .featured-ingredient-grid { grid-template-columns: 1fr; }
+  .skin-fit-card { padding: 20px; }
+  .skin-fit-row { grid-template-columns: 1fr; gap: 16px; }
   .featured-ingredient { min-height: 0; }
   .ingredient-list { max-height: min(520px, 60vh); }
   .product-details .ingredient-row summary { grid-template-columns: 12px 1fr 18px; gap: 10px; }
