@@ -68,8 +68,20 @@ const product = {
 };
 const cfg = { shippingEnabled: true, pickupEnabled: true, shippingFeeCents: 1000, freeShippingThresholdCents: 20000 };
 const page = toString(productPage({ product, related: [], cfg }));
+assert.ok(page.indexOf("data-price-display") < page.indexOf("class=\"product-buy\""), "purchase controls follow the price");
+assert.ok(page.indexOf("class=\"product-buy\"") < page.indexOf("class=\"product-description\""), "purchase controls appear before a long overview");
 assert.equal((page.match(/>How to use</g) || []).length, 1, "Square usage directions replace the generic usage accordion instead of repeating it");
 assert.match(page, /Apply one pump after cleansing/, "Square directions remain unchanged");
+
+const choiceProduct = {
+  ...product,
+  variations: [
+    product.variations[0],
+    { id: "VAR_LARGE", name: "2 oz", priceCents: 6800, inStock: true },
+  ],
+};
+const choicePage = toString(productPage({ product: choiceProduct, related: [], cfg }));
+assert.ok(choicePage.indexOf("class=\"variation-picker\"") < choicePage.indexOf("class=\"product-buy\""), "products with options ask for a selection before Add to bag");
 
 const faqProduct = { ...product, description: "A daily serum. FAQ: Can I use it daily? Yes, as directed." };
 const faqPage = toString(productPage({ product: faqProduct, related: [], cfg }));
