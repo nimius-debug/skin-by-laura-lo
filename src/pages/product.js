@@ -38,41 +38,6 @@ function ingredientDetails(ingredient) {
   `;
 }
 
-function insightOverview(review) {
-  return html`
-    <div class="formula-overview">
-      <p class="formula-summary">${review.summary}</p>
-      <div class="formula-tags" aria-label="Formula characteristics">
-        ${review.tags.map((tag) => html`<span>${tag}</span>`)}
-      </div>
-      <div class="formula-fit">
-        <div>
-          <p class="ingredient-label">Best for</p>
-          <p>${review.bestFor}</p>
-        </div>
-        <div>
-          <p class="ingredient-label">Keep in mind</p>
-          <p>${review.keepInMind}</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function insightLaura(review) {
-  return html`
-    <div class="laura-formula-read">
-      <p class="laura-quote-mark" aria-hidden="true">&#8220;</p>
-      <blockquote>${review.lauraRead}</blockquote>
-      <p class="laura-signoff">Laura&#8217;s formula read</p>
-      <div class="formula-use-note">
-        <p class="ingredient-label">Before you use it</p>
-        <p>${review.useNote}</p>
-      </div>
-    </div>
-  `;
-}
-
 function insightIngredients(review) {
   const featured = review.ingredients.filter((ingredient) => ingredient.featured);
   return html`
@@ -121,7 +86,7 @@ function insightIngredients(review) {
             <span><i class="legend-functional"></i>Formula function</span>
             <span><i class="legend-context"></i>More context</span>
           </div>
-          <div class="ingredient-list">
+          <div class="ingredient-list" role="region" aria-label="Full ingredient list" tabindex="0">
             ${review.ingredients.map((ingredient) => ingredientDetails(ingredient))}
           </div>
         </div>
@@ -157,22 +122,10 @@ function ingredientReview(review, productOverview) {
     <div class="product-detail-tabs" data-ingredient-review>
       <div class="insight-tab-list" role="tablist" aria-label="Product information">
         <button id="insight-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="insight-panel-overview" tabindex="0">Overview</button>
-        <button id="insight-tab-laura" type="button" role="tab" aria-selected="false" aria-controls="insight-panel-laura" tabindex="-1">Laura&#8217;s formula read</button>
         <button id="insight-tab-ingredients" type="button" role="tab" aria-selected="false" aria-controls="insight-panel-ingredients" tabindex="-1">Ingredients</button>
       </div>
       <div id="insight-panel-overview" class="insight-tab-panel" role="tabpanel" aria-labelledby="insight-tab-overview">
         ${productOverview}
-        <div class="overview-formula-glance">
-          <p class="eyebrow">Formula at a glance</p>
-          ${insightOverview(review)}
-        </div>
-      </div>
-      <div id="insight-panel-laura" class="insight-tab-panel" role="tabpanel" aria-labelledby="insight-tab-laura" hidden>
-        <header class="product-insight-heading">
-          <p class="eyebrow">${review.eyebrow}</p>
-          <h2>Laura&#8217;s formula read</h2>
-        </header>
-        ${insightLaura(review)}
       </div>
       <div id="insight-panel-ingredients" class="insight-tab-panel" role="tabpanel" aria-labelledby="insight-tab-ingredients" hidden>
         <header class="product-insight-heading">
