@@ -501,7 +501,18 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-details h1 { margin-bottom: 17px; font-size: clamp(52px, 6vw, 78px); line-height: .96; }
 .product-detail-price { margin-bottom: 28px; font-size: 15px; letter-spacing: .04em; }
 .product-detail-short { margin-bottom: 18px; font-family: var(--font-serif); font-size: 25px; line-height: 1.3; color: var(--clay-deep); }
-.product-description { font-size: 14px; line-height: 1.75; color: var(--muted); }
+.product-description { margin: 34px 0 8px; display: grid; gap: 30px; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.product-overview-intro { display: grid; gap: 17px; }
+.product-description p { margin: 0; }
+.product-description strong { color: var(--ink); font-weight: 650; }
+.product-overview-section { padding-top: 26px; display: grid; gap: 14px; border-top: 1px solid var(--line); }
+.product-overview-section h2 { margin: 0; color: var(--clay-deep); font-family: var(--font-sans); font-size: 10px; font-weight: 700; letter-spacing: .16em; line-height: 1.3; text-transform: uppercase; }
+.product-overview-section ul { margin: 0; padding-left: 19px; display: grid; gap: 11px; }
+.product-overview-section li { padding-left: 3px; }
+.product-overview-section li::marker { color: var(--brass-deep); }
+.product-overview-callout { padding: 22px 24px; border: 1px solid var(--line); background: var(--panel-stone); }
+.product-overview-tip p { color: var(--clay-deep); font-family: var(--font-serif); font-size: 17px; font-style: italic; line-height: 1.55; }
+.product-overview-caution { border-left: 3px solid var(--brass-deep); }
 .variation-picker { margin: 26px 0 0; padding: 0; border: 0; }
 .variation-picker legend { margin-bottom: 12px; font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
 .variation-picker div { display: flex; flex-wrap: wrap; gap: 8px; }
