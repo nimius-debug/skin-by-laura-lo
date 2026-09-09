@@ -159,6 +159,43 @@ export const CLIENT_JS = String.raw`
     });
   }
 
+  /* -------------------------------------------------- ingredient review */
+
+  function initProductInsights() {
+    var root = document.querySelector("[data-ingredient-review]");
+    if (!root) return;
+
+    var tabs = Array.prototype.slice.call(root.querySelectorAll('[role="tab"]'));
+    var panels = Array.prototype.slice.call(root.querySelectorAll('[role="tabpanel"]'));
+    if (!tabs.length || !panels.length) return;
+
+    function activate(tab, moveFocus) {
+      tabs.forEach(function (item) {
+        var selected = item === tab;
+        item.setAttribute("aria-selected", selected ? "true" : "false");
+        item.setAttribute("tabindex", selected ? "0" : "-1");
+      });
+      panels.forEach(function (panel) {
+        panel.hidden = panel.id !== tab.getAttribute("aria-controls");
+      });
+      if (moveFocus) tab.focus();
+    }
+
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener("click", function () { activate(tab, false); });
+      tab.addEventListener("keydown", function (event) {
+        var nextIndex = null;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+        if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = tabs.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        activate(tabs[nextIndex], true);
+      });
+    });
+  }
+
   /* --------------------------------------------------------- routines */
 
   // Routines render as plain shop-style tiles; clicking one opens a native
@@ -746,6 +783,7 @@ export const CLIENT_JS = String.raw`
     initNav();
     initAddButtons();
     initProductPage();
+    initProductInsights();
     initShopFilters();
     initRoutines();
     initHero();
