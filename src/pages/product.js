@@ -159,8 +159,6 @@ export function productPage({ product, related, cfg }) {
     <h1>${product.name}</h1>
     <p class="product-detail-price" data-price-display>${formatMoney(product.priceCents)}</p>
 
-    ${descriptionOverview.markup}
-
     ${hasChoices ? html`
       <fieldset class="variation-picker">
         <legend>Option</legend>
@@ -200,6 +198,8 @@ export function productPage({ product, related, cfg }) {
       ${cfg.pickupEnabled ? html`<span>Local pickup in Tampa</span>` : ""}
       <span>Secure checkout by Square</span>
     </div>
+
+    ${descriptionOverview.markup}
 
     ${descriptionOverview.hasUsage ? "" : html`
       <details>

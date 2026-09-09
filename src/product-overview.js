@@ -4,8 +4,8 @@ const SECTION_DEFINITIONS = [
   { key: "benefits", title: "Key benefits", labels: ["key benefits", "benefits", "key features", "why you’ll love it", "why you'll love it"] },
   { key: "usage", title: "How to use", labels: ["how to use", "how to apply", "directions", "application", "usage"] },
   { key: "tip", title: "Laura’s tip", labels: ["pro tip", "professional tip", "laura’s tip", "laura's tip", "expert tip"] },
-  { key: "best-for", title: "Best for", labels: ["best suited for", "best for", "ideal for", "recommended for", "skin type", "who it’s for", "who it's for"] },
-  { key: "caution", title: "Good to know", labels: ["caution", "cautions", "warning", "warnings", "please note", "contraindications"] },
+  { key: "best-for", title: "Perfect for", labels: ["perfect for", "best suited for", "best for", "ideal for", "recommended for", "skin type", "who it’s for", "who it's for"] },
+  { key: "caution", title: "Good to know", labels: ["note", "important", "caution", "cautions", "warning", "warnings", "please note", "contraindications"] },
   { key: "questions", title: "Common questions", labels: ["common questions", "frequently asked questions", "faq"] },
 ];
 
@@ -68,14 +68,18 @@ function prepareSource(description, descriptionHtml) {
 }
 
 function sectionAtStart(value) {
-  const normalized = value.toLowerCase().replace(/[’]/g, "'").trim();
+  // Square sometimes represents a section label as the first item in the
+  // preceding list (for example, "• Perfect For:"). Treat the label as a
+  // heading and let the following list items belong to that new section.
+  const candidate = cleanItem(value);
+  const normalized = candidate.toLowerCase().replace(/[’]/g, "'").trim();
   for (const [label, section] of SECTION_BY_LABEL) {
     const normalizedLabel = label.replace(/[’]/g, "'");
     if (normalized === normalizedLabel || normalized === `${normalizedLabel}:`) {
       return { section, content: "" };
     }
     if (normalized.startsWith(`${normalizedLabel}:`)) {
-      return { section, content: value.slice(value.indexOf(":") + 1).trim() };
+      return { section, content: candidate.slice(candidate.indexOf(":") + 1).trim() };
     }
   }
   return null;
@@ -188,14 +192,27 @@ function paragraph(value, productName, opening = false) {
 }
 
 function overviewSection(section) {
-  const isCallout = ["tip", "best-for", "caution"].includes(section.key);
+  if (!section.title) {
+    return html`
+      <section class="product-overview-section product-overview-points">
+        <ul>${section.content.map((item) => html`<li>${emphasizedLine(item)}</li>`)}</ul>
+      </section>
+    `;
+  }
+
+  const isCallout = ["tip", "caution"].includes(section.key);
   return html`
-    <section class="product-overview-section product-overview-${section.key} ${isCallout ? "product-overview-callout" : ""}">
-      ${section.title ? html`<h2>${section.title}</h2>` : ""}
-      ${section.list
-        ? html`<ul>${section.content.map((item) => html`<li>${emphasizedLine(item)}</li>`)}</ul>`
-        : section.content.map((item) => html`<p>${emphasizedLine(item)}</p>`)}
-    </section>
+    <details class="product-overview-section product-overview-${section.key} ${isCallout ? "product-overview-callout" : ""}">
+      <summary>
+        <span>${section.title}</span>
+        <span class="product-overview-toggle" aria-hidden="true"></span>
+      </summary>
+      <div class="product-overview-section-body">
+        ${section.list
+          ? html`<ul>${section.content.map((item) => html`<li>${emphasizedLine(item)}</li>`)}</ul>`
+          : section.content.map((item) => html`<p>${emphasizedLine(item)}</p>`)}
+      </div>
+    </details>
   `;
 }
 

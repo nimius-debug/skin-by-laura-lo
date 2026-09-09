@@ -28,9 +28,16 @@ assert.equal(model.hasUsage, false, "usage is not invented when Square did not p
 
 const rendered = toString(renderProductOverview(richProduct).markup);
 assert.match(rendered, /<strong>KrX Neck Lift Intensive Firming Neck Cream<\/strong>/, "the opening product name is emphasized");
-assert.match(rendered, /<h2>Key benefits<\/h2>[\s\S]*<ul>/, "benefits render as a readable list");
+assert.match(rendered, /<details class="product-overview-section product-overview-benefits[\s\S]*<span>Key benefits<\/span>[\s\S]*<ul>/, "benefits render as an expandable readable list");
 assert.match(rendered, /<strong>Lifts and Firms:<\/strong>/, "benefit labels are emphasized");
 assert.match(rendered, /product-overview-tip/, "professional tips use a compact callout");
+assert.equal((rendered.match(/<details class="product-overview-section/g) || []).length, 4, "authored overview sections are expandable");
+
+const squareBulletHeadings = structureProductOverview({
+  descriptionHtml: "<p><strong>Key Benefits:</strong></p><ul><li>Brightens visible discoloration.</li><li>Perfect For:</li><li>Uneven-looking tone</li><li>Dark spots</li><li><strong>Note:</strong> Avoid if allergic to apple or papaya.</li></ul>",
+});
+assert.deepEqual(squareBulletHeadings.sections.map((section) => section.key), ["benefits", "best-for", "caution"], "bullet-formatted Perfect For and Note labels become separate sections");
+assert.deepEqual(squareBulletHeadings.sections[1].content, ["Uneven-looking tone", "Dark spots"], "Perfect For owns only its intended list items");
 
 const simple = structureProductOverview({ description: "A gentle cleanser that removes daily buildup without leaving skin tight." });
 assert.equal(simple.intro.length, 1, "short copy stays a simple paragraph");
@@ -61,8 +68,20 @@ const product = {
 };
 const cfg = { shippingEnabled: true, pickupEnabled: true, shippingFeeCents: 1000, freeShippingThresholdCents: 20000 };
 const page = toString(productPage({ product, related: [], cfg }));
+assert.ok(page.indexOf("data-price-display") < page.indexOf("class=\"product-buy\""), "purchase controls follow the price");
+assert.ok(page.indexOf("class=\"product-buy\"") < page.indexOf("class=\"product-description\""), "purchase controls appear before a long overview");
 assert.equal((page.match(/>How to use</g) || []).length, 1, "Square usage directions replace the generic usage accordion instead of repeating it");
 assert.match(page, /Apply one pump after cleansing/, "Square directions remain unchanged");
+
+const choiceProduct = {
+  ...product,
+  variations: [
+    product.variations[0],
+    { id: "VAR_LARGE", name: "2 oz", priceCents: 6800, inStock: true },
+  ],
+};
+const choicePage = toString(productPage({ product: choiceProduct, related: [], cfg }));
+assert.ok(choicePage.indexOf("class=\"variation-picker\"") < choicePage.indexOf("class=\"product-buy\""), "products with options ask for a selection before Add to bag");
 
 const faqProduct = { ...product, description: "A daily serum. FAQ: Can I use it daily? Yes, as directed." };
 const faqPage = toString(productPage({ product: faqProduct, related: [], cfg }));
