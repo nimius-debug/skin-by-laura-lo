@@ -43,4 +43,3 @@ const unrelatedMarkup = toString(productPage({ product: unrelated, related: [], 
 assert.doesNotMatch(unrelatedMarkup, /data-ingredient-review/, "unreviewed products keep their existing product page");
 
 console.log("PASS  Arctigenin ingredient review is complete, scoped, and progressively enhanced");
-
