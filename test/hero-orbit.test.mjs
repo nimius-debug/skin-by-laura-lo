@@ -34,8 +34,8 @@ assert.match(CLIENT_JS, /event\.pointerType !== "mouse"/, "mouse parallax remain
 assert.match(STYLES, /\.site-header nav \{[\s\S]*?width: 100%;[\s\S]*?align-items: stretch;/, "the mobile menu fills the viewport width");
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260909-product-overviews/, "the shared CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260909-product-overviews/, "the client script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260909-product-accordions-v2/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260909-product-accordions-v2/, "the client script bypasses stale caches");
 
 console.log("PASS  hero result cards orbit around Laura with an explicit depth switch");
 

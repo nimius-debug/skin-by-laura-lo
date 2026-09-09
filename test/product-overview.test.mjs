@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { structureProductOverview, renderProductOverview } from "../src/product-overview.js";
 import { productPage } from "../src/pages/product.js";
 import { toString } from "../src/html.js";
+import { STYLES } from "../src/styles.js";
 
 const richProduct = {
   name: "KrX Neck Lift Intensive Firming Neck Cream",
@@ -32,6 +33,9 @@ assert.match(rendered, /<details class="product-overview-section product-overvie
 assert.match(rendered, /<strong>Lifts and Firms:<\/strong>/, "benefit labels are emphasized");
 assert.match(rendered, /product-overview-tip/, "professional tips use a compact callout");
 assert.equal((rendered.match(/<details class="product-overview-section/g) || []).length, 4, "authored overview sections are expandable");
+assert.match(STYLES, /\.product-description \{[^}]*display: block;/, "closed overview rows do not inherit a stretching grid layout");
+assert.match(STYLES, /\.product-overview-section summary \{[^}]*padding: 19px 0;/, "overview rows use the same compact padding as the standard product accordions");
+assert.match(STYLES, /\.product-overview-section:last-child \{ border-bottom: 0; \}/, "the overview and shipping accordions share one divider instead of a double line");
 
 const squareBulletHeadings = structureProductOverview({
   descriptionHtml: "<p><strong>Key Benefits:</strong></p><ul><li>Brightens visible discoloration.</li><li>Perfect For:</li><li>Uneven-looking tone</li><li>Dark spots</li><li><strong>Note:</strong> Avoid if allergic to apple or papaya.</li></ul>",

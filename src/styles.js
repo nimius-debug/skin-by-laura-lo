@@ -501,19 +501,19 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-details h1 { margin-bottom: 17px; font-size: clamp(52px, 6vw, 78px); line-height: .96; }
 .product-detail-price { margin-bottom: 28px; font-size: 15px; letter-spacing: .04em; }
 .product-detail-short { margin-bottom: 18px; font-family: var(--font-serif); font-size: 25px; line-height: 1.3; color: var(--clay-deep); }
-.product-description { margin: 34px 0 8px; display: grid; gap: 30px; color: var(--muted); font-size: 14px; line-height: 1.75; }
-.product-overview-intro { display: grid; gap: 17px; }
+.product-description { margin: 34px 0 0; display: block; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.product-overview-intro { margin-bottom: 24px; display: grid; gap: 17px; }
 .product-description p { margin: 0; }
 .product-description strong { color: var(--ink); font-weight: 650; }
 .product-details .product-overview-section { padding: 0; border-top: 1px solid var(--line); }
-.product-details .product-overview-section:last-child { border-bottom: 1px solid var(--line); }
-.product-details .product-overview-section summary { padding: 22px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: var(--clay-deep); font-size: 10px; font-weight: 700; letter-spacing: .16em; line-height: 1.3; text-transform: uppercase; }
+.product-details .product-overview-section:last-child { border-bottom: 0; }
+.product-details .product-overview-section summary { padding: 19px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: var(--ink); font-size: 10px; font-weight: 400; letter-spacing: .13em; line-height: normal; text-transform: uppercase; }
 .product-overview-section-body { padding: 0 0 28px; display: grid; gap: 14px; }
 .product-overview-section ul { margin: 0; padding-left: 19px; display: grid; gap: 11px; }
 .product-overview-section li { padding-left: 3px; }
 .product-overview-section li::marker { color: var(--brass-deep); }
-.product-overview-toggle { position: relative; width: 18px; height: 18px; flex: 0 0 18px; }
-.product-overview-toggle::before, .product-overview-toggle::after { content: ""; position: absolute; left: 3px; right: 3px; top: 8px; height: 1px; background: var(--ink); }
+.product-overview-toggle { position: relative; width: 12px; height: 12px; flex: 0 0 12px; }
+.product-overview-toggle::before, .product-overview-toggle::after { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 1px; background: var(--ink); }
 .product-overview-toggle::after { transform: rotate(90deg); transition: transform .2s ease; }
 .product-overview-section[open] .product-overview-toggle::after { transform: rotate(0); }
 .product-overview-callout .product-overview-section-body { margin-bottom: 24px; padding: 22px 24px; border: 1px solid var(--line); background: var(--panel-stone); }
