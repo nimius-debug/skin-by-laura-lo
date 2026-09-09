@@ -872,4 +872,3 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 }
 `;
 
-
