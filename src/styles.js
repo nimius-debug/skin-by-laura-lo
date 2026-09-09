@@ -558,6 +558,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .formula-use-note { margin: 38px 0 0 -46px; padding: 22px 24px; border-left: 3px solid var(--brass); background: var(--panel-stone); }
 .formula-use-note p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 
+.formula-data-status { margin-bottom: 38px; padding: 18px 20px; display: grid; grid-template-columns: minmax(150px, .45fr) 1fr; gap: 24px; align-items: center; border: 1px solid var(--line); background: var(--panel-stone); }
+.formula-data-status-caution { border-color: rgba(140,90,34,.35); background: rgba(198,164,92,.14); }
+.formula-data-status .ingredient-label { margin-bottom: 5px; }
+.formula-data-status strong { font-family: var(--font-serif); font-size: 18px; font-weight: 400; }
+.formula-data-status > p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.ingredient-empty-state { padding: 35px; border: 1px solid var(--line); background: var(--panel-stone); }
+.ingredient-empty-state h3 { max-width: 540px; margin: 0 0 14px; font-family: var(--font-serif); font-size: 34px; font-weight: 400; line-height: 1.05; }
+.ingredient-empty-state > p:last-child { max-width: 610px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
 .ingredient-section-heading { margin-bottom: 24px; }
 .ingredient-section-heading .eyebrow { margin: 0 0 7px; }
 .ingredient-section-heading h3 { margin: 0; font-family: var(--font-serif); font-size: 37px; font-weight: 400; letter-spacing: -.035em; }
@@ -863,6 +871,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .laura-formula-read { padding-left: 44px; }
   .laura-formula-read blockquote { font-size: 27px; }
   .formula-use-note { margin-left: -44px; padding: 22px 20px; }
+  .formula-data-status { grid-template-columns: 1fr; gap: 10px; }
+  .ingredient-empty-state { padding: 28px 22px; }
   .featured-ingredient-grid { grid-template-columns: 1fr; }
   .featured-ingredient { min-height: 0; }
   .product-details .ingredient-row summary { grid-template-columns: 12px 1fr 18px; gap: 10px; }
