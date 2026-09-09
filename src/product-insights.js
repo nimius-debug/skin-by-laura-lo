@@ -1,3 +1,6 @@
+import { PRODUCT_FORMULAS } from "./data/product-formulas.js";
+import { formulaTagsFor, ingredientProfilesForFormula } from "./ingredient-library.js";
+
 // Editorial ingredient reviews keyed to the product name supplied by Square.
 // Keep this separate from the catalog so Square remains the source of truth for
 // products, prices, stock, and checkout while the site owns the educational copy.
@@ -190,8 +193,7 @@ const ARCTIGENIN_INGREDIENTS = [
   },
 ];
 
-const REVIEWS = {
-  "arctigenin brightening treatment": {
+const ARCTIGENIN_REVIEW = {
     eyebrow: "Ingredient review",
     heading: "Inside the formula",
     summary: "A fragrance-free brightening treatment that pairs moisturizing lipids and humectants with botanical and antioxidant support.",
@@ -203,10 +205,85 @@ const REVIEWS = {
     ingredients: ARCTIGENIN_INGREDIENTS,
     formulaSource: "https://epicutis.com/products/arctigenin-brightening-treatment",
     reviewed: "September 2026",
-  },
 };
 
-export function productInsightFor(productName) {
-  return REVIEWS[String(productName || "").trim().toLowerCase()] || null;
+function productKey(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[™®]/g, "")
+    .replace(/\+/g, " plus ")
+    .toLowerCase()
+    .replace(/[^a-z0-9%]+/g, " ")
+    .trim();
 }
 
+function sourceUrl(value) {
+  const match = String(value || "").match(/https?:\/\/[^\s]+/);
+  return match ? match[0].replace(/[.,;—-]+$/, "") : "";
+}
+
+function sourceLabel(value) {
+  return String(value || "")
+    .replace(/https?:\/\/[^\s]+/, "")
+    .replace(/[\s:;—-]+$/, "")
+    .trim() || "Published ingredient source";
+}
+
+function generatedReview(record) {
+  const ingredients = ingredientProfilesForFormula(record.name, record.formula);
+  const hasFormula = ingredients.length > 0;
+  const needsVerification = /needed|identity check/i.test(record.confidence);
+  const partial = /partial|component formulas/i.test(record.confidence);
+  const notApplicable = /not applicable/i.test(record.confidence);
+
+  return {
+    eyebrow: "Ingredient review",
+    heading: "Inside the formula",
+    summary: notApplicable
+      ? "This is a skincare device rather than a topical cosmetic, so a cosmetic ingredient list does not apply."
+      : record.summary,
+    tags: formulaTagsFor(ingredients, record.formula),
+    bestFor: record.bestFor,
+    keepInMind: record.considerations,
+    lauraRead: notApplicable
+      ? "This product should be evaluated by its device instructions, contraindications, eye-protection guidance, and published performance—not by a cosmetic ingredient list."
+      : hasFormula
+      ? `Reading the published list as a complete formula, ${record.summary.charAt(0).toLowerCase()}${record.summary.slice(1)} ${record.bestFor}`
+      : "I am holding the ingredient interpretation until the current package panel can be confirmed. That is more useful—and more honest—than guessing from a product name or marketing description.",
+    useNote: record.considerations,
+    ingredients,
+    formulaSource: sourceUrl(record.source),
+    formulaSourceLabel: sourceLabel(record.source),
+    confidence: record.confidence,
+    reviewed: record.reviewed,
+    hasFormula,
+    needsVerification,
+    partial,
+    notApplicable,
+  };
+}
+
+const REVIEWS = new Map(PRODUCT_FORMULAS.map((record) => [productKey(record.name), generatedReview(record)]));
+REVIEWS.set(productKey("Arctigenin Brightening Treatment"), {
+  ...ARCTIGENIN_REVIEW,
+  formulaSourceLabel: "Epicutis official product page",
+  confidence: "Official/current",
+  hasFormula: true,
+  needsVerification: false,
+  partial: false,
+  notApplicable: false,
+});
+
+export function productInsightFor(productName) {
+  return REVIEWS.get(productKey(productName)) || null;
+}
+
+export function productInsightCoverage() {
+  return {
+    total: PRODUCT_FORMULAS.length,
+    withFormula: PRODUCT_FORMULAS.filter((record) => Boolean(record.formula)).length,
+    partial: PRODUCT_FORMULAS.filter((record) => /partial|component formulas/i.test(record.confidence)).length,
+    verificationNeeded: PRODUCT_FORMULAS.filter((record) => /needed|identity check/i.test(record.confidence)).length,
+  };
+}
