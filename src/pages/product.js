@@ -2,6 +2,7 @@ import { html, jsonScript } from "../html.js";
 import { productCard } from "./components.js";
 import { formatMoney, BOOKING_URL, SUPPORT_EMAIL } from "../config.js";
 import { productInsightFor } from "../product-insights.js";
+import { renderProductOverview } from "../product-overview.js";
 
 function ingredientDetails(ingredient) {
   return html`
@@ -144,6 +145,7 @@ export function productPage({ product, related, cfg }) {
   const hasChoices = product.variations.length > 1;
   const freeAt = cfg.freeShippingThresholdCents;
   const insight = productInsightFor(product.name);
+  const descriptionOverview = renderProductOverview(product);
 
   const variationData = Object.fromEntries(
     product.variations.map((variation) => [variation.id, {
@@ -157,9 +159,7 @@ export function productPage({ product, related, cfg }) {
     <h1>${product.name}</h1>
     <p class="product-detail-price" data-price-display>${formatMoney(product.priceCents)}</p>
 
-    ${product.description
-      ? html`<p class="product-description">${product.description}</p>`
-      : html`<p class="product-description">Ask Laura about this product at your next appointment &#8212; full details coming soon.</p>`}
+    ${descriptionOverview.markup}
 
     ${hasChoices ? html`
       <fieldset class="variation-picker">
@@ -201,14 +201,16 @@ export function productPage({ product, related, cfg }) {
       <span>Secure checkout by Square</span>
     </div>
 
-    <details>
-      <summary>How to use</summary>
-      <p>
-        Laura will tailor this to your routine at your appointment. If you&#8217;re
-        unsure how it fits with what you already use, email
-        <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> before you buy.
-      </p>
-    </details>
+    ${descriptionOverview.hasUsage ? "" : html`
+      <details>
+        <summary>How to use</summary>
+        <p>
+          Laura will tailor this to your routine at your appointment. If you&#8217;re
+          unsure how it fits with what you already use, email
+          <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> before you buy.
+        </p>
+      </details>
+    `}
     <details>
       <summary>Shipping &amp; pickup</summary>
       <p>
@@ -218,14 +220,16 @@ export function productPage({ product, related, cfg }) {
         ${cfg.pickupEnabled ? html` Local pickup at the Tampa studio is always free.` : ""}
       </p>
     </details>
-    <details>
-      <summary>Questions</summary>
-      <p>
-        Book a consult and Laura will tell you whether this product is right for
-        your skin &#8212; or whether something else is a better fit.
-        <a href="${BOOKING_URL}">Book an appointment</a>.
-      </p>
-    </details>
+    ${descriptionOverview.hasQuestions ? "" : html`
+      <details>
+        <summary>Questions</summary>
+        <p>
+          Book a consult and Laura will tell you whether this product is right for
+          your skin &#8212; or whether something else is a better fit.
+          <a href="${BOOKING_URL}">Book an appointment</a>.
+        </p>
+      </details>
+    `}
   `;
 
   return html`
