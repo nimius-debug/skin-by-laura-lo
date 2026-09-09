@@ -210,4 +210,3 @@ export function productInsightFor(productName) {
   return REVIEWS[String(productName || "").trim().toLowerCase()] || null;
 }
 
-
