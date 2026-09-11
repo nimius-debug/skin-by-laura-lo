@@ -148,13 +148,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   content: ""; width: 26px; height: 1px; background: var(--line);
 }
 .hero-result-label {
-  position: absolute; z-index: 2; left: 6px; padding: 4px 6px;
+  position: absolute; z-index: 2; left: 7px; padding: 4px 6px;
   background: rgba(44,52,36,.88); color: var(--on-dark);
   font-size: 7px; font-weight: 700; letter-spacing: .13em; line-height: 1;
   text-transform: uppercase; box-shadow: 0 2px 8px rgba(27,33,24,.2);
+  pointer-events: none;
 }
-.hero-result-label-after { top: 6px; }
-.hero-result-label-before { bottom: 6px; }
+.hero-result-label-after { top: -10px; }
+.hero-result-label-before { bottom: -10px; }
 
 /* The subject, furthest forward, overlapping the ring's top edge. */
 .hero-subject {
@@ -850,8 +851,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .hero-subject { height: 380px; }
   .hero-result { width: 80px; padding: 5px 5px 4px; }
   .hero-result-label { left: 5px; padding: 3px 5px; font-size: 6px; }
-  .hero-result-label-after { top: 5px; }
-  .hero-result-label-before { bottom: 5px; }
+  .hero-result-label-after { top: -8px; }
+  .hero-result-label-before { bottom: -8px; }
   .hero-handwritten { display: none; }
   .hero-plinth { display: none; }
   .hero-card-tall { width: 74%; height: 380px; right: 5px; }

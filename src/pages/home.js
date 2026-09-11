@@ -33,11 +33,11 @@ function proofCard(slot, images) {
   const image = images[slot] || images[0] || {};
   return html`
     <figure class="hero-result" data-hero-result data-result-slot="${slot}">
+      <span class="hero-result-label hero-result-label-after">After</span>
       <div class="hero-result-shot">
         ${image.src ? html`<img src="${image.src}" alt="${image.alt}" loading="lazy" />` : ""}
-        <span class="hero-result-label hero-result-label-after">After</span>
-        <span class="hero-result-label hero-result-label-before">Before</span>
       </div>
+      <span class="hero-result-label hero-result-label-before">Before</span>
     </figure>
   `;
 }
