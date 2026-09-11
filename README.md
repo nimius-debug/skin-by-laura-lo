@@ -141,7 +141,7 @@ redeploy, no code edit. Money is in **cents**.
 | `PICKUP_PREP_HOURS` | `24` | Pickup prep time |
 | `CATALOG_TTL_SECONDS` | `120` | Catalog cache. `0` = always live |
 | `HIDE_SOLD_OUT` | `false` | `true` hides sold-out items instead of labelling them |
-| `SITE_URL` | test domain | Used for canonical URLs and the sitemap |
+| `SITE_URL` | `https://skinbylauralo.com` | Used for canonical URLs and the sitemap |
 
 Copy, hours, address, booking/eGift links, review count and gallery images live
 in `src/config.js`.

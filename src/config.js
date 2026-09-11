@@ -85,7 +85,7 @@ export function settings(env = {}) {
   const thresholdCents = num(env.FREE_SHIPPING_THRESHOLD_CENTS, 10000);
 
   return {
-    siteUrl: env.SITE_URL || "https://test.skinbylauralo.com",
+    siteUrl: env.SITE_URL || "https://skinbylauralo.com",
     shippingEnabled,
     shippingFeeCents: feeCents,
     freeShippingThresholdCents: thresholdCents,

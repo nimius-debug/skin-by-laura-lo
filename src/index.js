@@ -25,6 +25,31 @@ const LEGACY_REDIRECTS = new Map([
   ["/checkout/success", "/thank-you"],
 ]);
 
+// WordPress and Square generated different slugs for a handful of the same
+// products. Preserve bookmarked/search-indexed URLs after the domain cutover.
+// Products that used to contain multiple choices return to the shop so a
+// visitor can choose the correct shade or size instead of being misdirected.
+const LEGACY_PRODUCT_REDIRECTS = new Map([
+  ["/product/3d-cell-repair-boost", "/product/dermagarden-3d-cell-repair-boost"],
+  ["/product/brilliant-tone", "/product/glymed-brilliant-tone"],
+  ["/product/dermo-essential-moisture-rx-recharging-cream", "/product/moisture-rx-recharge"],
+  ["/product/homme-serum", "/product/desembre-homme-spirulina-all-in-one-solution"],
+  ["/product/hydrating-enzyme-masque", "/product/hydrating-mask"],
+  ["/product/krx-active-31-revitalizing-eye-cream-2", "/product/krx-active-31-revitalizing-eye-cream"],
+  ["/product/krx-all-day-glow-serum", "/product/krx-all-day-glow-vitamin-serum"],
+  ["/product/krx-aqua-cream", "/product/krx-aquageltm-cream"],
+  ["/product/krx-clear-prevent-anti-toner", "/product/krx-clear-prevent-anti-acne-toner"],
+  ["/product/krx-skin-filter-tinted-sunscreen-spf-50-pa", "/shop"],
+  ["/product/krx-soba-cream", "/product/soba-calm-cream"],
+  ["/product/magic-molecule-hypochlorous-acid-spray", "/shop"],
+  ["/product/mixi-clean-gel-cleanser", "/product/desembre-egf-waterdrop"],
+  ["/product/mixi-clear-plex-5-2", "/product/mixi-clear-plex-5"],
+  ["/product/mixi-mandelic-11-serum", "/product/mixi-mandelic-acid-11"],
+  ["/product/mixi-mandelic-15-serum", "/product/mixi-mandelic-acid-15"],
+  ["/product/mixi-mandelic-5-serum", "/product/mixi-mandelic-acid-5"],
+  ["/product/mixi-mandelic-8-serum", "/product/mixi-mandelic-acid-8"],
+]);
+
 const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <rect width="64" height="64" fill="#20231f"/>
 <text x="32" y="44" font-family="Georgia,serif" font-size="34" fill="#fbf8f3" text-anchor="middle">L</text>
@@ -158,9 +183,25 @@ export default {
     const cfg = settings(env);
     let path = url.pathname;
 
+    // Production has one canonical origin. Keep workers.dev usable for safe
+    // previews, but collapse www and plain HTTP in a single permanent redirect
+    // once the real hostname is routed to this Worker.
+    const canonicalOrigin = new URL(cfg.siteUrl);
+    const isProductionHost = url.hostname === canonicalOrigin.hostname
+      || url.hostname === `www.${canonicalOrigin.hostname}`;
+    if (isProductionHost && url.origin !== canonicalOrigin.origin) {
+      const cleanPath = path.length > 1 ? path.replace(/\/+$/, "") : path;
+      return redirect(`${canonicalOrigin.origin}${cleanPath || "/"}${url.search}`);
+    }
+
     // Normalise trailing slashes so old WordPress links resolve.
     if (path.length > 1 && path.endsWith("/")) {
       const stripped = path.replace(/\/+$/, "") || "/";
+      const legacyProduct = LEGACY_PRODUCT_REDIRECTS.get(stripped);
+      if (legacyProduct) return redirect(legacyProduct + url.search);
+      if (stripped.startsWith("/product-category/")) return redirect("/shop" + url.search);
+      const legacy = LEGACY_REDIRECTS.get(stripped);
+      if (legacy && legacy !== stripped) return redirect(legacy + url.search);
       return redirect(stripped + url.search);
     }
 
@@ -184,6 +225,8 @@ export default {
     // ------------------------------------------------------------ legacy
     if (path === "/booking" || path.startsWith("/booking/")) return redirect(BOOKING_URL, 302);
     if (path.startsWith("/product-category/")) return redirect("/shop");
+    const legacyProduct = LEGACY_PRODUCT_REDIRECTS.get(path);
+    if (legacyProduct) return redirect(legacyProduct + url.search);
     const legacy = LEGACY_REDIRECTS.get(path);
     if (legacy && legacy !== path) return redirect(legacy);
 

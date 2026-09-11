@@ -8,7 +8,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "test": "node test/catalog.test.mjs && node test/checkout.test.mjs && node test/hero-orbit.test.mjs && node test/layout.test.mjs && node test/product-overview.test.mjs && node test/product-insight.test.mjs && node test/product-gallery.test.mjs",
+    "test": "node test/catalog.test.mjs && node test/checkout.test.mjs && node test/domain.test.mjs && node test/hero-orbit.test.mjs && node test/layout.test.mjs && node test/product-overview.test.mjs && node test/product-insight.test.mjs && node test/product-gallery.test.mjs",
     "square:locations": "node scripts/square-locations.mjs",
     "square:ingredients": "node scripts/dump-ingredients.mjs"
   },
