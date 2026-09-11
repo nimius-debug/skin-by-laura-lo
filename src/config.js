@@ -46,40 +46,19 @@ export const HERO_IMAGE = {
 };
 
 /**
- * Client results shown either side of the hero ring — before on the left,
- * after on the right, both riding the circle's edge.
- *
- * Leave `src` null and each card renders a labelled placeholder, so the
- * composition holds its shape until real photography exists. Use consenting
- * clients' images only, and keep both shots at the same crop and distance
- * or the comparison misleads.
+ * Complete client transformations for the hero orbit. Each 4:5 image already
+ * contains its matched after (top) and before (bottom), so a comparison never
+ * separates while it travels around Laura. Use consenting clients' images
+ * only and keep the chronological labels accurate.
  */
-export const BEFORE_AFTER = {
-  pairs: [
-    {
-      before: { src: "/media/laura-before.jpg", alt: "Laura's skin before treatment" },
-      after: { src: "/media/laura-after.jpg", alt: "Laura's skin after treatment" },
-    },
-    {
-      before: { src: "/media/result-02-before.jpg", alt: "Client skin before treatment" },
-      after: { src: "/media/result-02-after.jpg", alt: "Client skin after treatment" },
-    },
-    {
-      before: { src: "/media/result-03-before.jpg", alt: "Client skin before treatment" },
-      after: { src: "/media/result-03-after.jpg", alt: "Client skin after treatment" },
-    },
-    {
-      before: { src: "/media/result-04-before.jpg", alt: "Client skin before treatment" },
-      after: { src: "/media/result-04-after.jpg", alt: "Client skin after treatment" },
-    },
-    {
-      before: { src: "/media/result-05-before.jpg", alt: "Client skin before treatment" },
-      after: { src: "/media/result-05-after.jpg", alt: "Client skin after treatment" },
-    },
-    {
-      before: { src: "/media/result-06-before.jpg", alt: "Client skin before treatment" },
-      after: { src: "/media/result-06-after.jpg", alt: "Client skin after treatment" },
-    },
+export const CLIENT_RESULTS = {
+  images: [
+    { src: "/media/result-composite-01.webp", alt: "Five-month in-person acne bootcamp result, after above and before below" },
+    { src: "/media/result-composite-02.webp", alt: "Six-month acne bootcamp and scar revision result, after above and before below" },
+    { src: "/media/result-composite-03.webp", alt: "Six-month acne bootcamp result, after above and before below" },
+    { src: "/media/result-composite-04.webp", alt: "Client skin transformation, after above and before below" },
+    { src: "/media/result-composite-05.webp", alt: "Three-month in-person acne bootcamp result, after above and before below" },
+    { src: "/media/result-composite-06.webp", alt: "One-month virtual acne rosacea result, after above and before below" },
   ],
   caption: "Real client results",
 };

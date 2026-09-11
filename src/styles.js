@@ -91,7 +91,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    the layers as the pointer moves.
    Requires a cutout image with alpha; see HERO_IMAGE in config.js.
    --------------------------------------------------------------------- */
-.hero-stage { position: absolute; inset: 0; perspective: 1150px; perspective-origin: 52% 46%; }
+.hero-stage { --result-radius-x: 240px; position: absolute; inset: 0; perspective: 1150px; perspective-origin: 52% 46%; }
 .hero-layers, .hero-foreground { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.2,.7,.3,1); }
 .hero-layers { z-index: 1; }
 .hero-foreground { z-index: 5; pointer-events: none; }
@@ -101,8 +101,8 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 /* The result-card orbit sits behind Laura. Keeping it as an open brass ellipse
    gives the cards a visible path without putting a coloured disc behind her. */
 .hero-ring {
-  left: 50%; top: 73%;
-  width: min(90%, 540px); aspect-ratio: 9 / 1;
+  left: 50%; top: 76%;
+  width: calc(var(--result-radius-x) * 2); max-width: 90%; aspect-ratio: 9 / 1;
   translate: calc(-50% + var(--px, 0px)) calc(-50% + var(--py, 0px));
   border-radius: 50%;
   background: transparent;
@@ -116,17 +116,18 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   transform: translateZ(-140px);
 }
 
-/* Result cards ride the ring's edge, before to the left, after to the right. */
+/* Two complete 4:5 transformations travel half a lap apart. Depth controls
+   their scale and opacity so each card appears to approach the viewer. */
 .hero-result {
   --orbit-x: 0px;
   --orbit-y: 0px;
   --orbit-z: -140px;
-  --orbit-scale: 1;
+  --orbit-scale: .72;
   --orbit-tilt: 0deg;
   margin: 0; width: 116px;
-  left: 50%; top: 73%;
-  padding: 9px 9px 7px;
-  background: var(--ink); color: var(--on-dark);
+  left: 50%; top: 76%;
+  padding: 7px;
+  background: var(--ink);
   box-shadow: 0 18px 34px rgba(27,33,24,.34);
   translate: -50% -50%;
   transform: translate3d(
@@ -138,7 +139,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   will-change: transform, opacity;
 }
 .hero-result-shot {
-  aspect-ratio: .82; display: grid; place-items: center;
+  position: relative; aspect-ratio: 4 / 5; display: grid; place-items: center;
   background: var(--panel-product); overflow: hidden;
 }
 .hero-result-shot img { width: 100%; height: 100%; object-fit: cover; }
@@ -146,12 +147,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .hero-result-shot:empty::after {
   content: ""; width: 26px; height: 1px; background: var(--line);
 }
-.hero-result figcaption {
-  margin-top: 7px; font-size: 8px; font-weight: 650;
-  letter-spacing: .18em; text-transform: uppercase; color: var(--brass);
+.hero-result-label {
+  position: absolute; z-index: 2; left: 6px; padding: 4px 6px;
+  background: rgba(44,52,36,.88); color: var(--on-dark);
+  font-size: 7px; font-weight: 700; letter-spacing: .13em; line-height: 1;
+  text-transform: uppercase; box-shadow: 0 2px 8px rgba(27,33,24,.2);
 }
-.hero-result-before { --orbit-tilt: -4deg; }
-.hero-result-after  { --orbit-tilt: 3.5deg; }
+.hero-result-label-after { top: 6px; }
+.hero-result-label-before { bottom: 6px; }
 
 /* The subject, furthest forward, overlapping the ring's top edge. */
 .hero-subject {
@@ -846,7 +849,9 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .hero-stage { perspective: 700px; }
   .hero-subject { height: 380px; }
   .hero-result { width: 80px; padding: 5px 5px 4px; }
-  .hero-result figcaption { font-size: 7px; letter-spacing: .14em; }
+  .hero-result-label { left: 5px; padding: 3px 5px; font-size: 6px; }
+  .hero-result-label-after { top: 5px; }
+  .hero-result-label-before { bottom: 5px; }
   .hero-handwritten { display: none; }
   .hero-plinth { display: none; }
   .hero-card-tall { width: 74%; height: 380px; right: 5px; }

@@ -1,7 +1,7 @@
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
 import { routineTile, routineDialog } from "./routineComponents.js";
-import { BOOKING_URL, SKIN_AUDIT_URL, STUDIO, HOURS, RATING, HERO_IMAGE, BEFORE_AFTER } from "../config.js";
+import { BOOKING_URL, SKIN_AUDIT_URL, STUDIO, HOURS, RATING, HERO_IMAGE, CLIENT_RESULTS } from "../config.js";
 import { ROUTINES, resolveRoutine } from "../routines.js";
 
 const REVIEWS = [
@@ -28,18 +28,16 @@ const SERVICES = [
   },
 ];
 
-/** One result card beside the ring, with every image ready for the next lap. */
-function proofCard(kind, pairs) {
-  const label = kind === "before" ? "Before" : "After";
-  const images = pairs.map((pair) => pair[kind]);
-  const image = images[0] || {};
+/** One of two orbit slots. Each carries a complete, matched transformation. */
+function proofCard(slot, images) {
+  const image = images[slot] || images[0] || {};
   return html`
-    <figure class="hero-result hero-result-${kind}" data-hero-result="${kind}"
-            data-result-images="${JSON.stringify(images)}">
+    <figure class="hero-result" data-hero-result data-result-slot="${slot}">
       <div class="hero-result-shot">
         ${image.src ? html`<img src="${image.src}" alt="${image.alt}" loading="lazy" />` : ""}
+        <span class="hero-result-label hero-result-label-after">After</span>
+        <span class="hero-result-label hero-result-label-before">Before</span>
       </div>
-      <figcaption>${label}</figcaption>
     </figure>
   `;
 }
@@ -69,12 +67,12 @@ export function homePage({ products, cfg }) {
         </p>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <div class="hero-stage" data-hero-stage>
+        <div class="hero-stage" data-hero-stage data-result-images="${JSON.stringify(CLIENT_RESULTS.images)}">
           <div class="hero-layers" data-hero-layers>
             <!-- the ring the subject stands in front of and breaks out of -->
             <div class="hero-ring hero-ring-back" data-depth="-4"></div>
-            ${proofCard("before", BEFORE_AFTER.pairs)}
-            ${proofCard("after", BEFORE_AFTER.pairs)}
+            ${proofCard(0, CLIENT_RESULTS.images)}
+            ${proofCard(1, CLIENT_RESULTS.images)}
             ${heroSrc
               ? html`<img class="hero-subject" data-depth="6" src="${heroSrc}" alt="${heroAlt}"
                        width="765" height="1318" fetchpriority="high" />`
@@ -85,7 +83,7 @@ export function homePage({ products, cfg }) {
             <div class="hero-ring hero-ring-front" data-depth="-4"></div>
           </div>
         </div>
-        <p class="hero-handwritten">${BEFORE_AFTER.caption}</p>
+        <p class="hero-handwritten">${CLIENT_RESULTS.caption}</p>
       </div>
     </section>
 
