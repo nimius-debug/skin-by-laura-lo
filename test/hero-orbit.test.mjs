@@ -12,7 +12,7 @@ const cards = markup.match(/data-hero-result(?:\s|>)/g) || [];
 
 assert.equal(cards.length, 2, "the hero exposes two composite transformation slots");
 assert.equal(CLIENT_RESULTS.images.length, 6, "the orbit contains all six supplied transformations");
-assert.match(markup, /hero-result-label-after">After[\s\S]*hero-result-label-before">Before/, "each composite labels its top as after and bottom as before");
+assert.match(markup, /hero-result-label-after">After<\/span>\s*<div class="hero-result-shot">[\s\S]*<\/div>\s*<span class="hero-result-label hero-result-label-before">Before/, "the labels sit outside the photo without covering skin detail");
 assert.doesNotMatch(markup, /hero-result-before|hero-result-after/, "before and after are no longer separate cards");
 assert.match(CLIENT_JS, /phase: slot \* Math\.PI/, "the two composite cards travel half a lap apart");
 assert.match(CLIENT_JS, /var front = depth >= 0;/, "front/back flips at the side crossings");
@@ -29,6 +29,8 @@ assert.match(CLIENT_JS, /var preload = new window\.Image\(\)/, "later result pai
 assert.match(CLIENT_JS, /stage\.style\.setProperty\("--result-radius-x"/, "the visible ring follows the viewport-safe card path");
 assert.match(STYLES, /\.hero-result[\s\S]*?var\(--orbit-z\)/, "orbit transforms are scoped to result cards");
 assert.match(STYLES, /\.hero-result-shot \{[\s\S]*?aspect-ratio: 4 \/ 5;/, "the result frame matches the supplied 4:5 images");
+assert.match(STYLES, /\.hero-result-label-after \{ top: -10px; \}/, "the after label sits above the photograph");
+assert.match(STYLES, /\.hero-result-label-before \{ bottom: -10px; \}/, "the before label sits below the photograph");
 assert.match(STYLES, /\.hero-ring[\s\S]*?background: transparent;/, "the orbit is an open arc, not a filled disc");
 assert.match(markup, /hero-subject" data-depth="6"/, "Laura keeps her forward mouse-parallax layer");
 assert.match(STYLES, /\.hero-subject \{[\s\S]*?translateZ\(110px\)/, "Laura remains projected out of the stage");
@@ -48,8 +50,8 @@ for (const result of CLIENT_RESULTS.images) {
 }
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260910-composite-orbit/, "the shared CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260910-composite-orbit/, "the client script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260910-result-labels/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260910-result-labels/, "the client script bypasses stale caches");
 
 console.log("PASS  composite client results approach, recede, and swap behind Laura");
 
