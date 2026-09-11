@@ -488,13 +488,45 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-page { padding-top: 75px; padding-bottom: 130px; display: grid; grid-template-columns: 1.08fr .92fr; gap: 9%; align-items: start; }
 /* Matches the light shop tile — the detail page had the same moss frame,
    inner panel and photo background stacked three deep. */
-.product-gallery { aspect-ratio: 1; position: sticky; top: 150px; display: grid; overflow: hidden;
+.product-gallery { position: sticky; top: 150px; display: flex; flex-direction: column; gap: 12px; }
+.product-gallery-panel { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden;
   background: var(--white); border: 1px solid var(--line); }
-.product-gallery-panel { display: grid; place-items: center; overflow: hidden; background: var(--white); }
 /* contain here, cover in the grid: a square catalogue photo fills either way,
    but where they differ the grid wants an unbroken band and the detail page
    wants the whole product visible. Any letterbox is the panel's own colour. */
-.product-gallery-panel img { width: 100%; height: 100%; object-fit: contain; }
+.product-gallery-panel img { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
+
+.gallery-zoom { position: absolute; top: 16px; right: 16px; width: 38px; height: 38px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%; background: var(--white); color: var(--ink); cursor: pointer;
+  transition: background .2s ease, color .2s ease; }
+.gallery-zoom:hover { background: var(--clay-deep); color: var(--on-dark); border-color: var(--clay-deep); }
+
+.product-gallery-thumbs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.product-gallery-thumbs::-webkit-scrollbar { display: none; }
+.gallery-thumb { flex: 0 0 auto; width: 64px; height: 64px; padding: 0; overflow: hidden;
+  border: 1px solid var(--line); background: var(--white); cursor: pointer; opacity: .6;
+  transition: opacity .2s ease, border-color .2s ease; }
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-thumb:hover { opacity: .9; }
+.gallery-thumb.active { opacity: 1; border-color: var(--clay-deep); }
+
+.gallery-lightbox { padding: 0; border: 0; background: transparent; }
+.gallery-lightbox::backdrop { background: rgba(20,22,17,.92); }
+/* The [open] attribute selector outranks the browser's own dialog:modal
+   UA-stylesheet rule (which sets margin: auto to center a dialog at its
+   natural size) — without it, that default fights a full-bleed layout. */
+.gallery-lightbox[open] { position: fixed; inset: 0; margin: 0; width: 100vw; height: 100vh;
+  max-width: 100vw; max-height: 100vh; display: grid; place-items: center; }
+.gallery-lightbox img { max-width: min(88vw, 900px); max-height: 82vh; object-fit: contain; }
+.gallery-lightbox-close { position: absolute; top: 22px; right: 24px; width: 42px; height: 42px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: var(--on-dark); cursor: pointer; }
+.gallery-lightbox-close:hover { background: rgba(255,255,255,.2); }
+.gallery-lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px;
+  display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.1);
+  color: var(--on-dark); font-size: 26px; line-height: 1; cursor: pointer; }
+.gallery-lightbox-nav:hover { background: rgba(255,255,255,.2); }
+.gallery-lightbox-prev { left: 20px; }
+.gallery-lightbox-next { right: 20px; }
 .product-details { padding-top: 12px; }
 .breadcrumbs { margin-bottom: 68px; display: flex; gap: 9px; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; flex-wrap: wrap; }
 .product-details .eyebrow { margin-bottom: 14px; }
@@ -774,7 +806,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .footer-links { padding-top: 0; }
   .shop-hero > div, .product-help, .product-page, .cart-layout { grid-template-columns: 1fr; }
   .product-gallery, .cart-summary { position: relative; top: auto; }
-  .product-gallery { aspect-ratio: 1; }
+  .product-gallery-panel { aspect-ratio: 1; }
   .cart-summary { margin-top: 20px; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -828,7 +860,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .shop-product-grid { row-gap: 42px; }
   .product-help { margin-top: 85px; padding: 45px 28px; }
   .product-page { padding-top: 35px; padding-bottom: 85px; gap: 45px; }
-  .product-gallery { aspect-ratio: 1; }
+  .product-gallery-panel { aspect-ratio: 1; }
   .breadcrumbs { margin-bottom: 38px; }
   .product-details h1 { font-size: 52px; }
   .product-buy { grid-template-columns: 100px 1fr; }

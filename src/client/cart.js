@@ -131,6 +131,65 @@ export const CLIENT_JS = String.raw`
 
   /* --------------------------------------------------------- product page */
 
+  function initProductGallery() {
+    var root = document.querySelector("[data-product-gallery]");
+    if (!root) return;
+
+    var mainImg = root.querySelector("[data-gallery-main]");
+    var thumbs = Array.prototype.slice.call(root.querySelectorAll("[data-gallery-thumb]"));
+    var images = thumbs.length
+      ? thumbs.map(function (thumb) { return thumb.getAttribute("data-gallery-thumb"); })
+      : (mainImg ? [mainImg.getAttribute("src")] : []);
+    if (!images.length) return;
+
+    var lightbox = document.querySelector("[data-gallery-lightbox]");
+    var lightboxImg = lightbox && lightbox.querySelector("[data-gallery-lightbox-img]");
+    var current = 0;
+
+    function setActive(index) {
+      current = (index + images.length) % images.length;
+      if (mainImg) mainImg.src = images[current];
+      thumbs.forEach(function (thumb, i) { thumb.classList.toggle("active", i === current); });
+      if (lightboxImg) lightboxImg.src = images[current];
+    }
+
+    thumbs.forEach(function (thumb, index) {
+      thumb.addEventListener("click", function () { setActive(index); });
+    });
+
+    function openLightbox() {
+      if (!lightbox || !lightbox.showModal) return;
+      setActive(current);
+      lightbox.showModal();
+    }
+
+    if (mainImg) mainImg.addEventListener("click", openLightbox);
+    var zoomButton = root.querySelector("[data-gallery-zoom]");
+    if (zoomButton) zoomButton.addEventListener("click", openLightbox);
+
+    if (lightbox) {
+      var closeButton = lightbox.querySelector("[data-gallery-close]");
+      if (closeButton) closeButton.addEventListener("click", function () { lightbox.close(); });
+
+      // A click that lands on the <dialog> element itself (not something
+      // inside it) is a click on the backdrop — same pattern as the
+      // routine dialogs.
+      lightbox.addEventListener("click", function (event) {
+        if (event.target === lightbox) lightbox.close();
+      });
+
+      var prevButton = lightbox.querySelector("[data-gallery-prev]");
+      if (prevButton) prevButton.addEventListener("click", function () { setActive(current - 1); });
+      var nextButton = lightbox.querySelector("[data-gallery-next]");
+      if (nextButton) nextButton.addEventListener("click", function () { setActive(current + 1); });
+
+      lightbox.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowLeft") setActive(current - 1);
+        if (event.key === "ArrowRight") setActive(current + 1);
+      });
+    }
+  }
+
   function initProductPage() {
     var value = document.querySelector("[data-qty-value]");
     if (value) {
@@ -783,6 +842,7 @@ export const CLIENT_JS = String.raw`
     initNav();
     initAddButtons();
     initProductPage();
+    initProductGallery();
     initProductInsights();
     initShopFilters();
     initRoutines();

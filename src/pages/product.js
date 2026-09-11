@@ -248,14 +248,35 @@ export function productPage({ product, related, cfg }) {
     </details>
   `;
 
+  const images = product.images && product.images.length ? product.images : (product.image ? [product.image] : []);
+  const hasGallery = images.length > 0;
+
   return html`
     <div class="product-page section-shell">
-      <div class="product-gallery">
+      <div class="product-gallery" ${hasGallery ? html`data-product-gallery` : ""}>
         <div class="product-gallery-panel">
-          ${product.image
-            ? html`<img src="${product.image}" alt="${product.name}" width="620" height="632" />`
-            : html`<div class="product-image-fallback">${product.name}</div>`}
+          ${hasGallery ? html`
+            <img src="${images[0]}" alt="${product.name}" width="620" height="632" data-gallery-main />
+            <button type="button" class="gallery-zoom" data-gallery-zoom aria-label="Zoom this photo">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="7" cy="7" r="5.25" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </button>
+          ` : html`<div class="product-image-fallback">${product.name}</div>`}
         </div>
+        ${images.length > 1 ? html`
+          <div class="product-gallery-thumbs" role="list" aria-label="Product photos">
+            ${images.map((src, index) => html`
+              <button type="button"
+                      class="gallery-thumb${index === 0 ? " active" : ""}"
+                      data-gallery-thumb="${src}"
+                      aria-label="View photo ${index + 1} of ${images.length}">
+                <img src="${src}" alt="" width="64" height="64" loading="lazy" />
+              </button>
+            `)}
+          </div>
+        ` : ""}
       </div>
 
       <div class="product-details">
@@ -267,6 +288,23 @@ export function productPage({ product, related, cfg }) {
         ${insight ? ingredientReview(insight, productOverview) : productOverview}
       </div>
     </div>
+
+    ${hasGallery ? html`
+      <dialog class="gallery-lightbox" data-gallery-lightbox aria-label="${product.name} photos">
+        <button type="button" class="gallery-lightbox-close" data-gallery-close aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M3 3L15 15M15 3L3 15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+        ${images.length > 1 ? html`
+          <button type="button" class="gallery-lightbox-nav gallery-lightbox-prev" data-gallery-prev aria-label="Previous photo">&#8249;</button>
+        ` : ""}
+        <img data-gallery-lightbox-img alt="${product.name}" />
+        ${images.length > 1 ? html`
+          <button type="button" class="gallery-lightbox-nav gallery-lightbox-next" data-gallery-next aria-label="Next photo">&#8250;</button>
+        ` : ""}
+      </dialog>
+    ` : ""}
 
     ${related.length ? html`
       <section class="related-products section-shell">
