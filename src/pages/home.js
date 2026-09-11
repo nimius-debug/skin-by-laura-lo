@@ -1,7 +1,10 @@
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
 import { routineTile, routineDialog } from "./routineComponents.js";
-import { BOOKING_URL, SKIN_AUDIT_URL, STUDIO, HOURS, RATING, HERO_IMAGE, CLIENT_RESULTS } from "../config.js";
+import {
+  BOOKING_URL, VIRTUAL_CONSULTATION_URL, SKIN_AUDIT_URL,
+  STUDIO, HOURS, RATING, HERO_IMAGE, CLIENT_RESULTS,
+} from "../config.js";
 import { ROUTINES, resolveRoutine } from "../routines.js";
 
 const REVIEWS = [
@@ -184,7 +187,7 @@ export function homePage({ products, cfg }) {
         <p class="eyebrow">Your skin can change</p>
         <h2>Less guessing. <em>More glowing.</em></h2>
         <p>Start with one honest conversation about what your skin actually needs.</p>
-        <a class="button button-light" href="${BOOKING_URL}">Start your skin journey <span aria-hidden="true">&#8599;</span></a>
+        <a class="button button-light" href="${VIRTUAL_CONSULTATION_URL}">Start your skin journey <span aria-hidden="true">&#8599;</span></a>
       </div>
     </section>
 
