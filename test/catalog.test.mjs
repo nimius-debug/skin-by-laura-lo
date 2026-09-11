@@ -12,7 +12,7 @@ const CATALOG_PAGE_1 = {
           price_money: { amount: 3400, currency: "USD" }, track_inventory: true } }],
       } },
     { id: "ITEM_B", type: "ITEM", item_data: {
-        name: "KrX Mela Défense Serum", description: "<p>Brightening <b>serum</b>.</p>",
+        name: "KrX Mela Défense Serum", description_html: "<p>Brightening <b>serum</b>.</p>",
         ecom_visibility: "VISIBLE",
         image_ids: ["IMG_2"], categories: [{ id: "CAT_SERUM" }],
         variations: [
@@ -117,6 +117,7 @@ check("slug from accented name", mela.slug, "krx-mela-defense-serum");
 check("category via categories[]", mela.category, "Serums");
 check("image resolved from later page", mela.image, "https://img/2.jpg");
 check("html stripped from description", mela.description, "Brightening serum .");
+check("Square description_html retained for safe formatting", mela.descriptionHtml, "<p>Brightening <b>serum</b>.</p>");
 check("both variations kept", mela.variations.map(v => v.id), ["VAR_B1", "VAR_B2"]);
 check("untracked variation is in stock", mela.variations[1].inStock, true);
 

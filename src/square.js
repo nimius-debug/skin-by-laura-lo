@@ -198,9 +198,10 @@ function normalize({ items, images, categories }, stock, cfg) {
     if (seenSlugs.has(slug)) slug = `${slug}-${slugify(item.id).slice(0, 6)}`;
     seenSlugs.add(slug);
 
+    const descriptionMarkup = data.description_html || data.description || "";
     const description =
       data.description_plaintext ||
-      (data.description ? String(data.description).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
+      (descriptionMarkup ? String(descriptionMarkup).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
 
     products.push({
       id: item.id,
@@ -208,6 +209,10 @@ function normalize({ items, images, categories }, stock, cfg) {
       name: data.name || "Untitled",
       category: categoryNameFor(item, categories),
       description,
+      // Keep Square's rich description so the product page can recover its
+      // paragraphs, lists and authored section labels. It is parsed into a
+      // controlled model before rendering and is never injected as raw HTML.
+      descriptionHtml: descriptionMarkup,
       images: productImages,
       image: productImages[0] || null,
       variations,

@@ -266,12 +266,15 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    so it needs to read at a glance, not whisper like a shop category label. */
 .routines-grid .product-category { font-size: 11px; font-weight: 700; letter-spacing: .1em; margin-bottom: 8px; }
 .routines-grid .product-card > button { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
-.routine-media { position: absolute; inset: 0; }
+/* Routine photos fan out inside their own well. Keep the bottom rail clear so
+   the CTA is always readable instead of competing with the front photo. */
+.routine-media { position: absolute; inset: 0 0 62px; }
 .routine-media img { position: absolute; width: 62%; height: 62%; object-fit: cover; border: 3px solid var(--white); background: var(--panel-product); }
 .routine-media img:nth-child(1) { left: 4%; top: 4%; z-index: 3; }
 .routine-media img:nth-child(2) { left: 34%; top: 22%; z-index: 2; }
 .routine-media img:nth-child(3) { left: 30%; top: 2%; z-index: 1; }
 .routine-media-empty { position: absolute; inset: 0; background: var(--panel-product); }
+.routine-tile .product-quick { z-index: 4; transform: none; background: var(--cream); }
 
 @media (max-width: 900px) {
   /* flex: 1 1 0 (above) sizes cards along a horizontal main axis; once the
@@ -533,7 +536,25 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-details h1 { margin-bottom: 17px; font-size: clamp(52px, 6vw, 78px); line-height: .96; }
 .product-detail-price { margin-bottom: 28px; font-size: 15px; letter-spacing: .04em; }
 .product-detail-short { margin-bottom: 18px; font-family: var(--font-serif); font-size: 25px; line-height: 1.3; color: var(--clay-deep); }
-.product-description { font-size: 14px; line-height: 1.75; color: var(--muted); }
+.product-description { margin: 34px 0 0; display: block; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.product-overview-intro { margin-bottom: 24px; display: grid; gap: 17px; }
+.product-description p { margin: 0; }
+.product-description strong { color: var(--ink); font-weight: 650; }
+.product-details .product-overview-section { padding: 0; border-top: 1px solid var(--line); }
+.product-details .product-overview-section:last-child { border-bottom: 0; }
+.product-details .product-overview-section summary { padding: 19px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: var(--ink); font-size: 10px; font-weight: 400; letter-spacing: .13em; line-height: normal; text-transform: uppercase; }
+.product-overview-section-body { padding: 0 0 28px; display: grid; gap: 14px; }
+.product-overview-section ul { margin: 0; padding-left: 19px; display: grid; gap: 11px; }
+.product-overview-section li { padding-left: 3px; }
+.product-overview-section li::marker { color: var(--brass-deep); }
+.product-overview-toggle { position: relative; width: 12px; height: 12px; flex: 0 0 12px; }
+.product-overview-toggle::before, .product-overview-toggle::after { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 1px; background: var(--ink); }
+.product-overview-toggle::after { transform: rotate(90deg); transition: transform .2s ease; }
+.product-overview-section[open] .product-overview-toggle::after { transform: rotate(0); }
+.product-overview-callout .product-overview-section-body { margin-bottom: 24px; padding: 22px 24px; border: 1px solid var(--line); background: var(--panel-stone); }
+.product-overview-tip p { color: var(--clay-deep); font-family: var(--font-serif); font-size: 17px; font-style: italic; line-height: 1.55; }
+.product-overview-caution .product-overview-section-body { border-left: 3px solid var(--brass-deep); }
+.product-overview-points { padding: 0 0 26px; }
 .variation-picker { margin: 26px 0 0; padding: 0; border: 0; }
 .variation-picker legend { margin-bottom: 12px; font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
 .variation-picker div { display: flex; flex-wrap: wrap; gap: 8px; }
