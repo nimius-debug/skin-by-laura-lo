@@ -386,8 +386,13 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .routine-audit-opt input:disabled { cursor: not-allowed; }
 
 @media (max-width: 700px) {
-  .routine-dialog { width: 100%; height: 100%; max-height: 100%; max-width: 100%; }
-  .routine-dialog-body { max-height: 100%; padding: 60px 22px 24px; }
+  /* [open] outranks the browser's own dialog:modal UA-stylesheet rule (which
+     sizes the dialog to its content and centers it with auto margins) —
+     without it that default wins, leaving a gap that shows the page behind
+     and lets it scroll. Viewport units, not %, so it fills the real screen
+     regardless of the dialog's own box model. */
+  .routine-dialog[open] { position: fixed; inset: 0; margin: 0; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; }
+  .routine-dialog-body { max-height: 100vh; padding: 60px 22px 24px; }
   .routine-name { font-size: 24px; }
   .routine-dialog-products { --gap-x: 24px; grid-template-columns: repeat(2, 1fr); }
   /* At 2 columns, "last column" is every 2nd card, not every 4th — undo the
@@ -871,6 +876,10 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   .product-info h3 { font-size: 16px; }
   .product-price { margin-top: 7px; }
   .product-quick { display: none; }
+  /* Routine tiles have no other affordance marking them as tappable (unlike
+     a shop card, which just navigates) — keep their "View routine" label
+     visible instead of relying on a hover state phones don't have. */
+  .routine-tile .product-quick { display: block; }
   .results-callout { padding: 95px 0; }
   .review-grid { grid-template-columns: 1fr; }
   .review-grid blockquote, .review-grid blockquote + blockquote { min-height: auto; padding: 35px 0; border-right: 0; border-bottom: 1px solid var(--line); }
