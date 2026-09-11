@@ -463,37 +463,42 @@ export const CLIENT_JS = String.raw`
     var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var raf = null, tx = 0, ty = 0;
     var orbitRaf = null;
-    var orbitStart = null;
-    var activePair = 0;
-    var lastSwapCycle = -1;
-    var resultSets = resultCards.map(function (card) {
-      try {
-        return JSON.parse(card.getAttribute("data-result-images") || "[]");
-      } catch (_) {
-        return [];
-      }
-    });
-    var pairCount = resultSets.length
-      ? Math.min.apply(null, resultSets.map(function (images) { return images.length; }))
-      : 0;
-
-    resultSets.forEach(function (images) {
-      images.forEach(function (image) {
-        if (!image || !image.src) return;
-        var preload = new window.Image();
-        preload.src = image.src;
-      });
+    var orbitElapsed = 0;
+    var orbitLastNow = null;
+    var resultImages = [];
+    try {
+      resultImages = JSON.parse(stage.getAttribute("data-result-images") || "[]");
+    } catch (_) {
+      resultImages = [];
+    }
+    var nextResultIndex = resultImages.length ? resultCards.length % resultImages.length : 0;
+    var resultSlots = resultCards.map(function (card, index) {
+      var slot = parseInt(card.getAttribute("data-result-slot") || index, 10);
+      return {
+        card: card,
+        phase: slot * Math.PI,
+        // Slot 1 begins at the rear. Mark that rear crossing as handled so
+        // its initial image is the next one viewers see, not skipped.
+        lastRearCycle: slot === 0 ? -1 : 0,
+      };
     });
 
-    function showPair(index) {
-      resultCards.forEach(function (card, cardIndex) {
-        var next = resultSets[cardIndex] && resultSets[cardIndex][index];
-        var image = card.querySelector("img");
-        if (!next || !image) return;
-        image.src = next.src;
-        image.alt = next.alt || "";
-      });
-      activePair = index;
+    resultImages.forEach(function (image) {
+      if (!image || !image.src) return;
+      var preload = new window.Image();
+      preload.src = image.src;
+    });
+
+    function smoothstep(value) {
+      return value * value * (3 - (2 * value));
+    }
+
+    function showResult(slot, index) {
+      var next = resultImages[index];
+      var image = slot.card.querySelector("img");
+      if (!next || !image) return;
+      image.src = next.src;
+      image.alt = next.alt || "";
     }
 
     /* Both cards stay on the ring's physical plane. At each side crossing the
@@ -501,38 +506,35 @@ export const CLIENT_JS = String.raw`
        changes its occlusion without perspective pulling it away from the arc. */
     function paintOrbit(angle) {
       var width = stage.getBoundingClientRect().width || 600;
-      var radiusX = Math.min(270, width * 0.45);
-      var radiusY = Math.max(18, Math.min(34, width * 0.05));
+      var baseCardWidth = resultCards[0] ? resultCards[0].offsetWidth : 116;
+      var gutter = width < 500 ? 8 : 12;
+      var radiusX = Math.min(240, Math.max(64, (width / 2) - (baseCardWidth * .36) - gutter));
+      var radiusY = radiusX / 9;
+      stage.style.setProperty("--result-radius-x", radiusX.toFixed(1) + "px");
 
-      /* Ease both cards completely out as the pair passes through the rear
-         centre. The image source changes inside the fully transparent part
-         of that window, then the next pair eases back into view. */
-      var lapAngle = ((angle % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2);
-      var backDistance = Math.abs(lapAngle - Math.PI);
-      var swapProgress = Math.max(0, Math.min(1, (backDistance - 0.08) / 0.34));
-      var swapVisibility = swapProgress * swapProgress * (3 - (2 * swapProgress));
-
-      /* Both cards are behind Laura at the middle of each lap. Swap the pair
-         there, while the subject hides the change, so new photos emerge from
-         behind her without popping while either card is in front. */
-      if (pairCount > 1 && angle >= Math.PI) {
-        var swapCycle = Math.floor((angle - Math.PI) / (Math.PI * 2));
-        if (swapCycle > lastSwapCycle) {
-          showPair((activePair + 1) % pairCount);
-          lastSwapCycle = swapCycle;
-        }
-      }
-
-      resultCards.forEach(function (card) {
-        var phase = card.getAttribute("data-hero-result") === "before" ? -0.62 : 0.62;
-        var cardAngle = angle + phase;
+      resultSlots.forEach(function (slot) {
+        var card = slot.card;
+        var cardAngle = angle + slot.phase;
         var depth = Math.cos(cardAngle);
         var front = depth >= 0;
         var x = Math.sin(cardAngle) * radiusX;
         var y = -depth * radiusY;
-        var shade = 0.35 + ((depth + 1) / 2) * 0.65;
-        var scale = 0.78 + ((depth + 1) / 2) * 0.16;
+        var approach = smoothstep(Math.max(0, Math.min(1, depth)));
+        var scale = .72 + (approach * 1.28);
+        var revealProgress = Math.max(0, Math.min(1, (depth + .35) / .7));
+        var visibility = smoothstep(revealProgress);
         var destination = front ? foreground : layers;
+
+        /* Each slot gets its next complete comparison at the deepest rear
+           point, after it has faded to zero and before it emerges again. */
+        if (resultImages.length > resultCards.length && cardAngle >= Math.PI) {
+          var rearCycle = Math.floor((cardAngle - Math.PI) / (Math.PI * 2));
+          if (rearCycle > slot.lastRearCycle) {
+            showResult(slot, nextResultIndex);
+            nextResultIndex = (nextResultIndex + 1) % resultImages.length;
+            slot.lastRearCycle = rearCycle;
+          }
+        }
 
         if (card.parentNode !== destination) destination.appendChild(card);
 
@@ -540,16 +542,18 @@ export const CLIENT_JS = String.raw`
         card.style.setProperty("--orbit-y", y.toFixed(1) + "px");
         card.style.setProperty("--orbit-z", "-140px");
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
-        card.style.opacity = (shade * swapVisibility).toFixed(3);
+        card.style.setProperty("--orbit-tilt", (-Math.sin(cardAngle) * 3).toFixed(2) + "deg");
+        card.style.opacity = visibility.toFixed(3);
         card.style.zIndex = front ? "4" : "1";
         card.setAttribute("data-orbit-side", front ? "front" : "back");
       });
     }
 
     function orbitFrame(now) {
-      if (orbitStart === null) orbitStart = now;
+      if (orbitLastNow !== null) orbitElapsed += Math.min(now - orbitLastNow, 64);
+      orbitLastNow = now;
       // One unhurried revolution every 18 seconds; angle zero is the front.
-      paintOrbit(((now - orbitStart) / 18000) * Math.PI * 2);
+      paintOrbit((orbitElapsed / 18000) * Math.PI * 2);
       orbitRaf = requestAnimationFrame(orbitFrame);
     }
 
@@ -561,9 +565,8 @@ export const CLIENT_JS = String.raw`
       if (document.hidden && orbitRaf) {
         cancelAnimationFrame(orbitRaf);
         orbitRaf = null;
+        orbitLastNow = null;
       } else if (!document.hidden && !orbitRaf) {
-        orbitStart = null;
-        lastSwapCycle = -1;
         orbitRaf = requestAnimationFrame(orbitFrame);
       }
     });
