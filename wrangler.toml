@@ -9,7 +9,7 @@ workers_dev = true
 # change a value, redeploy, done. Money values are in CENTS (1000 = $10.00).
 # ---------------------------------------------------------------------------
 [vars]
-SITE_URL = "https://test.skinbylauralo.com"
+SITE_URL = "https://skinbylauralo.com"
 
 # Shipping. Square's Payment Links accept a single flat shipping fee that must
 # be decided BEFORE the buyer enters an address, so rate-by-zone is not
@@ -37,10 +37,18 @@ HIDE_SOLD_OUT = "false"
 #   npx wrangler secret put SQUARE_ENVIRONMENT   (optional: "sandbox")
 # ---------------------------------------------------------------------------
 
-# Custom domain. Uncomment once the zone is on Cloudflare (Phase 1-2 target).
-# [[routes]]
-# pattern = "test.skinbylauralo.com"
-# custom_domain = true
+# Phase 4 cutover — the zone is already on Cloudflare, so this is what
+# actually points the live domain at this Worker. `wrangler deploy` creates
+# and manages the DNS record for each pattern below itself; it does not
+# touch any other record (MX, TXT, SRV, or the mail/webmail/cpanel
+# subdomains), since those are entirely different hostnames.
+[[routes]]
+pattern = "skinbylauralo.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.skinbylauralo.com"
+custom_domain = true
 
 # Static files (hero cutout, gallery photography). Served directly by
 # Cloudflare's asset layer at their matching path — e.g. public/media/x.png
