@@ -4,6 +4,8 @@
 
 export const BOOKING_URL =
   "https://book.squareup.com/appointments/rlfhvfyu6b6ltd/location/L8PR20K5XBXVQ";
+export const VIRTUAL_CONSULTATION_URL =
+  `${BOOKING_URL}/services/AIT25JGUYHWL7HC36TOB6JEJ`;
 export const SKIN_AUDIT_URL = "https://audit.skinbylauralo.com/";
 export const EGIFT_URL = "https://app.squareup.com/gift/MLPQV9JRB2FHB/order";
 export const INSTAGRAM_URL = "https://www.instagram.com/skinbylauralo/";
