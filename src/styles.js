@@ -515,7 +515,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-add { width: 100%; }
 .added-message { grid-column: 1 / -1; margin: 4px 0 0; padding: 12px 14px; background: var(--panel-sage); font-size: 11px; }
 .added-message a { border-bottom: 1px solid currentColor; }
-.buy-reassurance { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 24px; color: var(--muted); font-size: 8px; letter-spacing: .06em; flex-wrap: wrap; }
+.buy-reassurance { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 24px; color: var(--muted); font-size: 10px; letter-spacing: .06em; flex-wrap: wrap; }
 .product-details details { border-top: 1px solid var(--line); }
 .product-details details:last-child { border-bottom: 1px solid var(--line); }
 .product-details summary { padding: 19px 0; list-style: none; cursor: pointer; font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
