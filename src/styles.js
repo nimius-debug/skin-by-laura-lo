@@ -266,12 +266,15 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
    so it needs to read at a glance, not whisper like a shop category label. */
 .routines-grid .product-category { font-size: 11px; font-weight: 700; letter-spacing: .1em; margin-bottom: 8px; }
 .routines-grid .product-card > button { width: 100%; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
-.routine-media { position: absolute; inset: 0; }
+/* Routine photos fan out inside their own well. Keep the bottom rail clear so
+   the CTA is always readable instead of competing with the front photo. */
+.routine-media { position: absolute; inset: 0 0 62px; }
 .routine-media img { position: absolute; width: 62%; height: 62%; object-fit: cover; border: 3px solid var(--white); background: var(--panel-product); }
 .routine-media img:nth-child(1) { left: 4%; top: 4%; z-index: 3; }
 .routine-media img:nth-child(2) { left: 34%; top: 22%; z-index: 2; }
 .routine-media img:nth-child(3) { left: 30%; top: 2%; z-index: 1; }
 .routine-media-empty { position: absolute; inset: 0; background: var(--panel-product); }
+.routine-tile .product-quick { z-index: 4; transform: none; background: var(--cream); }
 
 @media (max-width: 900px) {
   /* flex: 1 1 0 (above) sizes cards along a horizontal main axis; once the

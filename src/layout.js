@@ -5,7 +5,7 @@ import {
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20260909-product-accordions-v2";
+const ASSET_VERSION = "20260910-routine-cta";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
