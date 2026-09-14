@@ -7,6 +7,7 @@ import { homePage } from "./pages/home.js";
 import { shopPage } from "./pages/shop.js";
 import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
+import { relatedProductsFor } from "./related-products.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
@@ -264,9 +265,7 @@ export default {
         }), { status: 404 });
       }
 
-      const related = products
-        .filter((entry) => entry.category === product.category && entry.slug !== product.slug)
-        .slice(0, 3);
+      const related = relatedProductsFor(product, products);
 
       const jsonLd = {
         "@context": "https://schema.org",
