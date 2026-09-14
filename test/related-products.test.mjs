@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { relatedProductsFor } from "../src/related-products.js";
 import { PRODUCT_FORMULAS } from "../src/data/product-formulas.js";
 import { ROUTINES } from "../src/routines.js";
+import { UNCATEGORIZED_LABEL } from "../src/square.js";
 
 // Mirrors src/square.js's slugify closely enough for this test's plain-ASCII
 // product names — no need to duplicate its accent-stripping step here.
@@ -63,6 +64,30 @@ assert.deepEqual(
   fallbackRelated.map((item) => item.slug).sort(),
   ["serum-a", "serum-b"],
   "falls back to same-category products when there is no routine or ingredient-tag signal",
+);
+
+// Regression: two real products with no Square category both fall back to
+// the storefront's "Skincare" placeholder label. Found against the live
+// catalog — an uncategorized post-procedure serum was recommending an
+// uncategorized sunscreen and an uncategorized cream for no reason other
+// than sharing that placeholder. They must not match on category, or on
+// anything else here (no shared routine, no shared ingredient-dossier tags).
+const uncategorizedA = {
+  slug: "uncategorized-serum",
+  name: "Totally Uncategorized Serum",
+  category: UNCATEGORIZED_LABEL,
+  available: true,
+};
+const uncategorizedB = {
+  slug: "uncategorized-sunscreen",
+  name: "Totally Uncategorized Sunscreen",
+  category: UNCATEGORIZED_LABEL,
+  available: true,
+};
+const uncategorizedRelated = relatedProductsFor(uncategorizedA, [uncategorizedA, uncategorizedB, ...fallbackCatalog]);
+assert.ok(
+  !uncategorizedRelated.some((item) => item.slug === uncategorizedB.slug),
+  "two products that only share the 'uncategorized' placeholder label are not treated as related",
 );
 
 console.log("PASS  related products are scored per-product (routine + concern tags), not a static per-category list");
