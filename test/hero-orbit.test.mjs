@@ -50,9 +50,34 @@ for (const result of CLIENT_RESULTS.images) {
 }
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260910-result-labels/, "the shared CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260910-result-labels/, "the client script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20260918-result-lightbox/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20260918-result-lightbox/, "the client script bypasses stale caches");
 
 console.log("PASS  composite client results approach, recede, and swap behind Laura");
+
+// ------------------------------------------------------ result lightbox
+
+assert.match(markup, /<dialog class="hero-result-lightbox" data-hero-result-lightbox/, "a lightbox dialog exists for viewing a paused result full-size");
+assert.match(markup, /data-hero-result-lightbox-img/, "the lightbox has an image slot to load the clicked/hovered result into");
+// The lightbox itself must sit outside the decorative aria-hidden hero, since
+// once opened it's real content someone is actually looking at/interacting
+// with, not part of the ambient Laura-and-orbit composition.
+const heroVisualMatch = markup.match(/<div class="hero-visual" aria-hidden="true">[\s\S]*?<\/div>\s*<\/div>/);
+assert.ok(heroVisualMatch, "the decorative hero-visual wrapper is present");
+assert.doesNotMatch(heroVisualMatch[0], /hero-result-lightbox/, "the lightbox markup lives outside the aria-hidden hero-visual wrapper");
+
+assert.match(CLIENT_JS, /function pauseOrbit\(\)/, "pausing the orbit is a named, reusable operation");
+assert.match(CLIENT_JS, /function resumeOrbit\(\)/, "resuming the orbit is a named, reusable operation");
+assert.match(CLIENT_JS, /lightboxOpen \|\| orbitRaf\) return;/, "resumeOrbit refuses to restart the orbit while the lightbox is open");
+assert.match(CLIENT_JS, /if \(document\.hidden\) pauseOrbit\(\);\s*else resumeOrbit\(\);/, "tab visibility now shares the same pause/resume path as the lightbox, so the two can't fight");
+assert.match(CLIENT_JS, /function openResult\(card\)/, "opening a result is centralized so click and hover both go through it");
+assert.match(CLIENT_JS, /lightboxImg\.src = img\.src;/, "the lightbox is filled from the card's own currently-displayed image — no separate data source");
+assert.match(CLIENT_JS, /card\.addEventListener\("click", function \(\) \{ openResult\(card\); \}\);/, "every result card opens on click — the touch/phone path");
+assert.match(CLIENT_JS, /\(hover: hover\) and \(pointer: fine\)/, "hover-to-open is gated to real hover-capable pointers, matching the site's existing tilt-effect check");
+assert.match(CLIENT_JS, /card\.addEventListener\("mouseenter", function \(\) \{ openResult\(card\); \}\);/, "hovering a result opens it on hover-capable devices");
+assert.match(CLIENT_JS, /lightbox\.addEventListener\("close", function \(\) \{/, "the orbit resumes from the dialog's native close event, so Escape/backdrop/close-button all resume it the same way");
+
+assert.match(STYLES, /\.hero-result-lightbox\[open\] \{ position: fixed; inset: 0;/, "the lightbox fills the viewport the same proven way the product gallery lightbox does");
+assert.match(STYLES, /\.hero-result-zoom \{[\s\S]*?opacity: 0;/, "the zoom hint stays invisible until a result is actually being pointed at");
 
 

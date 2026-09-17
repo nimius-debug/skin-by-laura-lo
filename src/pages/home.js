@@ -31,7 +31,9 @@ const SERVICES = [
   },
 ];
 
-/** One of two orbit slots. Each carries a complete, matched transformation. */
+/** One of two orbit slots. Each carries a complete, matched transformation.
+ *  Hover (desktop) or tap (touch) pauses the orbit and opens that exact
+ *  photo full-size — see initHero()'s lightbox wiring in client/cart.js. */
 function proofCard(slot, images) {
   const image = images[slot] || images[0] || {};
   return html`
@@ -39,6 +41,12 @@ function proofCard(slot, images) {
       <span class="hero-result-label hero-result-label-after">After</span>
       <div class="hero-result-shot">
         ${image.src ? html`<img src="${image.src}" alt="${image.alt}" loading="lazy" />` : ""}
+        <span class="hero-result-zoom">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5.25" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </span>
       </div>
       <span class="hero-result-label hero-result-label-before">Before</span>
     </figure>
@@ -88,6 +96,14 @@ export function homePage({ products, cfg }) {
         </div>
         <p class="hero-handwritten">${CLIENT_RESULTS.caption}</p>
       </div>
+      <dialog class="hero-result-lightbox" data-hero-result-lightbox aria-label="Before and after result">
+        <button type="button" class="hero-result-lightbox-close" data-hero-result-lightbox-close aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M3 3L15 15M15 3L3 15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <img data-hero-result-lightbox-img alt="" />
+      </dialog>
     </section>
 
     ${marquee([

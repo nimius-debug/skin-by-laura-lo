@@ -140,7 +140,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 }
 .hero-result-shot {
   position: relative; aspect-ratio: 4 / 5; display: grid; place-items: center;
-  background: var(--panel-product); overflow: hidden;
+  background: var(--panel-product); overflow: hidden; cursor: zoom-in;
 }
 .hero-result-shot img { width: 100%; height: 100%; object-fit: cover; }
 /* Empty panels stay quiet — the caption already names each side. */
@@ -156,6 +156,29 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 }
 .hero-result-label-after { top: -10px; }
 .hero-result-label-before { bottom: -10px; }
+
+/* Decorative zoom hint, not a control of its own — the whole card is the
+   click/hover target (see initHero() in client/cart.js). Stays subtle until
+   the card is actually being pointed at. */
+.hero-result-zoom {
+  position: absolute; z-index: 2; top: 6px; right: 6px; width: 18px; height: 18px;
+  display: grid; place-items: center; border-radius: 50%;
+  background: rgba(255,255,255,.85); color: var(--ink);
+  opacity: 0; transition: opacity .2s ease; pointer-events: none;
+}
+.hero-result[data-orbit-side="front"]:hover .hero-result-zoom { opacity: 1; }
+
+.hero-result-lightbox { padding: 0; border: 0; background: transparent; }
+.hero-result-lightbox::backdrop { background: rgba(20,22,17,.92); }
+/* The [open] attribute selector outranks the browser's own dialog:modal
+   UA-stylesheet rule (which sets margin: auto to center a dialog at its
+   natural size) — without it, that default fights a full-bleed layout. */
+.hero-result-lightbox[open] { position: fixed; inset: 0; margin: 0; width: 100vw; height: 100vh;
+  max-width: 100vw; max-height: 100vh; display: grid; place-items: center; }
+.hero-result-lightbox img { max-width: min(88vw, 700px); max-height: 86vh; object-fit: contain; }
+.hero-result-lightbox-close { position: absolute; top: 22px; right: 24px; width: 42px; height: 42px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: var(--on-dark); cursor: pointer; }
+.hero-result-lightbox-close:hover { background: rgba(255,255,255,.2); }
 
 /* The subject, furthest forward, overlapping the ring's top edge. */
 .hero-subject {

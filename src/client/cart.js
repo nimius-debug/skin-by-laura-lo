@@ -560,16 +560,78 @@ export const CLIENT_JS = String.raw`
     paintOrbit(0);
     if (!reducedMotion) orbitRaf = requestAnimationFrame(orbitFrame);
 
-    document.addEventListener("visibilitychange", function () {
-      if (reducedMotion) return;
-      if (document.hidden && orbitRaf) {
+    var lightboxOpen = false;
+
+    // Shared by the tab-visibility pause below and the result lightbox — one
+    // source of truth for "should the orbit be spinning right now" so the
+    // two never fight (e.g. the tab regaining focus resuming the orbit
+    // underneath a result someone has paused open to look at).
+    function pauseOrbit() {
+      if (orbitRaf) {
         cancelAnimationFrame(orbitRaf);
         orbitRaf = null;
         orbitLastNow = null;
-      } else if (!document.hidden && !orbitRaf) {
-        orbitRaf = requestAnimationFrame(orbitFrame);
+      }
+    }
+    function resumeOrbit() {
+      if (reducedMotion || document.hidden || lightboxOpen || orbitRaf) return;
+      orbitRaf = requestAnimationFrame(orbitFrame);
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (reducedMotion) return;
+      if (document.hidden) pauseOrbit();
+      else resumeOrbit();
+    });
+
+    // Hovering (desktop) or tapping (touch) a result pauses the orbit and
+    // opens that exact photo full-size — a 116px card mid-spin is no way to
+    // actually see a before/after. Wired regardless of reduced motion: the
+    // lightbox is a viewing aid, not an animation.
+    var lightbox = document.querySelector("[data-hero-result-lightbox]");
+    var lightboxImg = lightbox && lightbox.querySelector("[data-hero-result-lightbox-img]");
+
+    function openResult(card) {
+      if (!lightbox || !lightbox.showModal || !lightboxImg) return;
+      var img = card.querySelector("img");
+      if (!img || !img.src) return;
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt || "";
+      pauseOrbit();
+      if (!lightbox.open) {
+        lightboxOpen = true;
+        lightbox.showModal();
+      }
+    }
+
+    var canHover = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    resultCards.forEach(function (card) {
+      card.addEventListener("click", function () { openResult(card); });
+      if (canHover) {
+        card.addEventListener("mouseenter", function () { openResult(card); });
+        card.addEventListener("mouseleave", function () {
+          if (lightbox && lightbox.open) lightbox.close();
+        });
       }
     });
+
+    if (lightbox) {
+      var lightboxClose = lightbox.querySelector("[data-hero-result-lightbox-close]");
+      if (lightboxClose) lightboxClose.addEventListener("click", function () { lightbox.close(); });
+      // A click that lands on the <dialog> element itself (not something
+      // inside it) is a click on the backdrop — same pattern as the product
+      // gallery and routine dialogs.
+      lightbox.addEventListener("click", function (event) {
+        if (event.target === lightbox) lightbox.close();
+      });
+      // Fires on every close, however it happened — the close button,
+      // backdrop click, or Escape — so this is the one place resuming the
+      // orbit needs to happen.
+      lightbox.addEventListener("close", function () {
+        lightboxOpen = false;
+        resumeOrbit();
+      });
+    }
 
     if (reducedMotion) return;
 
