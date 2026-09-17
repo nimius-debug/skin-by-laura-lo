@@ -28,6 +28,7 @@ globalThis.fetch = async (url, options) => {
     lastLinkBody = body;
     return json({ payment_link: { url: "https://square.link/u/TEST" } });
   }
+  if (path === "/reporting/v1/load") return json({ data: [] });
   throw new Error("unexpected " + path);
 };
 function json(data, status = 200) {

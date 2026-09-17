@@ -4,6 +4,8 @@
 // and asks Square to create a hosted checkout link. It never stores an order,
 // and it never accepts a price from the browser.
 
+import { salesRankFor, applySalesRank } from "./sales-rank.js";
+
 const SQUARE_VERSION = "2026-08-19";
 
 function apiBase(env) {
@@ -17,7 +19,7 @@ export function isConfigured(env) {
   return Boolean(env.SQUARE_ACCESS_TOKEN && env.SQUARE_LOCATION_ID);
 }
 
-async function squareFetch(env, path, body) {
+export async function squareFetch(env, path, body) {
   const response = await fetch(`${apiBase(env)}${path}`, {
     method: "POST",
     headers: {
@@ -252,7 +254,13 @@ export async function getCatalog(env, cfg, { force = false } = {}) {
     stock = new Map(trackedIds.map((id) => [id, 1]));
   }
 
-  const products = normalize(raw, stock, cfg);
+  let products = normalize(raw, stock, cfg);
+
+  // Best-sellers first, within the existing alphabetical order; a nicety
+  // like stock, so a failure here still leaves a fully working shop.
+  const salesRank = await salesRankFor(env, cfg.salesRankTtlSeconds, { force });
+  products = applySalesRank(products, salesRank);
+
   if (cfg.catalogTtlSeconds > 0) {
     memo = { expires: now + cfg.catalogTtlSeconds * 1000, products };
   }

@@ -96,6 +96,10 @@ export function settings(env = {}) {
     pickupPrepHours: num(env.PICKUP_PREP_HOURS, 24),
     catalogTtlSeconds: num(env.CATALOG_TTL_SECONDS, 120),
     hideSoldOut: bool(env.HIDE_SOLD_OUT, false),
+    // How long a best-seller ranking stays cached before Square is asked
+    // again. Sales data moves slowly, so this is hours, not seconds — kept
+    // far higher than CATALOG_TTL_SECONDS on purpose.
+    salesRankTtlSeconds: num(env.SALES_RANK_TTL_SECONDS, 21600), // 6 hours
   };
 }
 

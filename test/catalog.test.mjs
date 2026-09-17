@@ -79,6 +79,13 @@ const INVENTORY = {
   ],
 };
 
+// Alphabetically last, but the best seller by units sold — should jump to
+// the front. Everything else has no matching row (zero sales) and must keep
+// its existing alphabetical order relative to each other.
+const SALES_REPORT = {
+  data: [{ "ProductMixReport.item_name": "Sold Out Toner", "ProductMixReport.items_sold_quantity": 10 }],
+};
+
 let calls = [];
 let page = 0;
 globalThis.fetch = async (url, options) => {
@@ -90,6 +97,8 @@ globalThis.fetch = async (url, options) => {
     data = body.cursor === "PAGE2" ? CATALOG_PAGE_2 : (page++, CATALOG_PAGE_1);
   } else if (path === "/v2/inventory/counts/batch-retrieve") {
     data = INVENTORY;
+  } else if (path === "/reporting/v1/load") {
+    data = SALES_REPORT;
   } else {
     throw new Error("unexpected path " + path);
   }
@@ -109,8 +118,8 @@ function check(label, actual, expected) {
 }
 
 check("drops archived / services / drafts / gift cards / shipping / variable-priced", products.length, 4);
-check("product names sorted", products.map(p => p.name),
-  ["KrX Mela Défense Serum", "Mixi Clean", "Mixi Clean", "Sold Out Toner"]);
+check("best seller sorts first, zero-sales items keep alphabetical order", products.map(p => p.name),
+  ["Sold Out Toner", "KrX Mela Défense Serum", "Mixi Clean", "Mixi Clean"]);
 
 const mela = products.find(p => p.id === "ITEM_B");
 check("slug from accented name", mela.slug, "krx-mela-defense-serum");
