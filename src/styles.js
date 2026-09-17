@@ -137,11 +137,14 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   ) rotate(var(--orbit-tilt)) scale(var(--orbit-scale));
   transform-origin: center;
   will-change: transform, opacity;
+  pointer-events: auto;
 }
 .hero-result-shot {
   position: relative; aspect-ratio: 4 / 5; display: grid; place-items: center;
+  width: 100%; padding: 0; border: 0; cursor: zoom-in; touch-action: manipulation;
   background: var(--panel-product); overflow: hidden;
 }
+.hero-result-shot:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 3px; }
 .hero-result-shot img { width: 100%; height: 100%; object-fit: cover; }
 /* Empty panels stay quiet — the caption already names each side. */
 .hero-result-shot:empty::after {
@@ -156,6 +159,31 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 }
 .hero-result-label-after { top: -10px; }
 .hero-result-label-before { bottom: -10px; }
+
+/* The full comparison stays uncropped, with labels outside the photograph. */
+.result-viewer { padding: 0; border: 0; background: transparent; color: var(--on-dark); }
+.result-viewer::backdrop { background: rgba(20,22,17,.92); }
+.result-viewer[open] {
+  position: fixed; inset: 0; margin: 0; width: 100%; max-width: none;
+  height: 100%; max-height: none; display: grid; place-items: center;
+  padding: 16px; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  overflow: auto; overscroll-behavior: contain;
+}
+.result-viewer-content { display: grid; gap: 10px; max-width: 100%; }
+.result-viewer-close {
+  justify-self: end; min-height: 44px; padding: 8px 14px; display: flex; align-items: center; gap: 12px;
+  border: 1px solid rgba(241,234,218,.45); background: var(--ink); color: var(--on-dark);
+  cursor: pointer; font-size: 13px;
+}
+.result-viewer-close span { font-size: 24px; line-height: 1; }
+.result-viewer-close:focus-visible { outline-color: var(--brass-hi); }
+.result-viewer-photo { margin: 0; display: grid; gap: 8px; }
+.result-viewer-photo img {
+  width: auto; height: auto; max-width: min(90vw, 760px);
+  max-height: calc(100vh - 160px); max-height: calc(100dvh - 160px); object-fit: contain;
+}
+.result-viewer-label { font-size: 12px; line-height: 16px; font-weight: 650; letter-spacing: .15em; text-transform: uppercase; }
+html.result-viewer-open { overflow: hidden; }
 
 /* The subject, furthest forward, overlapping the ring's top edge. */
 .hero-subject {
