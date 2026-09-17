@@ -37,9 +37,9 @@ function proofCard(slot, images) {
   return html`
     <figure class="hero-result" data-hero-result data-result-slot="${slot}">
       <span class="hero-result-label hero-result-label-after">After</span>
-      <div class="hero-result-shot">
+      <button type="button" class="hero-result-shot" data-result-open aria-haspopup="dialog" aria-controls="hero-result-viewer" aria-label="Enlarge before and after transformation">
         ${image.src ? html`<img src="${image.src}" alt="${image.alt}" loading="lazy" />` : ""}
-      </div>
+      </button>
       <span class="hero-result-label hero-result-label-before">Before</span>
     </figure>
   `;
@@ -69,7 +69,7 @@ export function homePage({ products, cfg }) {
           <span>${RATING.score} from ${RATING.count} Google reviews</span>
         </p>
       </div>
-      <div class="hero-visual" aria-hidden="true">
+      <div class="hero-visual">
         <div class="hero-stage" data-hero-stage data-result-images="${JSON.stringify(CLIENT_RESULTS.images)}">
           <div class="hero-layers" data-hero-layers>
             <!-- the ring the subject stands in front of and breaks out of -->
@@ -89,6 +89,17 @@ export function homePage({ products, cfg }) {
         <p class="hero-handwritten">${CLIENT_RESULTS.caption}</p>
       </div>
     </section>
+
+    <dialog id="hero-result-viewer" class="result-viewer" data-result-viewer aria-label="Before and after transformation">
+      <div class="result-viewer-content">
+        <button type="button" class="result-viewer-close" data-result-close autofocus aria-label="Close transformation">Close <span aria-hidden="true">&#215;</span></button>
+        <figure class="result-viewer-photo">
+          <span class="result-viewer-label">After</span>
+          <img data-result-viewer-image alt="" width="1080" height="1350" />
+          <span class="result-viewer-label">Before</span>
+        </figure>
+      </div>
+    </dialog>
 
     ${marquee([
       "Barrier-first care", "Korean-infused facials", "Real guidance", "Nationwide product delivery",

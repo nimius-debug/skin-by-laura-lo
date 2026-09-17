@@ -465,6 +465,12 @@ export const CLIENT_JS = String.raw`
     var orbitRaf = null;
     var orbitElapsed = 0;
     var orbitLastNow = null;
+    var resultViewer = document.querySelector("[data-result-viewer]");
+    var viewerImage = resultViewer && resultViewer.querySelector("[data-result-viewer-image]");
+    var hoveredCard = null, focusedCard = null, pressedCard = null;
+    var hoverTimer = null, viewerTrigger = null;
+    var dismissPointer = null, lastPointer = { x: 0, y: 0 };
+    var restoringFocus = false;
     var resultImages = [];
     try {
       resultImages = JSON.parse(stage.getAttribute("data-result-images") || "[]");
@@ -544,6 +550,9 @@ export const CLIENT_JS = String.raw`
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
         card.style.setProperty("--orbit-tilt", (-Math.sin(cardAngle) * 3).toFixed(2) + "deg");
         card.style.opacity = visibility.toFixed(3);
+        // Invisible cards must never intercept a tap or keyboard focus.
+        card.inert = visibility < .05;
+        card.style.pointerEvents = visibility < .05 ? "none" : "auto";
         card.style.zIndex = front ? "4" : "1";
         card.setAttribute("data-orbit-side", front ? "front" : "back");
       });
@@ -560,16 +569,107 @@ export const CLIENT_JS = String.raw`
     paintOrbit(0);
     if (!reducedMotion) orbitRaf = requestAnimationFrame(orbitFrame);
 
-    document.addEventListener("visibilitychange", function () {
-      if (reducedMotion) return;
-      if (document.hidden && orbitRaf) {
-        cancelAnimationFrame(orbitRaf);
+    function syncOrbitPlayback() {
+      var paused = reducedMotion || document.hidden || hoveredCard || focusedCard || pressedCard || (resultViewer && resultViewer.open);
+      if (paused) {
+        if (orbitRaf !== null) cancelAnimationFrame(orbitRaf);
         orbitRaf = null;
+        // Resume from this exact angle; time spent reading is not orbit time.
         orbitLastNow = null;
-      } else if (!document.hidden && !orbitRaf) {
+      } else if (orbitRaf === null) {
         orbitRaf = requestAnimationFrame(orbitFrame);
       }
+    }
+
+    function clearHoverTimer() {
+      window.clearTimeout(hoverTimer);
+      hoverTimer = null;
+    }
+
+    function openResult(card) {
+      var image = card.querySelector("img");
+      if (!image || !resultViewer || !resultViewer.showModal || resultViewer.open) return;
+      clearHoverTimer();
+      viewerTrigger = card.querySelector("[data-result-open]");
+      viewerImage.src = image.currentSrc || image.src;
+      viewerImage.alt = image.alt;
+      resultViewer.showModal();
+      document.documentElement.classList.add("result-viewer-open");
+      syncOrbitPlayback();
+    }
+
+    resultCards.forEach(function (card) {
+      var trigger = card.querySelector("[data-result-open]");
+      if (!trigger) return;
+      trigger.addEventListener("pointerenter", function (event) {
+        if (event.pointerType !== "mouse" || dismissPointer || (resultViewer && resultViewer.open)) return;
+        lastPointer = { x: event.clientX, y: event.clientY };
+        hoveredCard = card;
+        syncOrbitPlayback();
+        clearHoverTimer();
+        // A brief intentional hover opens the same viewer as a click or tap.
+        hoverTimer = window.setTimeout(function () { openResult(card); }, 350);
+      });
+      trigger.addEventListener("pointerleave", function () {
+        clearHoverTimer();
+        if (hoveredCard === card) hoveredCard = null;
+        syncOrbitPlayback();
+      });
+      trigger.addEventListener("pointerdown", function () {
+        pressedCard = card;
+        syncOrbitPlayback();
+      });
+      trigger.addEventListener("click", function () { openResult(card); });
+      trigger.addEventListener("focus", function () {
+        if (!restoringFocus && trigger.matches(":focus-visible")) {
+          focusedCard = card;
+          syncOrbitPlayback();
+        }
+      });
+      trigger.addEventListener("blur", function () {
+        if (focusedCard === card) focusedCard = null;
+        syncOrbitPlayback();
+      });
     });
+
+    function releaseCard() {
+      pressedCard = null;
+      syncOrbitPlayback();
+    }
+    window.addEventListener("pointerup", releaseCard);
+    window.addEventListener("pointercancel", releaseCard);
+    window.addEventListener("pointermove", function (event) {
+      if (event.pointerType !== "mouse") return;
+      lastPointer = { x: event.clientX, y: event.clientY };
+      // Closing must not immediately reopen the card under a stationary mouse.
+      if (dismissPointer && Math.hypot(event.clientX - dismissPointer.x, event.clientY - dismissPointer.y) > 12) dismissPointer = null;
+    }, { passive: true });
+
+    if (resultViewer) {
+      resultViewer.querySelector("[data-result-close]").addEventListener("click", function () { resultViewer.close(); });
+      var backdropPress = false;
+      resultViewer.addEventListener("pointerdown", function (event) { backdropPress = event.target === resultViewer; });
+      resultViewer.addEventListener("click", function (event) {
+        if (backdropPress && event.target === resultViewer) resultViewer.close();
+        backdropPress = false;
+      });
+      resultViewer.addEventListener("close", function () {
+        clearHoverTimer();
+        document.documentElement.classList.remove("result-viewer-open");
+        dismissPointer = lastPointer;
+        hoveredCard = focusedCard = pressedCard = null;
+        restoringFocus = true;
+        if (viewerTrigger) viewerTrigger.focus({ preventScroll: true });
+        restoringFocus = false;
+        syncOrbitPlayback();
+      });
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) clearHoverTimer();
+      syncOrbitPlayback();
+    });
+    syncOrbitPlayback();
 
     if (reducedMotion) return;
 
@@ -590,6 +690,7 @@ export const CLIENT_JS = String.raw`
 
     window.addEventListener("pointermove", function (event) {
       if (event.pointerType && event.pointerType !== "mouse") return;
+      if (hoveredCard || pressedCard || (resultViewer && resultViewer.open)) return;
       var box = stage.getBoundingClientRect();
       tx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width || 1)));
       ty = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height || 1)));
