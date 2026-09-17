@@ -137,6 +137,12 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
   ) rotate(var(--orbit-tilt)) scale(var(--orbit-scale));
   transform-origin: center;
   will-change: transform, opacity;
+  /* A front-facing card lives inside .hero-foreground, which is
+     pointer-events: none so the decorative front ring arc never blocks the
+     mouse-parallax tracking underneath it. Without this override a card
+     would inherit that none right when it's most prominent — the one moment
+     someone would actually try to hover or tap it. */
+  pointer-events: auto;
 }
 .hero-result-shot {
   position: relative; aspect-ratio: 4 / 5; display: grid; place-items: center;

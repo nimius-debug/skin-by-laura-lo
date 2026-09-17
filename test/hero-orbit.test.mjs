@@ -80,4 +80,13 @@ assert.match(CLIENT_JS, /lightbox\.addEventListener\("close", function \(\) \{/,
 assert.match(STYLES, /\.hero-result-lightbox\[open\] \{ position: fixed; inset: 0;/, "the lightbox fills the viewport the same proven way the product gallery lightbox does");
 assert.match(STYLES, /\.hero-result-zoom \{[\s\S]*?opacity: 0;/, "the zoom hint stays invisible until a result is actually being pointed at");
 
+// Regression: a front-facing card is reparented into .hero-foreground, which
+// is pointer-events: none so the decorative front ring arc never blocks the
+// mouse-parallax tracking underneath it. Without its own override, a card
+// silently inherits that none right when it's most prominent — confirmed via
+// real elementFromPoint() hit-testing that taps there fell through to
+// Laura's photo underneath instead of the card, on both hover and tap.
+assert.match(STYLES, /\.hero-foreground \{[\s\S]*?pointer-events: none;/, "the foreground layer is pointer-events: none (the reason .hero-result needs its own override below)");
+assert.match(STYLES, /\.hero-result \{[\s\S]*?pointer-events: auto;\s*\n\}/, "a result card re-enables pointer events for itself, overriding the none it would otherwise inherit whenever it's reparented into the foreground layer");
+
 
