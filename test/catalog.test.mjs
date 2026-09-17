@@ -41,8 +41,13 @@ const CATALOG_PAGE_1 = {
         variations: [{ id: "VAR_F1", item_variation_data: { pricing_type: "VARIABLE_PRICING" } }] } },
     // Slug collision with ITEM_A.
     { id: "ITEM_GHIJKL", type: "ITEM", item_data: { name: "Mixi Clean", ecom_visibility: "VISIBLE",
+        reporting_category: { id: "CAT_CLEAN" },
         variations: [{ id: "VAR_G1", item_variation_data: { pricing_type: "FIXED_PRICING",
           price_money: { amount: 3400, currency: "USD" } } }] } },
+    // No category assigned at all — must be hidden by default (HIDE_UNCATEGORIZED).
+    { id: "ITEM_K", type: "ITEM", item_data: { name: "No Category Product", ecom_visibility: "VISIBLE",
+        variations: [{ id: "VAR_K1", item_variation_data: { pricing_type: "FIXED_PRICING",
+          price_money: { amount: 2000, currency: "USD" } } }] } },
     // Draft treatment bundle — REGULAR but not published online, must be dropped.
     { id: "ITEM_H", type: "ITEM", item_data: { name: "Spicule Peel Series",
         variations: [{ id: "VAR_H1", item_variation_data: { pricing_type: "FIXED_PRICING",
@@ -144,6 +149,8 @@ check("no sales in the window means no best-seller badge", mela.bestSeller, fals
 const collision = products.find(p => p.id === "ITEM_GHIJKL");
 check("slug collision disambiguated", collision.slug, "mixi-clean-item-g");
 
+check("hideUncategorized (default on) drops a product with no category", products.some(p => p.id === "ITEM_K"), false);
+
 check("paginated: two catalog calls", calls.filter(c => c.includes("catalog")).length, 2);
 
 const index = indexVariations(products);
@@ -153,6 +160,12 @@ check("index maps to owning product", index.get("VAR_B2").product.name, "KrX Mel
 // hideSoldOut
 const hidden = await getCatalog(env, { ...cfg, hideSoldOut: true }, { force: true });
 check("hideSoldOut removes sold-out item", hidden.some(p => p.id === "ITEM_C"), false);
+
+// hideUncategorized: false
+const uncategorizedShown = await getCatalog(env, { ...cfg, hideUncategorized: false }, { force: true });
+const noCategoryProduct = uncategorizedShown.find(p => p.id === "ITEM_K");
+check("hideUncategorized: false shows it again", Boolean(noCategoryProduct), true);
+check("...labelled with the uncategorized placeholder", noCategoryProduct?.category, "Skincare");
 
 console.log(failures === 0 ? "\nAll catalog tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

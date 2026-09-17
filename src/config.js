@@ -96,6 +96,12 @@ export function settings(env = {}) {
     pickupPrepHours: num(env.PICKUP_PREP_HOURS, 24),
     catalogTtlSeconds: num(env.CATALOG_TTL_SECONDS, 120),
     hideSoldOut: bool(env.HIDE_SOLD_OUT, false),
+    // A product with no Square category assigned still needs somewhere to
+    // live, so it's labelled with a placeholder rather than dropped — but
+    // that makes it easy to forget to actually categorize. Hiding it from
+    // the site entirely (default on) surfaces the gap instead of quietly
+    // shipping an uncategorized product to customers.
+    hideUncategorized: bool(env.HIDE_UNCATEGORIZED, true),
     // How long a best-seller ranking stays cached before Square is asked
     // again. Sales data moves slowly, so this is hours, not seconds — kept
     // far higher than CATALOG_TTL_SECONDS on purpose.

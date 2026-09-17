@@ -198,6 +198,9 @@ function normalize({ items, images, categories }, stock, cfg) {
     const available = variations.some((variation) => variation.inStock);
     if (cfg.hideSoldOut && !available) continue;
 
+    const category = categoryNameFor(item, categories);
+    if (cfg.hideUncategorized && category === UNCATEGORIZED_LABEL) continue;
+
     const imageIds = [
       ...(Array.isArray(data.image_ids) ? data.image_ids : []),
       ...(data.image_id ? [data.image_id] : []),
@@ -219,7 +222,7 @@ function normalize({ items, images, categories }, stock, cfg) {
       id: item.id,
       slug,
       name: data.name || "Untitled",
-      category: categoryNameFor(item, categories),
+      category,
       description,
       // Keep Square's rich description so the product page can recover its
       // paragraphs, lists and authored section labels. It is parsed into a

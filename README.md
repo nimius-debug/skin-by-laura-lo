@@ -142,6 +142,7 @@ redeploy, no code edit. Money is in **cents**.
 | `CATALOG_TTL_SECONDS` | `120` | Catalog cache. `0` = always live |
 | `SALES_RANK_TTL_SECONDS` | `21600` | Best-seller ranking cache (6h). Requires Reporting API read scope on the Square token; falls back to alphabetical order if unavailable |
 | `HIDE_SOLD_OUT` | `false` | `true` hides sold-out items instead of labelling them |
+| `HIDE_UNCATEGORIZED` | `true` | `false` shows products with no Square category instead of hiding them |
 | `SITE_URL` | `https://skinbylauralo.com` | Used for canonical URLs and the sitemap |
 
 Copy, hours, address, booking/eGift links, review count and gallery images live
