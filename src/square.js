@@ -119,6 +119,13 @@ async function fetchInventory(env, variationIds) {
 // Square has no product_type for these, so name is the only signal.
 const NON_RETAIL_NAME = /^gift ?card\b|^flat shipping\b/i;
 
+// Shown as a filter pill so an uncategorized product still has somewhere to
+// live, but it isn't a real Square category — nothing to do with the
+// product beyond "nobody's categorized it yet." Exported so code that scores
+// products by shared category (src/related-products.js) can tell the
+// difference and not treat two uncategorized products as alike.
+export const UNCATEGORIZED_LABEL = "Skincare";
+
 function categoryNameFor(item, categories) {
   const data = item.item_data || {};
   const ids = [
@@ -131,7 +138,7 @@ function categoryNameFor(item, categories) {
     const name = categories.get(id);
     if (name) return name;
   }
-  return "Skincare";
+  return UNCATEGORIZED_LABEL;
 }
 
 /**
