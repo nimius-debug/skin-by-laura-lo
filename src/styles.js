@@ -249,6 +249,7 @@ h1 { margin-bottom: 28px; font-size: clamp(64px, 7vw, 104px); line-height: .89; 
 .product-image-fallback { width: 100%; height: 100%; display: grid; place-items: center; padding: 12%; text-align: center; background: var(--panel-product); font-family: var(--font-serif); font-size: 13px; font-style: italic; color: var(--muted); }
 .product-badge { position: absolute; z-index: 2; top: 14px; left: 14px; padding: 7px 9px; background: var(--brass); color: var(--ink); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .product-badge-soldout { background: var(--ink); color: var(--on-dark); border: 0; }
+.product-badge-bestseller { left: auto; right: 14px; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--ink); }
 .product-quick { border: 1px solid var(--line); }
 .product-quick { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 14px; text-align: center; background: rgba(241,234,218,.94); color: var(--ink); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; transform: translateY(70px); transition: transform .3s ease; }
 .product-card:hover .product-quick { transform: translateY(0); }

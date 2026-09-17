@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { salesRankFor, applySalesRank } from "../src/sales-rank.js";
+import { salesRankFor, applySalesRank, topSellerSlugs } from "../src/sales-rank.js";
 
 // ---------------------------------------------------------------- applySalesRank
 
@@ -35,9 +35,15 @@ console.log("PASS  best sellers sort first, ties keep the incoming order (stable
 const env = { SQUARE_ACCESS_TOKEN: "t", SQUARE_LOCATION_ID: "L1", SQUARE_ENVIRONMENT: "sandbox" };
 
 let calls = 0;
-globalThis.fetch = async (url) => {
+globalThis.fetch = async (url, options) => {
   calls++;
   assert.equal(new URL(url).pathname, "/reporting/v1/load", "queries the Reporting API load endpoint");
+  const body = JSON.parse(options.body);
+  assert.ok(
+    !body.query.timeDimensions || body.query.timeDimensions.length === 0,
+    "queries all-time totals, not a trailing window — this catalog doesn't sell enough for a recent window to be meaningful",
+  );
+  assert.ok(!body.query.order, "never sends an order clause — Square's Reporting API rejects it for this query shape");
   return new Response(
     JSON.stringify({
       data: [
@@ -75,3 +81,29 @@ const failedRank = await salesRankFor(env, 3600, { force: true });
 assert.equal(failedRank.size, 0, "a Reporting API failure yields an empty ranking, not a thrown error");
 
 console.log("PASS  a Reporting API failure never breaks catalog loading — falls back to no ranking");
+
+// ---------------------------------------------------------------- topSellerSlugs
+
+const catalog = [
+  { slug: "cleanser-top", name: "Cleanser Top", category: "Cleansers" },
+  { slug: "cleanser-second", name: "Cleanser Second", category: "Cleansers" },
+  { slug: "cleanser-third", name: "Cleanser Third", category: "Cleansers" }, // sold, but 3rd — no badge
+  { slug: "cleanser-none", name: "Cleanser None", category: "Cleansers" }, // never sold
+  { slug: "serum-only-seller", name: "Serum Only Seller", category: "Serums" },
+  { slug: "serum-quiet", name: "Serum Quiet", category: "Serums" }, // never sold — category still gets 1 badge
+];
+const catalogRank = new Map([
+  ["cleanser top", 20],
+  ["cleanser second", 15],
+  ["cleanser third", 5],
+  ["serum only seller", 3],
+]);
+
+const badges = topSellerSlugs(catalog, catalogRank, 2);
+assert.deepEqual(
+  [...badges].sort(),
+  ["cleanser-second", "cleanser-top", "serum-only-seller"],
+  "top 2 sellers per category get badged; a never-sold product is never badged even alone in its category",
+);
+
+console.log("PASS  best-seller badge picks the top 2 per category, and only products that actually sold");

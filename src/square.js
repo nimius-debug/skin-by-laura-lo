@@ -4,7 +4,10 @@
 // and asks Square to create a hosted checkout link. It never stores an order,
 // and it never accepts a price from the browser.
 
-import { salesRankFor, applySalesRank } from "./sales-rank.js";
+import { salesRankFor, applySalesRank, topSellerSlugs } from "./sales-rank.js";
+
+// How many top sellers get a "Best seller" badge, within each category.
+const BEST_SELLER_BADGE_COUNT = 2;
 
 const SQUARE_VERSION = "2026-08-19";
 
@@ -267,6 +270,9 @@ export async function getCatalog(env, cfg, { force = false } = {}) {
   // like stock, so a failure here still leaves a fully working shop.
   const salesRank = await salesRankFor(env, cfg.salesRankTtlSeconds, { force });
   products = applySalesRank(products, salesRank);
+
+  const bestSellerSlugs = topSellerSlugs(products, salesRank, BEST_SELLER_BADGE_COUNT);
+  for (const product of products) product.bestSeller = bestSellerSlugs.has(product.slug);
 
   if (cfg.catalogTtlSeconds > 0) {
     memo = { expires: now + cfg.catalogTtlSeconds * 1000, products };

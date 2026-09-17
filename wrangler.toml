@@ -27,12 +27,13 @@ PICKUP_PREP_HOURS = "24"
 # Set to "0" to always hit Square live.
 CATALOG_TTL_SECONDS = "120"
 
-# How long the best-seller ranking (products sorted by trailing 90-day units
-# sold, within each category) is cached before Square's Reporting API is
-# asked again. Sales data moves slowly, so this is hours — deliberately far
-# above CATALOG_TTL_SECONDS. Requires the Square access token to have the
-# Reporting API's read scope; if that's missing, products simply fall back to
-# alphabetical order rather than breaking the shop.
+# How long the best-seller ranking (products sorted by all-time units sold,
+# within each category; the top 2 per category also get a "Best seller"
+# badge) is cached before Square's Reporting API is asked again. Sales data
+# moves slowly, so this is hours — deliberately far above CATALOG_TTL_SECONDS.
+# Requires the Square access token to have the Reporting API's read scope; if
+# that's missing, products simply fall back to alphabetical order rather than
+# breaking the shop.
 SALES_RANK_TTL_SECONDS = "21600" # 6 hours
 
 # Set to "true" to hide out-of-stock items entirely instead of marking them sold out.
