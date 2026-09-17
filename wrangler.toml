@@ -39,6 +39,13 @@ SALES_RANK_TTL_SECONDS = "21600" # 6 hours
 # Set to "true" to hide out-of-stock items entirely instead of marking them sold out.
 HIDE_SOLD_OUT = "false"
 
+# A product with no category assigned in Square still needs somewhere to
+# live, so the site labels it "Skincare" rather than dropping it — but that
+# makes an uncategorized product easy to miss. Hiding it entirely (on by
+# default) surfaces the gap instead of quietly shipping it to customers.
+# Set to "false" to show uncategorized products again.
+HIDE_UNCATEGORIZED = "true"
+
 # ---------------------------------------------------------------------------
 # Secrets — DO NOT put these here. Set them with:
 #   npx wrangler secret put SQUARE_ACCESS_TOKEN
