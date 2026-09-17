@@ -11,6 +11,7 @@ export function productCard(product, { showShort = false, showAdd = false } = {}
       <a href="/product/${product.slug}" aria-label="${product.name}, ${formatMoney(product.priceCents)}">
         <div class="product-image-wrap">
           ${soldOut ? html`<span class="product-badge product-badge-soldout">Sold out</span>` : ""}
+          ${product.bestSeller ? html`<span class="product-badge product-badge-bestseller">Best seller</span>` : ""}
           ${product.image
             ? html`<img src="${product.image}" alt="${product.name}" loading="lazy" width="420" height="490" />`
             : html`<div class="product-image-fallback">${product.name}</div>`}

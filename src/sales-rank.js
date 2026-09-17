@@ -1,9 +1,11 @@
 // Best-seller ordering — Square's Reporting API, read-only.
 //
-// A trailing window (not all-time) so current demand decides the order and a
-// new product can still rise; units sold (not revenue) so a $10 cleanser that
-// sells constantly outranks a $90 serum that doesn't, matching what shoppers
-// mean by "best seller."
+// All-time totals, not a trailing window — this is a boutique catalog with
+// low order volume (most products sell in the single digits over a 90-day
+// window), so a recent-only window mostly just measures noise. All-time
+// gives every product enough of a sample to compare fairly. Units sold, not
+// revenue, so a $10 cleanser that sells constantly outranks a $90 serum that
+// doesn't — that's what shoppers mean by "best seller."
 //
 // This calls Square at most once per Worker isolate per SALES_RANK_TTL_SECONDS
 // — the same per-isolate memo pattern getCatalog() uses for the catalog
@@ -14,19 +16,8 @@
 
 import { squareFetch } from "./square.js";
 
-const WINDOW_DAYS = 90;
-
 function normalizeName(value) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function windowRange(now = new Date()) {
-  const end = new Date(now);
-  const start = new Date(now);
-  start.setUTCDate(start.getUTCDate() - WINDOW_DAYS);
-  const iso = (date, endOfDay) =>
-    `${date.toISOString().slice(0, 10)}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`;
-  return [iso(start, false), iso(end, true)];
 }
 
 async function fetchSalesByName(env) {
@@ -34,11 +25,9 @@ async function fetchSalesByName(env) {
     query: {
       measures: ["ProductMixReport.items_sold_quantity"],
       dimensions: ["ProductMixReport.item_name"],
-      timeDimensions: [
-        { dimension: "ProductMixReport.local_reporting_timestamp", dateRange: windowRange() },
-      ],
-      // No `order` clause — Square's Reporting API rejects it here; sorting
-      // happens client-side once the (small) result set is back instead.
+      // No timeDimensions — omitting it entirely returns all-time totals.
+      // No `order` clause either — Square's Reporting API rejects it here;
+      // sorting happens client-side once the (small) result set is back.
       limit: 500,
     },
   });
@@ -59,7 +48,7 @@ async function fetchSalesByName(env) {
 // shared daily Workers request limit.
 let memo = { expires: 0, rank: null };
 
-/** Units sold per product name (normalized) over the trailing window. */
+/** All-time units sold per product name (normalized). */
 export async function salesRankFor(env, ttlSeconds, { force = false } = {}) {
   const now = Date.now();
   if (!force && memo.rank && now < memo.expires) return memo.rank;
@@ -76,17 +65,40 @@ export async function salesRankFor(env, ttlSeconds, { force = false } = {}) {
   return rank;
 }
 
+function unitsSold(product, rank) {
+  return rank.get(normalizeName(product.name)) || 0;
+}
+
 /**
  * Reorders products best-seller-first within an already-sorted list. Stable
  * sort (guaranteed by the JS spec) means every tie — including the common
- * case of two products with zero sales in the window — keeps its existing
- * relative order, so this only ever promotes proven sellers rather than
- * reshuffling everything else.
+ * case of two products with zero sales — keeps its existing relative order,
+ * so this only ever promotes proven sellers rather than reshuffling
+ * everything else.
  */
 export function applySalesRank(products, rank) {
-  return [...products].sort((a, b) => {
-    const soldA = rank.get(normalizeName(a.name)) || 0;
-    const soldB = rank.get(normalizeName(b.name)) || 0;
-    return soldB - soldA;
-  });
+  return [...products].sort((a, b) => unitsSold(b, rank) - unitsSold(a, rank));
+}
+
+/**
+ * The top `perCategory` sellers within each category, as a Set of slugs —
+ * only products that have actually sold something qualify, so a category
+ * with no sales at all gets no badge rather than an arbitrary one. Call
+ * after applySalesRank so ties within a category already read in a sensible
+ * (stable, alphabetical-among-ties) order.
+ */
+export function topSellerSlugs(products, rank, perCategory = 2) {
+  const byCategory = new Map();
+  for (const product of products) {
+    if (unitsSold(product, rank) <= 0) continue;
+    const bucket = byCategory.get(product.category) || [];
+    bucket.push(product);
+    byCategory.set(product.category, bucket);
+  }
+
+  const slugs = new Set();
+  for (const bucket of byCategory.values()) {
+    for (const product of bucket.slice(0, perCategory)) slugs.add(product.slug);
+  }
+  return slugs;
 }

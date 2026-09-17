@@ -138,6 +138,8 @@ check("price in cents", clean.priceCents, 3400);
 const soldOut = products.find(p => p.id === "ITEM_C");
 check("tracked with 0 on hand is sold out", soldOut.available, false);
 check("category via legacy category_id", soldOut.category, "Toners");
+check("only product with sales in its category gets the best-seller badge", soldOut.bestSeller, true);
+check("no sales in the window means no best-seller badge", mela.bestSeller, false);
 
 const collision = products.find(p => p.id === "ITEM_GHIJKL");
 check("slug collision disambiguated", collision.slug, "mixi-clean-item-g");
