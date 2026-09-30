@@ -99,6 +99,21 @@ export const ROUTINES = [
       ctaLabel: "Book my acne consultation",
     },
   },
+  {
+    slug: "men-all-in-one-bundle",
+    name: "Men All In One Bundle",
+    concern: "Men's Skincare, Simplified",
+    oneLiner: "Real results without a 10-step routine.",
+    hook: "You don't need a whole shelf of products. You need three that actually work.",
+    description:
+      "A no-fuss routine built for guys who want their skin to look good without adding ten steps to their morning. A gentle cleanser starts things off clean, an all-in-one toner-essence-moisturizer hybrid handles hydration and post-shave comfort in one step, and daily SPF protects your progress. Simple, effective, done.",
+    bestFor: ["Men's skincare", "Low-maintenance routine", "Post-shave care", "First-time skincare routine", "Daily essentials"],
+    products: [
+      { slug: "dermathod-moist-morning-touch-foam-cleanser", role: "A gentle foaming cleanser that clears the day without stripping the skin." },
+      { slug: "desembre-homme-spirulina-all-in-one-solution", role: "An all-in-one toner, essence, and moisturizer with a cooling finish — great for post-shave skin, powered by spirulina extract, niacinamide, and hyaluronic acid." },
+      { slug: "desembre-egf-waterdrop", role: "Daily sun protection formulated with growth factors and antioxidants." },
+    ],
+  },
 ];
 
 /**
