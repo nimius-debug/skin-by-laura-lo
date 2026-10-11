@@ -1,6 +1,6 @@
 import { PDFDocument } from "pdf-lib";
 import { splitPdfPages, diffPages, hashImageBytes } from "../src/admin/pdf.js";
-import { planNoteEntries } from "../src/admin/claude.js";
+import { planNoteEntries, formulationsFor } from "../src/admin/claude.js";
 import { syncWindows, isCountableBooking } from "../src/admin/sync.js";
 
 let failures = 0;
@@ -129,6 +129,16 @@ check(
   isCountableBooking({ status: "NO_SHOW", start_at: "2026-09-01T00:00:00Z" }, NOW),
   false,
 );
+
+// --- client insight: routine products carry their real formulation data ---
+const formulations = formulationsFor([
+  { name: "CBD SKIN MIST", slug: "cbd-skin-mist" },
+  { name: "Totally Made Up Product Name", slug: "made-up" },
+]);
+check("a reviewed product's formulation summary is included", formulations.includes("A watery toning mist"), true);
+check("a reviewed product's bestFor guidance is included", formulations.includes("Best for:"), true);
+check("a product with no formula on file is labelled honestly, not skipped", formulations.includes("Totally Made Up Product Name: no formula on file yet."), true);
+check("an empty routine never calls into the formula lookup", formulationsFor([]), "");
 
 console.log(failures === 0 ? "\nAll admin-notes tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
