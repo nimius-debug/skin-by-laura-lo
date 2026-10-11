@@ -1,0 +1,258 @@
+// Router for the /admin area. This is a separate, internal tool bolted onto
+// the storefront Worker — it must sit behind Cloudflare Access in production
+// (see README), since nothing in this file checks who's asking.
+
+import { settings } from "../config.js";
+import { getCatalog, isConfigured } from "../square.js";
+import { jsonResponse } from "../layout.js";
+import { adminPage, adminHtmlResponse } from "./layout.js";
+import { clientsPage } from "./pages/clients.js";
+import { clientProfilePage } from "./pages/client-profile.js";
+import { uploadPage } from "./pages/upload.js";
+import * as db from "./db.js";
+import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
+import { extractNoteEntries, summarizeClient } from "./claude.js";
+import { currentRoutineFor } from "./routine.js";
+import { syncClientsFromSquare } from "./sync.js";
+import * as storage from "./storage.js";
+import { ADMIN_CLIENT_JS } from "./client.js";
+
+function notFound() {
+  return adminHtmlResponse(adminPage({ title: "Not found", body: "<p>Not found.</p>" }), { status: 404 });
+}
+
+async function loadProducts(env) {
+  const cfg = settings(env);
+  if (!isConfigured(env)) return [];
+  return getCatalog(env, cfg).catch(() => []);
+}
+
+/**
+ * Reads a single uploaded file (or set of image files) into the page-level
+ * shape the dedup/extraction pipeline expects: [{ index, bytes, hash, kind, mediaType }].
+ */
+async function readUploadedPages(files) {
+  if (files.length === 1 && files[0].type === "application/pdf") {
+    const bytes = new Uint8Array(await files[0].arrayBuffer());
+    const pages = await splitPdfPages(bytes);
+    return pages.map((page) => ({ ...page, kind: "pdf" }));
+  }
+
+  if (files.every((file) => file.type.startsWith("image/"))) {
+    const pages = [];
+    for (let index = 0; index < files.length; index += 1) {
+      const bytes = new Uint8Array(await files[index].arrayBuffer());
+      pages.push({ index, bytes, hash: await hashImageBytes(bytes), kind: "image", mediaType: files[index].type });
+    }
+    return pages;
+  }
+
+  throw new Error("Upload either one PDF, or one or more images — not a mix.");
+}
+
+async function handleUpload(request, env, clientId) {
+  const client = await db.getClient(env, clientId);
+  if (!client) return jsonResponse({ message: "Client not found" }, 404);
+
+  const form = await request.formData().catch(() => null);
+  const files = form ? form.getAll("file").filter((f) => f && f.size > 0) : [];
+  if (!files.length) return jsonResponse({ message: "No file was uploaded." }, 400);
+
+  let pages;
+  try {
+    pages = await readUploadedPages(files);
+  } catch (error) {
+    return jsonResponse({ message: error.message }, 400);
+  }
+
+  const knownHashes = await db.knownPageHashes(env, clientId);
+  const { newPages, missingHashes } = diffPages(pages, knownHashes);
+
+  if (newPages.length === 0) {
+    return jsonResponse({ status: "no_new_pages", missingHashes });
+  }
+
+  let planned;
+  try {
+    planned = await extractNoteEntries(env, newPages);
+  } catch (error) {
+    console.error("Note extraction failed:", error.message);
+    return jsonResponse({ message: "Couldn't read the new pages right now. Please try again shortly." }, 502);
+  }
+
+  const byIndex = new Map(newPages.map((page) => [page.index, page]));
+  const draftId = db.newId("draft");
+  const entries = [];
+
+  for (let entryIndex = 0; entryIndex < planned.length; entryIndex += 1) {
+    const plan = planned[entryIndex];
+    const matchedPages = plan.pageIndexes.map((i) => byIndex.get(i)).filter(Boolean);
+    const sourcePages = matchedPages.length ? matchedPages : newPages; // model returned no indexes — fall back to all new pages rather than drop the entry
+
+    const mergedBytes = sourcePages[0]?.kind === "image"
+      ? await storage.mergeImagesToPdf(sourcePages.map((p) => ({ bytes: p.bytes, mediaType: p.mediaType })))
+      : await storage.mergePdfPages(sourcePages.map((p) => p.bytes));
+
+    const draftKey = await storage.putDraftPage(env, draftId, entryIndex, mergedBytes, "pdf");
+
+    entries.push({
+      date: plan.date,
+      summary: plan.summary,
+      text: plan.text,
+      confidence: plan.confidence,
+      pageHashes: sourcePages.map((p) => p.hash),
+      draftPdfKey: draftKey,
+    });
+  }
+
+  await db.saveDraft(env, draftId, clientId, { entries, missingHashes });
+
+  return jsonResponse({
+    draftId,
+    missingHashes,
+    entries: entries.map((entry, index) => ({
+      index, date: entry.date, summary: entry.summary, text: entry.text, confidence: entry.confidence,
+    })),
+  });
+}
+
+async function handleConfirm(request, env, clientId, draftId) {
+  const draft = await db.getDraft(env, draftId);
+  if (!draft || draft.client_id !== clientId) return jsonResponse({ message: "Draft not found" }, 404);
+
+  const body = await request.json().catch(() => null);
+  const submitted = Array.isArray(body?.entries) ? body.entries : null;
+  if (!submitted) return jsonResponse({ message: "Missing entries" }, 400);
+
+  const toCommit = [];
+  for (const submission of submitted) {
+    if (submission.include === false) continue;
+    const draftEntry = draft.entries[submission.index];
+    if (!draftEntry) continue;
+
+    const id = db.newId("note");
+    const finalKey = `notes/${clientId}/${id}.pdf`;
+    await storage.promoteDraftObject(env, draftEntry.draftPdfKey, finalKey);
+
+    toCommit.push({
+      id,
+      date: typeof submission.date === "string" && submission.date ? submission.date : draftEntry.date,
+      summary: typeof submission.summary === "string" ? submission.summary : draftEntry.summary,
+      text: typeof submission.text === "string" ? submission.text : draftEntry.text,
+      confidence: draftEntry.confidence,
+      pdfKey: finalKey,
+      pageHashes: draftEntry.pageHashes,
+    });
+  }
+
+  // Any draft entries never mentioned in the confirm payload (e.g. the tab
+  // was closed) stay as orphaned R2 objects + an unconfirmed draft row —
+  // harmless, but worth a cleanup job later rather than solved here.
+  const noteIds = await db.commitNoteEntries(env, clientId, toCommit);
+  await db.deleteDraft(env, draftId);
+
+  return jsonResponse({ noteIds, redirect: `/admin/clients/${clientId}` });
+}
+
+async function handleInsight(env, clientId) {
+  const client = await db.getClient(env, clientId);
+  if (!client) return jsonResponse({ message: "Client not found" }, 404);
+
+  const notes = await db.listNotesForClient(env, clientId);
+  const products = await loadProducts(env);
+  const routine = await currentRoutineFor(env, products, client.square_customer_id).catch(() => null);
+
+  try {
+    const summary = await summarizeClient(env, { client, notes, routine });
+    return jsonResponse({ summary });
+  } catch (error) {
+    console.error("Client summary failed:", error.message);
+    return jsonResponse({ message: "Couldn't generate a summary right now." }, 502);
+  }
+}
+
+async function handleSync(env) {
+  try {
+    const result = await syncClientsFromSquare(env);
+    return jsonResponse(result);
+  } catch (error) {
+    console.error("Square client sync failed:", error.message);
+    return jsonResponse({ message: error.message || "Sync failed." }, 502);
+  }
+}
+
+async function handleUpdateNoteSummary(request, env, noteId) {
+  const body = await request.json().catch(() => null);
+  const summary = typeof body?.summary === "string" ? body.summary.trim() : "";
+  if (!summary) return jsonResponse({ message: "Summary can't be empty." }, 400);
+  await db.updateNoteSummary(env, noteId, summary);
+  return jsonResponse({ ok: true });
+}
+
+async function handleOriginal(env, noteId) {
+  const note = await env.CLIENT_NOTES_DB.prepare("SELECT pdf_key FROM notes WHERE id = ?").bind(noteId).first();
+  if (!note?.pdf_key) return notFound();
+  const object = await storage.getObject(env, note.pdf_key);
+  if (!object) return notFound();
+  return new Response(object.body, { headers: { "content-type": "application/pdf", "cache-control": "private, max-age=3600" } });
+}
+
+export async function handleAdminRequest(request, env, url) {
+  const segments = url.pathname.split("/").filter(Boolean); // ["admin", ...]
+  const method = request.method;
+
+  if (url.pathname === "/admin/assets/admin.js") {
+    return new Response(ADMIN_CLIENT_JS, {
+      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" },
+    });
+  }
+
+  // GET /admin
+  if (url.pathname === "/admin" && method === "GET") {
+    const clients = await db.listClients(env);
+    return adminHtmlResponse(adminPage({ title: "Clients", body: clientsPage({ clients }) }));
+  }
+
+  // POST /admin/sync — pulls clients + seller notes from Square bookings
+  if (url.pathname === "/admin/sync" && method === "POST") {
+    return handleSync(env);
+  }
+
+  const clientMatch = segments[1] === "clients" ? segments[2] : null;
+
+  if (clientMatch && segments.length === 3 && method === "GET") {
+    const client = await db.getClient(env, clientMatch);
+    if (!client) return notFound();
+    const [notes, products] = await Promise.all([db.listNotesForClient(env, clientMatch), loadProducts(env)]);
+    const routine = await currentRoutineFor(env, products, client.square_customer_id).catch(() => null);
+    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine }) }));
+  }
+
+  if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {
+    const client = await db.getClient(env, clientMatch);
+    if (!client) return notFound();
+    return adminHtmlResponse(adminPage({ title: `Add a note — ${client.name}`, body: uploadPage({ client }) }));
+  }
+
+  if (clientMatch && segments[3] === "notes" && segments.length === 4 && method === "POST") {
+    return handleUpload(request, env, clientMatch);
+  }
+
+  if (clientMatch && segments[3] === "notes" && segments[5] === "confirm" && method === "POST") {
+    return handleConfirm(request, env, clientMatch, segments[4]);
+  }
+
+  if (clientMatch && segments[3] === "insight" && method === "POST") {
+    return handleInsight(env, clientMatch);
+  }
+
+  if (segments[1] === "notes" && segments[3] === "original" && method === "GET") {
+    return handleOriginal(env, segments[2]);
+  }
+
+  if (segments[1] === "notes" && segments.length === 3 && method === "POST") {
+    return handleUpdateNoteSummary(request, env, segments[2]);
+  }
+
+  return notFound();
+}

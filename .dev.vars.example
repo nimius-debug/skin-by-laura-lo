@@ -10,3 +10,10 @@ SQUARE_LOCATION_ID=""
 
 # "production" (default) or "sandbox"
 SQUARE_ENVIRONMENT="sandbox"
+
+# For the /admin client-notes tool. Also needs the CLIENT_NOTES_DB (D1) and
+# NOTES_BUCKET (R2) bindings in wrangler.toml — see README "The /admin
+# client-notes tool" for how to provision those.
+ANTHROPIC_API_KEY=""
+# Optional override; defaults to claude-sonnet-5-5.
+# ANTHROPIC_MODEL=""

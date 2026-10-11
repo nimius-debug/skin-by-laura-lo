@@ -71,7 +71,11 @@ Two credentials are needed, and they are easy to mix up:
 Get the access token at [developer.squareup.com/apps](https://developer.squareup.com/apps)
 → your app → **Credentials** → switch to **Production** → *Production Access Token*.
 It needs **Catalog read** (`ITEMS_READ`), **Inventory read** (`INVENTORY_READ`)
-and **Orders/Payments write** (`ORDERS_WRITE`, `PAYMENTS_WRITE`).
+and **Orders/Payments write** (`ORDERS_WRITE`, `PAYMENTS_WRITE`). For the
+`/admin` client-notes tool's "Sync from Square" to find clients and their
+seller notes, it also needs **Appointments read**
+(`APPOINTMENTS_READ`, `APPOINTMENTS_ALL_READ`) and **Customers read**
+(`CUSTOMERS_READ`).
 
 To find the location ID, run:
 
@@ -165,17 +169,80 @@ src/
 ├── styles.js         Design system stylesheet
 ├── html.js           Auto-escaping template helpers
 ├── client/cart.js    Browser JS: cart, filters, checkout
-└── pages/            One module per page
+├── pages/            One module per storefront page
+└── admin/            The /admin client-notes tool — its own DB, see below
 scripts/              square-locations.mjs — find your SQUARE_LOCATION_ID
-test/                 Catalog + checkout tests, Square mocked
+test/                 Catalog + checkout + admin-notes tests, Square mocked
 ```
+
+## The /admin client-notes tool
+
+A separate internal tool, bolted onto the same Worker at `/admin`, for
+Laura's consultation notes. Everything else in this project reads Square
+live and stores nothing — this is the one exception, because Square has
+nowhere to put a handwritten consultation note.
+
+**Clients are never typed in by hand.** A client only appears after
+**Sync from Square** (the button on `/admin`) finds them with a past,
+`ACCEPTED` Square booking — so the client list is always a subset of real
+Square customers who've actually had a service, never a free-text list
+someone can drift out of sync with Square. The same sync also imports each
+booking's `seller_note` as a note (tagged "From Square"), since that's
+already real text sitting in Square with no transcription needed.
+
+**Adding a handwritten note** (tagged "From Noteful") works like this:
+export a notebook from Noteful as PDF or Image (not Native — that format
+isn't readable here), upload it on a client's page, and Claude reads the
+new pages and proposes one or more dated entries for review before
+anything is saved. Because Noteful always re-exports the *whole* notebook,
+not just what's new, re-uploading the same notebook later only processes
+pages that weren't already seen — matched by a hash of each page's
+content, not its position, so Noteful reordering or inserting a page never
+confuses it. A page that was previously seen but is missing from a newer
+export is flagged, not silently dropped — that usually means the wrong
+file was picked.
+
+A note's **date** and **summary** are never guessed. A page with no
+legible date comes back `null`, shown as "no date detected"; anything the
+model wasn't confident reading is flagged low-confidence with the
+original file one tap away. Laura can edit a note's summary at any time.
+
+**Routine** on a client's page is never stored — it's read live from their
+most recent completed Square order, the same way the rest of the site
+treats Square as the source of truth.
+
+### Provisioning
+
+Two resources this tool needs, created once:
+
+```bash
+npx wrangler d1 create skin-by-laura-lo-client-notes
+# paste the database_id it prints into wrangler.toml's [[d1_databases]] block
+
+npx wrangler r2 bucket create skin-by-laura-lo-client-notes
+
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0001_client_notes.sql
+
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+
+Then uncomment the `[[d1_databases]]` and `[[r2_buckets]]` blocks in
+`wrangler.toml`.
+
+**`/admin` must sit behind Cloudflare Access before going live** — nothing
+in this tool's own code checks who's asking. In the Cloudflare dashboard:
+Zero Trust → Access → Applications → add an application for this Worker's
+`/admin*` path, gated by Laura's email. This is a dashboard setting, not
+something in this repo.
 
 ## Not built (deliberately)
 
 Blueprint phases intentionally left out — see §7 of the blueprint:
 
 - **Order lookup** (email + order number) — Phase 5, `[if wanted]`
-- **D1 caching layer** — Phase 6, only if live API calls prove too slow
+- **A D1 caching layer for the catalog** — Phase 6, only if live Square
+  catalog reads prove too slow. (D1 is now used for `/admin`'s client
+  notes, above — a different, unrelated use of it.)
 - **Embedded booking** — Phase 7; the link-out works and is unchanged
 - **Customer accounts** — Phase 8, a separate decision
 

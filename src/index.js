@@ -11,6 +11,7 @@ import { relatedProductsFor } from "./related-products.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
+import { handleAdminRequest } from "./admin/routes.js";
 
 const MAX_QTY = 10;
 const MAX_LINES = 50;
@@ -204,6 +205,15 @@ export default {
       const legacy = LEGACY_REDIRECTS.get(stripped);
       if (legacy && legacy !== stripped) return redirect(legacy + url.search);
       return redirect(stripped + url.search);
+    }
+
+    // -------------------------------------------------------------- admin
+    // A separate, internal tool for client consultation notes. Must sit
+    // behind Cloudflare Access in production — see README. Kept out of the
+    // storefront's own page()/layout.js shell entirely: different audience,
+    // no cart, no header/footer.
+    if (path === "/admin" || path.startsWith("/admin/")) {
+      return handleAdminRequest(request, env, url);
     }
 
     // ------------------------------------------------------------- assets

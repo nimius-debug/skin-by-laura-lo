@@ -22,17 +22,7 @@ export function isConfigured(env) {
   return Boolean(env.SQUARE_ACCESS_TOKEN && env.SQUARE_LOCATION_ID);
 }
 
-export async function squareFetch(env, path, body) {
-  const response = await fetch(`${apiBase(env)}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-      "Square-Version": SQUARE_VERSION,
-    },
-    body: JSON.stringify(body),
-  });
-
+async function parseSquareResponse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = (payload.errors || [])
@@ -44,6 +34,34 @@ export async function squareFetch(env, path, body) {
     throw error;
   }
   return payload;
+}
+
+export async function squareFetch(env, path, body) {
+  const response = await fetch(`${apiBase(env)}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+      "Square-Version": SQUARE_VERSION,
+    },
+    body: JSON.stringify(body),
+  });
+  return parseSquareResponse(response);
+}
+
+/** For Square's GET-style list endpoints (bookings, customers), which take query params rather than a JSON body. */
+export async function squareGet(env, path, params = {}) {
+  const url = new URL(`${apiBase(env)}${path}`);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+  }
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      "Square-Version": SQUARE_VERSION,
+    },
+  });
+  return parseSquareResponse(response);
 }
 
 function slugify(value) {

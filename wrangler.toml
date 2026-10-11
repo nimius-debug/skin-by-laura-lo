@@ -51,7 +51,25 @@ HIDE_UNCATEGORIZED = "true"
 #   npx wrangler secret put SQUARE_ACCESS_TOKEN
 #   npx wrangler secret put SQUARE_LOCATION_ID
 #   npx wrangler secret put SQUARE_ENVIRONMENT   (optional: "sandbox")
+#   npx wrangler secret put ANTHROPIC_API_KEY    (for the /admin client-notes tool)
+#   npx wrangler secret put ANTHROPIC_MODEL      (optional override, e.g. a cheaper model)
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# /admin — internal client-notes tool. Its own database and file storage;
+# everything else in this project still reads Square live. See README
+# "The /admin client-notes tool" for what these hold and how to provision
+# them — this is NOT created automatically, you run two `wrangler` commands
+# once and paste the ids below.
+# ---------------------------------------------------------------------------
+# [[d1_databases]]
+# binding = "CLIENT_NOTES_DB"
+# database_name = "skin-by-laura-lo-client-notes"
+# database_id = "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create"
+
+# [[r2_buckets]]
+# binding = "NOTES_BUCKET"
+# bucket_name = "skin-by-laura-lo-client-notes"
 
 # The production hostname is attached as a dashboard Route only after the
 # WordPress backup and final cutover checks are complete. Keeping it out of
