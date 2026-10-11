@@ -213,21 +213,22 @@ treats Square as the source of truth.
 
 ### Provisioning
 
-Two resources this tool needs, created once:
+The D1 database and R2 bucket already exist and are wired into
+`wrangler.toml` — nothing to create. One secret is still needed before the
+AI features work:
 
 ```bash
-npx wrangler d1 create skin-by-laura-lo-client-notes
-# paste the database_id it prints into wrangler.toml's [[d1_databases]] block
-
-npx wrangler r2 bucket create skin-by-laura-lo-client-notes
-
-npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0001_client_notes.sql
-
 npx wrangler secret put ANTHROPIC_API_KEY
 ```
 
-Then uncomment the `[[d1_databases]]` and `[[r2_buckets]]` blocks in
-`wrangler.toml`.
+(For reference, this is how the database/bucket were created and the
+schema applied, if this ever needs doing again in a different account:)
+
+```bash
+npx wrangler d1 create skin-by-laura-lo-client-notes
+npx wrangler r2 bucket create skin-by-laura-lo-client-notes
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0001_client_notes.sql
+```
 
 **`/admin` must sit behind Cloudflare Access before going live** — nothing
 in this tool's own code checks who's asking. In the Cloudflare dashboard:
