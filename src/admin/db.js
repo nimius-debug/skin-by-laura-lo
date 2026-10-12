@@ -47,6 +47,36 @@ export async function listNotesForClient(env, clientId) {
   return results;
 }
 
+/**
+ * The saved AI summary for a client, or null. Fails soft: if the table is
+ * missing or the row is unreadable the page just behaves as if nothing is saved.
+ */
+export async function getSavedSummary(env, clientId) {
+  try {
+    const row = await env.CLIENT_NOTES_DB.prepare(
+      "SELECT input_hash, summary_json, model, created_at FROM client_summaries WHERE client_id = ?",
+    ).bind(clientId).first();
+    if (!row) return null;
+    return { hash: row.input_hash, summary: JSON.parse(row.summary_json), model: row.model, createdAt: row.created_at };
+  } catch (error) {
+    console.error("Reading saved summary failed:", error.message);
+    return null;
+  }
+}
+
+/** Keep the latest summary for a client. A failure here must not lose the summary the user just paid for. */
+export async function saveSummary(env, clientId, { hash, summary, model }) {
+  try {
+    await env.CLIENT_NOTES_DB.prepare(
+      `INSERT INTO client_summaries (client_id, input_hash, summary_json, model) VALUES (?, ?, ?, ?)
+       ON CONFLICT (client_id) DO UPDATE SET input_hash = excluded.input_hash, summary_json = excluded.summary_json,
+         model = excluded.model, created_at = datetime('now')`,
+    ).bind(clientId, hash, JSON.stringify(summary), model).run();
+  } catch (error) {
+    console.error("Saving summary failed:", error.message);
+  }
+}
+
 /** The original Google Drive files a client's notes were imported from, for download on their profile. */
 export async function listSourceFiles(env, clientId) {
   const { results } = await env.CLIENT_NOTES_DB.prepare(

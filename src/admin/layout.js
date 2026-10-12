@@ -59,6 +59,29 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .note-undated { color: var(--muted); font-weight: 500; font-style: italic; }
 .note-meta { display: flex; align-items: center; gap: 10px; }
 .note-view { margin: 0; font-size: 13.5px; line-height: 1.6; color: #4A4038; white-space: pre-wrap; }
+.thumb { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: #F3ECE2; flex: none; display: block; }
+.thumb-blank { border: 1px dashed var(--line); }
+.routine-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid #F0E8DC; }
+.routine-item:first-of-type { padding-top: 4px; }
+.routine-item:last-child { border-bottom: none; }
+.routine-body, .history-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.routine-name { font-size: 13.5px; font-weight: 600; }
+.routine-what { font-size: 12.5px; line-height: 1.5; color: #4A4038; }
+.routine-what strong, .routine-keep strong { font-weight: 600; color: var(--ink); }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chip { font-size: 11px; font-weight: 600; color: #96583C; background: var(--accent-soft); border-radius: 999px; padding: 2px 8px; }
+.routine-ingredients summary { font-size: 12px; font-weight: 600; color: #96583C; cursor: pointer; }
+.routine-ingredients p { font-size: 12px; line-height: 1.5; color: var(--ink-soft); margin: 6px 0 0; overflow-wrap: anywhere; }
+.routine-keep { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.history-item { display: flex; gap: 12px; align-items: center; }
+.history-meta { font-size: 12px; color: var(--muted); }
+.flags-card { display: flex; flex-direction: column; gap: 12px; border-color: #E8CFA0; background: #FFFBF3; }
+.flag-list { display: flex; flex-direction: column; gap: 10px; }
+.flag-item { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.55; color: #4A4038; }
+.flag-icon { flex: none; width: 16px; text-align: center; }
+.flag-level-warn .flag-icon { color: var(--danger); }
+.flag-level-note .flag-icon { color: var(--warn); }
+.flag-foot { font-size: 11.5px; color: var(--muted); }
 .sheet-fields { display: flex; flex-direction: column; gap: 12px; }
 .sheet-field { display: flex; flex-direction: column; gap: 4px; }
 .sheet-label { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -73,6 +96,8 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .file-actions { display: flex; gap: 16px; flex: none; font-size: 13px; font-weight: 600; }
 .insight-card { display: flex; flex-direction: column; gap: 12px; }
 .btn-insight { background: var(--accent-soft); color: #96583C; width: 100%; justify-content: center; }
+.insight-meta { font-size: 12px; color: var(--muted); margin: -4px 0 14px; }
+.btn-regenerate { margin-top: 16px; font-size: 13px; padding: 8px 14px; }
 .insight-label { font-size: 11px; font-weight: 600; color: #96583C; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 12px; }
 .insight { display: flex; flex-direction: column; gap: 20px; font-size: 14px; line-height: 1.6; color: #4A4038; }
 .insight-overview { margin: 0; }
@@ -87,6 +112,7 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .insight .products li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
 .insight .products strong { display: block; color: var(--ink); margin-bottom: 2px; }
 .insight ul.bullets { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.insight ul.flags { padding: 12px 14px 12px 32px; background: #FFFBF3; border: 1px solid #E8CFA0; border-radius: 12px; }
 .insight ul.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .insight ul.checklist li { display: flex; gap: 10px; align-items: flex-start; }
 .insight ul.checklist li::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 4px; border: 1.5px solid var(--accent); border-radius: 4px; }

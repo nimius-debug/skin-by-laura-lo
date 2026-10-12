@@ -178,5 +178,24 @@ check("the profile hides the AI short line and the bookkeeping prefix",
   !profileHtml.includes("AI short line") && !profileHtml.includes("bookkeeping"), true);
 check("an undated note reads Undated, not a Set date prompt", profileHtml.includes("Undated") && !profileHtml.includes("Set date"), true);
 
+const cutOff = planInsight('{"overview": "Thin history.", "visits": [{"date": "2026-09-18", "treatment": "Note only", "respo');
+check("a reply cut off mid-JSON is never shown raw", cutOff.overview, "The summary came back incomplete. Click Summarize again.");
+check("a cut-off reply leaves the lists empty", [cutOff.visits, cutOff.products], [[], []]);
+
+const withIngredients = formulationsFor([{ name: "Mixi Clean" }]);
+check("the model is sent the published ingredient list, not just a summary",
+  withIngredients.includes("Ingredients as published: Watermelon Extract"), true);
+check("the model is sent the allergy notes for a product", withIngredients.includes("Keep in mind: Only about 18"), true);
+
+const routineHtml = toString(clientProfilePage({
+  client: { id: "c1", name: "Test" },
+  notes: [],
+  routine: { items: [{ name: "Mixi Clean" }, { name: "Made Up Toner" }], orderedAt: "2026-09-18T00:00:00Z", squareOrderUrl: "#" },
+  sourceFiles: [],
+}));
+check("the routine says in one line who each product is good for", routineHtml.includes("Good for:") && routineHtml.includes("Sensitive and acne-prone skin wanting a gentle"), true);
+check("the routine shows the ingredient list for a reviewed product", routineHtml.includes("Ingredients as published") && routineHtml.includes("Watermelon Extract"), true);
+check("an unreviewed product says so instead of staying silent", routineHtml.includes("No product details on file yet."), true);
+
 console.log(failures === 0 ? "\nAll admin-notes tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

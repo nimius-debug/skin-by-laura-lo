@@ -10,6 +10,7 @@
 // never silently smoothed over.
 
 import { productInsightFor } from "../product-insights.js";
+import { SHEET_NOTE_FIELDS } from "./data/sheet-notes.js";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MODEL = "claude-sonnet-5-5";
@@ -136,39 +137,86 @@ function tryParseJson(text) {
  * page view — this is a "Summarize this client" button, not an automatic
  * background job, so it only costs an API call when Laura actually wants it.
  */
-export async function summarizeClient(env, { client, notes, routine }) {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not configured");
-  }
+/** A note as the model should read it: the sheet's own cells for Noteful notes, the seller note for Square. */
+function noteForPrompt(note) {
+  const fields = note.source === "square" ? null : SHEET_NOTE_FIELDS[note.id];
+  if (!fields) return note.summary;
+  return Object.entries(fields)
+    .map(([label, value]) => `${label}: ${value.replace(/\s*\n\s*/g, " / ")}`)
+    .join(" | ");
+}
 
+/** The full prompt for a client's summary. Pure, so the same inputs always give the same text (and the same cache key). */
+export function summaryPrompt({ client, notes, routine, history = [], flags = [] }) {
+  const dated = notes.filter((note) => note.note_date).sort((a, b) => a.note_date.localeCompare(b.note_date));
+  const undated = notes.filter((note) => !note.note_date);
   const notesText = notes.length
-    ? notes.map((note) => `- ${note.note_date || "undated"}: ${note.summary}`).join("\n")
+    ? [...dated, ...undated].map((note) => `- ${note.note_date || "undated"}: ${noteForPrompt(note)}`).join("\n")
     : "No notes on file yet.";
   const routineText = routine?.items?.length
     ? routine.items.map((item) => item.name).join(", ")
     : "No current routine on file.";
-  const formulationsText = routine?.items?.length
-    ? formulationsFor(routine.items)
-    : "";
+  const purchasesText = history.length
+    ? history.slice(0, 25).map((item) => `- ${item.name} x${item.count}, last bought ${item.lastBought || "unknown"}`).join("\n")
+    : "No product purchases found in Square.";
+
+  // Ingredient details for the current routine first, then her most recent other purchases.
+  const seen = new Set();
+  const detailItems = [...(routine?.items || []), ...history.slice(0, 15)].filter((item) => {
+    if (seen.has(item.name)) return false;
+    seen.add(item.name);
+    return true;
+  });
+  const formulationsText = detailItems.length ? formulationsFor(detailItems) : "";
+  const flagsText = flags.length ? flags.map((flag) => `- ${flag.title}: ${flag.detail}`).join("\n") : "";
 
   const prompt = `You are helping a licensed esthetician prepare for a client's next visit.
 
 Client: ${client.name}
 Current routine (from their most recent Square order): ${routineText}
-${formulationsText ? `\nWhat's actually in those products:\n${formulationsText}\n` : ""}
+
+Everything she has bought from the shop (all completed Square orders), most recent first:
+${purchasesText}
+${formulationsText ? `\nWhat's actually in those products:\n${formulationsText}\n` : ""}${flagsText ? `\nConcerns already found by an automatic check of her notes against her purchases:\n${flagsText}\n` : ""}
 Note history, oldest first:
 ${notesText}
 
 Write the preparation notes as ONLY a JSON object, no other text, in exactly this shape:
-{"overview": "1-2 sentences", "visits": [{"date": "YYYY-MM-DD or null", "treatment": "what was done", "response": "how her skin responded"}], "products": [{"name": "product name from the routine", "note": "one short line on what it does for her, using the formulation details above"}], "watch": ["short concrete thing to watch"], "nextVisit": ["short item to check or do at the next visit"]}
+{"overview": "1-2 sentences", "flags": ["an allergy, sensitivity, medication or pregnancy concern tied to a specific product"], "visits": [{"date": "YYYY-MM-DD or null", "treatment": "what was done", "response": "how her skin responded"}], "products": [{"name": "product name she has bought", "note": "one short line on what it does for her, using the formulation details above"}], "watch": ["short concrete thing to watch"], "nextVisit": ["short item to check or do at the next visit"]}
 
 Rules:
+- "flags": cross-check everything she has bought against every allergy, sensitivity, medication, reaction or pregnancy mentioned in her notes. Name the product, the ingredient from its list, and the note it conflicts with. Include the concerns already found above if they are real. Leave it empty if nothing conflicts. Never say a product is safe.
 - "visits": one entry per dated note, oldest first. Keep each cell to a short phrase.
-- "products": only products in the current routine.
+- "products": products she has bought, current routine first. At most 8.
 - "watch" and "nextVisit": short, concrete items. Skip generic encouragement.
-- Use the formulation details, not just product names. If a note mentions irritation and the routine contains an active known to cause that, say so.
-- If a product's formula is unverified, don't state its ingredients as fact.
-- If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.`;
+- Use the formulation details, not just product names. If a note mentions irritation and a product contains an active known to cause that, say so.
+- If a product's formula is unverified or not on file, don't state its ingredients as fact; say it couldn't be checked.
+- If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.
+- When a product has an ingredient list, name the specific ingredients that matter for her concerns (for example a fragrance, an irritating botanical, or an active) and say why. Quote only what is in the list.
+- Keep "overview" to 2 sentences and each list to at most 6 items.`;
+  return prompt;
+}
+
+export function summaryModel(env) {
+  return env.ANTHROPIC_MODEL || DEFAULT_MODEL;
+}
+
+/**
+ * A fingerprint of everything that goes into a summary: the model and the full
+ * prompt (notes, purchases, ingredient lists, flags, instructions). If it is
+ * unchanged, the saved summary is still right and no API call is needed.
+ */
+export async function summaryInputHash(env, data) {
+  const bytes = new TextEncoder().encode(`${summaryModel(env)}\n${summaryPrompt(data)}`);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function summarizeClient(env, data) {
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY is not configured");
+  }
+  const prompt = summaryPrompt(data);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -178,8 +226,8 @@ Rules:
       "anthropic-version": ANTHROPIC_VERSION,
     },
     body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL || DEFAULT_MODEL,
-      max_tokens: 1200,
+      model: summaryModel(env),
+      max_tokens: 2500,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -190,6 +238,9 @@ Rules:
   }
 
   const payload = await response.json();
+  if (payload?.stop_reason === "max_tokens") {
+    throw new Error("The summary ran out of room before it finished. Click Summarize again.");
+  }
   const text = payload?.content?.find((block) => block.type === "text")?.text || "";
   return planInsight(text);
 }
@@ -200,10 +251,12 @@ Rules:
  * page still shows something useful rather than an error.
  */
 export function planInsight(responseText) {
-  const empty = { overview: "", visits: [], products: [], watch: [], nextVisit: [] };
+  const empty = { overview: "", flags: [], visits: [], products: [], watch: [], nextVisit: [] };
   const parsed = tryParseJson(responseText);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     const plain = typeof responseText === "string" ? responseText.trim() : "";
+    // Half-finished JSON is never shown raw; ask for another try instead.
+    if (/^\s*[{\[]|^```/.test(plain)) return { ...empty, overview: "The summary came back incomplete. Click Summarize again." };
     return { ...empty, overview: plain.slice(0, 2000) || "Nothing to summarize yet." };
   }
 
@@ -212,6 +265,7 @@ export function planInsight(responseText) {
 
   const insight = {
     overview: text(parsed.overview),
+    flags: list(parsed.flags).map(text).filter(Boolean),
     visits: list(parsed.visits)
       .map((visit) => ({ date: text(visit?.date) || "Undated", treatment: text(visit?.treatment), response: text(visit?.response) }))
       .filter((visit) => visit.treatment || visit.response),
@@ -247,7 +301,10 @@ export function formulationsFor(items) {
           ? " (only a partial formula is confirmed)"
           : "";
 
-      return `- ${item.name}${caveat}: ${insight.summary} Best for: ${insight.bestFor}${insight.keepInMind ? ` Keep in mind: ${insight.keepInMind}` : ""}`;
+      const ingredients = insight.formula
+        ? `\n  Ingredients as published: ${insight.formula}`
+        : "\n  Ingredients: no published list on file.";
+      return `- ${item.name}${caveat}: ${insight.summary} Best for: ${insight.bestFor}${insight.keepInMind ? ` Keep in mind: ${insight.keepInMind}` : ""}${ingredients}`;
     })
     .join("\n");
 }
