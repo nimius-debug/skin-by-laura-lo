@@ -5,6 +5,7 @@ import { syncWindows, isCountableBooking } from "../src/admin/sync.js";
 import { SHEET_NOTE_FIELDS } from "../src/admin/data/sheet-notes.js";
 import { clientProfilePage } from "../src/admin/pages/client-profile.js";
 import { toString } from "../src/html.js";
+import { adminPage } from "../src/admin/layout.js";
 
 let failures = 0;
 function check(label, actual, expected) {
@@ -196,6 +197,12 @@ const routineHtml = toString(clientProfilePage({
 check("the routine says in one line who each product is good for", routineHtml.includes("Good for:") && routineHtml.includes("Sensitive and acne-prone skin wanting a gentle"), true);
 check("the routine shows the ingredient list for a reviewed product", routineHtml.includes("Ingredients as published") && routineHtml.includes("Watermelon Extract"), true);
 check("an unreviewed product says so instead of staying silent", routineHtml.includes("No product details on file yet."), true);
+
+const shell = adminPage({ title: "Clients", body: "<p>x</p>" });
+check("the Log out button is styled on admin pages, not only the login page", /\.logout-btn\s*\{/.test(shell), true);
+check("on a phone the sidebar becomes a top bar",
+  /@media \(max-width: 760px\)\s*\{[^}]*\.admin-nav\s*\{[^}]*width: 100%[^}]*min-height: 0/.test(shell), true);
+check("the wrapped shell packs its rows at the top so the top bar isn't stretched", /\.admin-shell\s*\{[^}]*align-content: flex-start/.test(shell), true);
 
 console.log(failures === 0 ? "\nAll admin-notes tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
