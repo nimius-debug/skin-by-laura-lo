@@ -193,6 +193,7 @@ Rules:
 - If a product's formula is unverified or not on file, don't state its ingredients as fact; say it couldn't be checked.
 - If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.
 - When a product has an ingredient list, name the specific ingredients that matter for her concerns (for example a fragrance, an irritating botanical, or an active) and say why. Quote only what is in the list.
+- Write in plain, short sentences at about a 5th-grade reading level. Be concise and clear: no filler, no jargon. Use everyday words. If you must name a skincare term or ingredient, add a few plain words to explain it (for example "mandelic acid, a gentle exfoliant").
 - Keep "overview" to 2 sentences. "visits" has at most 10 rows (the most recent if she has more). Every other list has at most 6 items. Keep every string under 25 words.`;
   return prompt;
 }
