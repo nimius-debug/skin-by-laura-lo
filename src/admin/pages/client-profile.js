@@ -1,4 +1,8 @@
 import { html } from "../../html.js";
+import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
+
+// The sheet's own column names, in the order Laura reads them.
+const SHEET_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Possible treatments"];
 
 function formatDate(iso) {
   if (!iso) return null;
@@ -9,12 +13,28 @@ function sourceLabel(note) {
   return note.source === "square" ? "From Square" : "From the Excel sheet";
 }
 
+function sheetBody(note) {
+  const fields = SHEET_NOTE_FIELDS[note.id];
+  if (!fields) return null;
+  const present = SHEET_FIELDS.filter((name) => fields[name]);
+  if (!present.length) return null;
+  return html`
+    <div class="sheet-fields">
+      ${present.map((name) => html`
+        <div class="sheet-field">
+          <div class="sheet-label">${name}</div>
+          <div class="sheet-value">${fields[name]}</div>
+        </div>
+      `)}
+    </div>
+  `;
+}
+
 function noteCard(note) {
   const dateLabel = formatDate(note.note_date);
-  // Square notes are the seller note exactly as Square has it. Noteful notes
-  // show the transcription of the Noteful export (extracted_text), not the
-  // short summary line, so what Laura wrote is what she sees.
-  const body = note.source === "square" ? note.summary : note.extracted_text || note.summary;
+  // Noteful notes show the sheet's own cells, line breaks intact. Square notes
+  // show the seller note exactly as Square has it.
+  const body = note.source === "square" ? null : sheetBody(note);
   return html`
     <div class="card note-card" data-note-id="${note.id}">
       <div class="note-head">
@@ -26,7 +46,7 @@ function noteCard(note) {
         </div>
       </div>
 
-      <p class="note-view">${body}</p>
+      ${body || html`<p class="note-view">${note.summary}</p>`}
 
       ${note.confidence === "low" ? html`<div class="flag-warn"><span>⚠</span><span>Hard to read — check the original</span></div>` : ""}
 

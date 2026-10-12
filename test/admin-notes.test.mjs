@@ -2,6 +2,9 @@ import { PDFDocument } from "pdf-lib";
 import { splitPdfPages, diffPages, hashImageBytes } from "../src/admin/pdf.js";
 import { planNoteEntries, formulationsFor, planInsight } from "../src/admin/claude.js";
 import { syncWindows, isCountableBooking } from "../src/admin/sync.js";
+import { SHEET_NOTE_FIELDS } from "../src/admin/data/sheet-notes.js";
+import { clientProfilePage } from "../src/admin/pages/client-profile.js";
+import { toString } from "../src/html.js";
 
 let failures = 0;
 function check(label, actual, expected) {
@@ -161,6 +164,19 @@ check("planInsight reads a fenced json block", planInsight("```json\n{\"overview
 check("planInsight keeps plain text as the overview when it isn't JSON", planInsight("Just prose here.").overview, "Just prose here.");
 check("planInsight gives an empty reply a plain placeholder", planInsight("").overview, "Nothing to summarize yet.");
 check("planInsight fills in empty lists when the reply omits them", planInsight("{\"overview\": \"x\"}").visits, []);
+
+check("a sheet note keeps its Notes / remarks line breaks exactly",
+  SHEET_NOTE_FIELDS.sheet_R1["Notes / remarks"].startsWith("- Vivant Mandelic 8%\nArazlo (retinol)\nAzelaic"), true);
+const profileHtml = toString(clientProfilePage({
+  client: { id: "c1", name: "Test" },
+  notes: [{ id: "sheet_R1", note_date: null, source: "noteful", confidence: "low", summary: "AI short line", extracted_text: "Sheet R1, p1 (bookkeeping)", pdf_key: null }],
+  routine: null,
+  sourceFiles: [],
+}));
+check("the profile shows the sheet's Notes / remarks as written", profileHtml.includes("- Vivant Mandelic 8%\nArazlo (retinol)"), true);
+check("the profile hides the AI short line and the bookkeeping prefix",
+  !profileHtml.includes("AI short line") && !profileHtml.includes("bookkeeping"), true);
+check("an undated note reads Undated, not a Set date prompt", profileHtml.includes("Undated") && !profileHtml.includes("Set date"), true);
 
 console.log(failures === 0 ? "\nAll admin-notes tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

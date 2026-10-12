@@ -59,6 +59,10 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .note-undated { color: var(--muted); font-weight: 500; font-style: italic; }
 .note-meta { display: flex; align-items: center; gap: 10px; }
 .note-view { margin: 0; font-size: 13.5px; line-height: 1.6; color: #4A4038; white-space: pre-wrap; }
+.sheet-fields { display: flex; flex-direction: column; gap: 12px; }
+.sheet-field { display: flex; flex-direction: column; gap: 4px; }
+.sheet-label { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.sheet-value { font-size: 13.5px; line-height: 1.6; color: #4A4038; white-space: pre-wrap; overflow-wrap: anywhere; }
 .note-foot { display: flex; align-items: center; gap: 14px; min-height: 18px; font-size: 13px; }
 .save-note-btn { display: none; background: none; border: none; padding: 0; margin: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--good); }
 .file-list { display: flex; flex-direction: column; }
