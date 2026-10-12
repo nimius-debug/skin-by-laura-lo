@@ -47,6 +47,86 @@ export async function listNotesForClient(env, clientId) {
   return results;
 }
 
+// D1 allows 100 bound parameters per statement, so rows are inserted in chunks.
+function chunks(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+/**
+ * The stored copy of a client's Square orders (newest first, normalised) and
+ * when it was copied, or null if it was never copied. Fails soft: a missing
+ * table just means "nothing stored", and the page reads Square instead.
+ */
+export async function getStoredOrders(env, clientId) {
+  try {
+    const sync = await env.CLIENT_NOTES_DB.prepare(
+      "SELECT synced_at FROM client_purchase_syncs WHERE client_id = ?",
+    ).bind(clientId).first();
+    if (!sync) return null;
+
+    const { results: orderRows } = await env.CLIENT_NOTES_DB.prepare(
+      "SELECT order_id, ordered_at, total_cents, tip_cents FROM client_orders WHERE client_id = ? ORDER BY ordered_at DESC",
+    ).bind(clientId).all();
+    const { results: lineRows } = await env.CLIENT_NOTES_DB.prepare(
+      `SELECT l.order_id, l.line_uid, l.catalog_object_id, l.name, l.quantity, l.total_cents
+       FROM client_order_lines l JOIN client_orders o ON o.order_id = l.order_id WHERE o.client_id = ?`,
+    ).bind(clientId).all();
+
+    const linesByOrder = new Map();
+    for (const line of lineRows) {
+      if (!linesByOrder.has(line.order_id)) linesByOrder.set(line.order_id, []);
+      linesByOrder.get(line.order_id).push({
+        uid: line.line_uid, catalogObjectId: line.catalog_object_id, name: line.name,
+        quantity: line.quantity, totalCents: line.total_cents,
+      });
+    }
+    return {
+      orders: orderRows.map((row) => ({
+        id: row.order_id, createdAt: row.ordered_at, totalCents: row.total_cents, tipCents: row.tip_cents,
+        lines: linesByOrder.get(row.order_id) || [],
+      })),
+      syncedAt: `${sync.synced_at.replace(" ", "T")}Z`,
+    };
+  } catch (error) {
+    console.error("Reading stored orders failed:", error.message);
+    return null;
+  }
+}
+
+/**
+ * Replace a client's stored orders with a fresh copy from Square. One batch is
+ * one transaction, so a failure leaves the previous copy untouched. A failure
+ * here must not break the page the orders were just read for.
+ */
+export async function replaceStoredOrders(env, clientId, orders) {
+  try {
+    const db = env.CLIENT_NOTES_DB;
+    const statements = [
+      db.prepare("DELETE FROM client_order_lines WHERE order_id IN (SELECT order_id FROM client_orders WHERE client_id = ?)").bind(clientId),
+      db.prepare("DELETE FROM client_orders WHERE client_id = ?").bind(clientId),
+    ];
+    for (const group of chunks(orders, 19)) {
+      statements.push(db.prepare(
+        `INSERT INTO client_orders (order_id, client_id, ordered_at, total_cents, tip_cents) VALUES ${group.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
+      ).bind(...group.flatMap((order) => [order.id, clientId, order.createdAt, order.totalCents, order.tipCents])));
+    }
+    const lines = orders.flatMap((order) => order.lines.map((line) => ({ ...line, orderId: order.id })));
+    for (const group of chunks(lines, 16)) {
+      statements.push(db.prepare(
+        `INSERT INTO client_order_lines (order_id, line_uid, catalog_object_id, name, quantity, total_cents) VALUES ${group.map(() => "(?, ?, ?, ?, ?, ?)").join(", ")}`,
+      ).bind(...group.flatMap((line) => [line.orderId, line.uid, line.catalogObjectId, line.name, line.quantity, line.totalCents])));
+    }
+    statements.push(db.prepare(
+      "INSERT INTO client_purchase_syncs (client_id, synced_at) VALUES (?, datetime('now')) ON CONFLICT (client_id) DO UPDATE SET synced_at = datetime('now')",
+    ).bind(clientId));
+    await db.batch(statements);
+  } catch (error) {
+    console.error("Saving client orders failed:", error.message);
+  }
+}
+
 /**
  * The saved AI summary for a client, or null. Fails soft: if the table is
  * missing or the row is unreadable the page just behaves as if nothing is saved.
