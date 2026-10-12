@@ -66,7 +66,7 @@ function sourceFilesCard(files) {
             <span class="file-name">${file.file_name}</span>
             <span class="file-actions">
               <a href="https://drive.google.com/file/d/${file.drive_id}/view" target="_blank" rel="noopener">View</a>
-              <a href="https://drive.google.com/uc?export=download&amp;id=${file.drive_id}" rel="noopener">Download</a>
+              <a href="https://drive.google.com/uc?export=download&amp;id=${file.drive_id}" target="_blank" rel="noopener">Download</a>
             </span>
           </div>
         `)}
@@ -94,6 +94,8 @@ export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) 
   return html`
     <a href="/admin" class="back-link">← All clients</a>
 
+    ${sourceFilesCard(sourceFiles)}
+
     <div class="profile-head">
       <h1 class="page-title">${client.name}</h1>
       <div class="synced">Synced from Square ✓</div>
@@ -101,7 +103,6 @@ export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) 
 
     <div class="two-col">
       <div class="main">
-        ${sourceFilesCard(sourceFiles)}
         ${insightCard(client)}
 
         <div class="section-label">Notes</div>
