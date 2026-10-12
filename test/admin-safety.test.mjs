@@ -25,6 +25,15 @@ const routine = routineFromOrders(orders, products);
 check("the current routine is the latest order's products, with their photos",
   routine.items, [{ name: "Mixi Clean", slug: "mixi-clean", image: "https://img.test/clean.jpg" }]);
 check("no orders means no routine", routineFromOrders([], products), null);
+const serviceOnlyLatest = [
+  { id: "o3", created_at: "2026-04-04T15:00:00Z", line_items: [{ catalog_object_id: "A-SERVICE", quantity: "1" }] },
+  ...orders,
+];
+const lookedBack = routineFromOrders(serviceOnlyLatest, products);
+check("a service-only latest order looks back to the last order with products", lookedBack.items.map((item) => item.name), ["Mixi Clean"]);
+check("the routine keeps the product order's date and notes the later visit", [lookedBack.orderedAt, lookedBack.laterVisitAt], ["2026-09-18T10:00:00Z", "2026-04-04T15:00:00Z"]);
+check("the latest order having products leaves no later-visit note", routine.laterVisitAt, null);
+check("orders with no products at all give no routine", routineFromOrders([serviceOnlyLatest[0]], products), null);
 
 const history = purchaseHistoryFromOrders(orders, products);
 check("history counts every unit across orders", history.map((item) => [item.name, item.count]), [["Mixi Clean", 3], ["Mixi Mandelic Acid 5%", 1]]);
@@ -83,6 +92,11 @@ const page = toString(clientProfilePage({
 check("the page shows a Heads-up card with the allergy", page.includes("Heads-up") && page.includes("Allergy noted"), true);
 check("the page shows the product photo", page.includes('src="https://img.test/clean.jpg"'), true);
 check("the page says who the product is good for in one line", page.includes("Good for:") && page.includes("Sensitive and acne-prone skin"), true);
+const laterNote = toString(clientProfilePage({
+  client: { id: "c1", name: "Test" }, notes: [], history: [], flags: [], sourceFiles: [],
+  routine: { ...lookedBack, squareOrderUrl: "#" },
+}));
+check("the page says the latest order was only a service", laterNote.includes("had no shop products, only a service") && laterNote.includes("Apr 4, 2026"), true);
 check("the page lists everything she has bought with counts", page.includes("Everything she has bought") && page.includes("3 bought"), true);
 check("a client with no flags gets no Heads-up card",
   toString(clientProfilePage({ client: { id: "c1", name: "Test" }, notes: [], routine: null, history: [], flags: [], sourceFiles: [] })).includes("Heads-up"), false);

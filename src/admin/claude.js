@@ -173,7 +173,7 @@ export function summaryPrompt({ client, notes, routine, history = [], flags = []
   const prompt = `You are helping a licensed esthetician prepare for a client's next visit.
 
 Client: ${client.name}
-Current routine (from their most recent Square order): ${routineText}
+Current routine (from her most recent order that included products): ${routineText}
 
 Everything she has bought from the shop (all completed Square orders), most recent first:
 ${purchasesText}
