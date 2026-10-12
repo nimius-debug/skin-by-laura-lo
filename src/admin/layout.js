@@ -75,6 +75,21 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .routine-keep { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .history-item { display: flex; gap: 12px; align-items: center; }
 .history-meta { font-size: 12px; color: var(--muted); }
+.routine-card { padding: 0; }
+.routine-summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; padding: 18px 20px; }
+.routine-summary::-webkit-details-marker { display: none; }
+.routine-summary::after { content: "▾"; color: var(--muted); }
+.routine-card[open] > .routine-summary::after { content: "▴"; }
+.routine-count { font-size: 12px; color: var(--muted); margin-left: auto; }
+.routine-content { padding: 0 20px 18px; display: flex; flex-direction: column; gap: 10px; }
+.routine-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.step-group { display: flex; flex-direction: column; }
+.step-label { font-size: 11px; font-weight: 700; color: #96583C; text-transform: uppercase; letter-spacing: .05em; }
+.bought-old { color: var(--warn); font-weight: 600; }
+.spend-card { display: flex; flex-direction: column; gap: 8px; }
+.spend-total { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; line-height: 1.1; }
+.spend-rows { display: flex; flex-direction: column; gap: 4px; font-size: 13px; padding: 6px 0; }
+.spend-row { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
 .flags-card { display: flex; flex-direction: column; gap: 12px; border-color: #E8CFA0; background: #FFFBF3; }
 .flag-list { display: flex; flex-direction: column; gap: 10px; }
 .flag-item { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.55; color: #4A4038; }

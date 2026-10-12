@@ -16,7 +16,8 @@ import { uploadPage } from "./pages/upload.js";
 import * as db from "./db.js";
 import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
 import { extractNoteEntries, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
-import { clientPurchasesFor } from "./routine.js";
+import { purchaseViewFrom } from "./routine.js";
+import { loadClientOrders } from "./purchases.js";
 import { findFlags } from "./safety.js";
 import { productInsightFor } from "../product-insights.js";
 import { syncClientsFromSquare } from "./sync.js";
@@ -49,34 +50,40 @@ async function handleLogin(request, env) {
   return redirect("/admin", { "set-cookie": sessionCookie(token) });
 }
 
-/**
- * Everything the client page and the summary need about what a client bought,
- * plus the safety flags for it. `purchasesFailed` is true when Square was
- * reachable in principle but the orders couldn't be read, so callers can avoid
- * acting on incomplete data.
- */
-async function loadClientPurchases(env, client, notes) {
-  const products = await loadProducts(env);
-  let purchases = null;
-  let purchasesFailed = false;
+/** The shop catalog, and whether it could be read. Without it, products can't be told apart from services. */
+async function loadCatalog(env) {
+  if (!isConfigured(env)) return { products: [], failed: false };
   try {
-    purchases = await clientPurchasesFor(env, products, client.square_customer_id);
+    return { products: await getCatalog(env, settings(env)), failed: false };
+  } catch (error) {
+    console.error("Reading the catalog failed:", error.message);
+    return { products: [], failed: true };
+  }
+}
+
+/**
+ * Everything the client page and the summary need about what a client bought:
+ * routine, history, services, spend, plus the safety flags. Orders come through
+ * the stored copy in D1 (see purchases.js). `purchasesFailed` is true when the
+ * orders or the catalog couldn't be read, so callers can avoid acting on
+ * incomplete data.
+ */
+async function loadClientPurchases(env, client, notes, { refresh = false } = {}) {
+  const catalog = await loadCatalog(env);
+  let loaded = { orders: [], syncedAt: null, source: "none" };
+  let purchasesFailed = Boolean(client.square_customer_id) && catalog.failed;
+  try {
+    loaded = await loadClientOrders(env, client, { refresh });
   } catch (error) {
     console.error("Reading client purchases failed:", error.message);
     purchasesFailed = true;
   }
-  const history = purchases?.history || [];
+  const view = purchaseViewFrom(loaded.orders, catalog.products);
   const flags = findFlags({
     notes,
-    products: history.map((item) => ({ name: item.name, formula: productInsightFor(item.name)?.formula || "" })),
+    products: view.history.map((item) => ({ name: item.name, formula: productInsightFor(item.name)?.formula || "" })),
   });
-  return { routine: purchases?.routine || null, history, flags, purchasesFailed };
-}
-
-async function loadProducts(env) {
-  const cfg = settings(env);
-  if (!isConfigured(env)) return [];
-  return getCatalog(env, cfg).catch(() => []);
+  return { ...view, flags, purchasesFailed, syncedAt: loaded.syncedAt, source: loaded.source };
 }
 
 /**
@@ -307,8 +314,13 @@ export async function handleAdminRequest(request, env, url) {
   if (clientMatch && segments.length === 3 && method === "GET") {
     const client = await db.getClient(env, clientMatch);
     if (!client) return notFound();
+    if (url.searchParams.get("refresh") === "1") {
+      // "Refresh from Square": re-read her orders into the stored copy, then show the page without the query.
+      await loadClientOrders(env, client, { refresh: true }).catch((error) => console.error("Refresh failed:", error.message));
+      return redirect(`/admin/clients/${clientMatch}`);
+    }
     const [notes, sourceFiles] = await Promise.all([db.listNotesForClient(env, clientMatch), db.listSourceFiles(env, clientMatch)]);
-    const { routine, history, flags, purchasesFailed } = await loadClientPurchases(env, client, notes);
+    const { routine, history, services, spend, flags, purchasesFailed, syncedAt, source } = await loadClientPurchases(env, client, notes);
     const saved = await db.getSavedSummary(env, clientMatch);
     const savedSummary = saved && {
       summary: saved.summary,
@@ -316,7 +328,7 @@ export async function handleAdminRequest(request, env, url) {
       // null when the purchases couldn't be read, so the page doesn't claim it is out of date.
       current: purchasesFailed ? null : saved.hash === (await summaryInputHash(env, { client, notes, routine, history, flags })),
     };
-    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, history, flags, sourceFiles, savedSummary }) }));
+    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, purchases: { syncedAt, source, failed: purchasesFailed } }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {

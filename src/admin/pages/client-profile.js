@@ -1,6 +1,8 @@
 import { html } from "../../html.js";
 import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
 import { productInsightFor, shortGoodFor } from "../../product-insights.js";
+import { formatMoney, timeAgo, daysSince } from "../format.js";
+import { STEPS, stepInfo } from "../routine-steps.js";
 
 // The sheet's own column names, in the order Laura reads them.
 const SHEET_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Possible treatments"];
@@ -20,17 +22,19 @@ function thumb(item) {
     : html`<span class="thumb thumb-blank" aria-hidden="true"></span>`;
 }
 
-// One product in the routine: its photo, who it suits, what it does, its published ingredient list, and what to keep in mind.
-function routineItem(item) {
+// One product in the routine: its photo, how long ago she bought it (and whether it is probably used up),
+// who it suits, what it does, its published ingredient list, and what to keep in mind.
+function routineItem(item, now) {
   const insight = productInsightFor(item.name);
   const goodFor = shortGoodFor(item.name);
   const tags = (insight?.tags || []).slice(0, 4);
+  const usedUp = item.boughtAt && daysSince(item.boughtAt, now) > stepInfo(item.step).usedUpAfterDays;
   return html`
     <div class="routine-item">
       ${thumb(item)}
       <div class="routine-body">
         <div class="routine-name">${item.name}</div>
-        ${item.boughtAt ? html`<div class="history-meta">Bought ${formatDate(item.boughtAt.slice(0, 10))}</div>` : ""}
+        ${item.boughtAt ? html`<div class="history-meta ${usedUp ? "bought-old" : ""}">Bought ${timeAgo(item.boughtAt, now)}${usedUp ? " · probably used up" : ""}</div>` : ""}
         ${goodFor ? html`<div class="routine-what"><strong>Good for:</strong> ${goodFor}</div>` : html`<div class="routine-what">No product details on file yet.</div>`}
         ${tags.length ? html`<div class="tag-row">${tags.map((tag) => html`<span class="tag-chip">${tag}</span>`)}</div>` : ""}
         ${insight?.formula ? html`<details class="routine-ingredients"><summary>Ingredients as published</summary><p>${insight.formula}</p></details>` : ""}
@@ -40,7 +44,69 @@ function routineItem(item) {
   `;
 }
 
-// Everything she has bought, newest first, with how many and when.
+// The routine grouped the way it is used: cleanser, toner, treatment, moisturizer, sun protection, masks.
+function routineGroups(items, now) {
+  // An item with no known step still shows, under "Other".
+  const stepOf = (item) => (STEPS.some((step) => step.id === item.step) ? item.step : "other");
+  return STEPS
+    .map((step) => ({ step, items: items.filter((item) => stepOf(item) === step.id) }))
+    .filter((group) => group.items.length)
+    .map((group) => html`
+      <div class="step-group">
+        <div class="step-label">${group.step.label}</div>
+        ${group.items.map((item) => routineItem(item, now))}
+      </div>
+    `);
+}
+
+// Collapsible, in case she doesn't want to see it.
+function routineCard(routine, now) {
+  const count = routine?.items.length || 0;
+  return html`
+    <details class="card routine-card" open>
+      <summary class="routine-summary">
+        <span class="section-label">Current routine</span>
+        ${count ? html`<span class="routine-count">${count} ${count === 1 ? "product" : "products"}</span>` : ""}
+      </summary>
+      <div class="routine-content">
+        ${routine
+          ? html`
+            ${routineGroups(routine.items, now)}
+            <div class="routine-note">Everything she bought in the 4 months up to her last product order (${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}, ${timeAgo(routine.orderedAt, now)}).</div>
+            ${routine.stale ? html`<div class="routine-note bought-old">That was a long time ago, so most of this is probably used up. Ask what she uses now.</div>` : ""}
+            ${routine.laterVisitAt ? html`<div class="routine-note">Her latest order (${formatDate(routine.laterVisitAt.slice(0, 10))}) had no shop products, only a service.</div>` : ""}
+            <a href="${routine.squareOrderUrl}" target="_blank" rel="noopener" style="font-size: 12.5px;">View in Square</a>
+          `
+          : html`<div style="color: var(--ink-soft); font-size: 13px;">No product orders found in Square yet.</div>`}
+      </div>
+    </details>
+  `;
+}
+
+// What she has paid in total, split into products, services and tips.
+function spendCard(client, spend, purchases, now) {
+  if (purchases?.failed && !spend?.orderCount) {
+    return html`<div class="card"><div class="section-label">Spent with you</div><div class="history-meta">Couldn't read her purchases from Square just now. Try again in a moment.</div></div>`;
+  }
+  if (!spend?.orderCount) return "";
+  const updated = purchases?.syncedAt ? `Updated ${timeAgo(purchases.syncedAt, now)}.` : "";
+  const offline = purchases?.source === "stored-stale" ? "Square couldn't be reached, so this is a saved copy. " : "";
+  return html`
+    <div class="card spend-card">
+      <div class="section-label">Spent with you</div>
+      <div class="spend-total">${formatMoney(spend.totalCents)}</div>
+      <div class="history-meta">${spend.orderCount} ${spend.orderCount === 1 ? "order" : "orders"} since ${formatDate(spend.firstOrderAt.slice(0, 10))}</div>
+      <div class="spend-rows">
+        <div class="spend-row"><span>Products</span><span>${formatMoney(spend.productCents)}</span></div>
+        <div class="spend-row"><span>Services</span><span>${formatMoney(spend.serviceCents)}</span></div>
+        <div class="spend-row"><span>Tips</span><span>${formatMoney(spend.tipCents)}</span></div>
+      </div>
+      <div class="history-meta">Includes tax and tips. ${offline}${updated} <a href="/admin/clients/${client.id}?refresh=1">Refresh from Square</a></div>
+    </div>
+  `;
+}
+
+// Everything she has bought, newest first, with how many, what she paid, and when.
 function historyItem(item) {
   const last = formatDate(item.lastBought);
   return html`
@@ -48,8 +114,17 @@ function historyItem(item) {
       ${thumb(item)}
       <div class="history-body">
         <div class="routine-name">${item.name}</div>
-        <div class="history-meta">${item.count > 1 ? `${item.count} bought · ` : ""}last ${last || "date unknown"}</div>
+        <div class="history-meta">${item.count > 1 ? `${item.count} bought · ` : ""}${formatMoney(item.spentCents)} · last ${last || "date unknown"}</div>
       </div>
+    </div>
+  `;
+}
+
+function serviceItem(service) {
+  return html`
+    <div class="history-body">
+      <div class="routine-name">${service.name}</div>
+      <div class="history-meta">${service.count > 1 ? `${service.count} times · ` : ""}${formatMoney(service.spentCents)} · last ${formatDate(service.lastDate) || "date unknown"}</div>
     </div>
   `;
 }
@@ -162,7 +237,7 @@ function insightCard(client, saved) {
   `;
 }
 
-export function clientProfilePage({ client, notes, routine, history = [], flags = [], sourceFiles = [], savedSummary = null }) {
+export function clientProfilePage({ client, notes, routine, history = [], services = [], spend = null, flags = [], sourceFiles = [], savedSummary = null, purchases = null, now = Date.now() }) {
   return html`
     <a href="/admin" class="back-link">← All clients</a>
 
@@ -183,26 +258,18 @@ export function clientProfilePage({ client, notes, routine, history = [], flags 
       </div>
 
       <div class="side">
-        <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
-          <div class="section-label">Current routine</div>
-          ${routine
-            ? html`
-              ${routine.items.map(routineItem)}
-              ${routine.items.length === 0 ? html`<div style="color: var(--ink-soft); font-size: 13px;">Most recent order had no matching catalog items.</div>` : ""}
-              <div style="height: 1px; background: #F0E8DC; margin: 4px 0;"></div>
-              <div style="font-size: 12px; color: var(--muted);">Everything she bought in the 4 months up to her last product order (${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}).</div>
-              ${routine.stale ? html`<div style="font-size: 12px; color: var(--warn);">That was over 6 months ago, so ask what she uses now.</div>` : ""}
-              ${routine.laterVisitAt ? html`<div style="font-size: 12px; color: var(--muted);">Her latest order (${formatDate(routine.laterVisitAt.slice(0, 10))}) had no shop products, only a service.</div>` : ""}
-              <a href="${routine.squareOrderUrl}" target="_blank" rel="noopener" style="font-size: 12.5px;">View in Square</a>
-            `
-            : html`<div style="color: var(--ink-soft); font-size: 13px;">No product orders found in Square yet.</div>`}
-        </div>
+        ${routineCard(routine, now)}
+        ${spendCard(client, spend, purchases, now)}
 
         <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
           <div class="section-label">Everything she has bought</div>
           ${history.length
             ? history.map(historyItem)
             : html`<div style="color: var(--ink-soft); font-size: 13px;">No product purchases found in Square.</div>`}
+          ${services.length ? html`
+            <div class="step-label" style="margin-top: 8px;">Services</div>
+            ${services.map(serviceItem)}
+          ` : ""}
         </div>
       </div>
     </div>
