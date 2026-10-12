@@ -1,7 +1,7 @@
 // What a client has bought is never stored — it's read live from their
 // completed Square orders, so it can never drift out of sync with what they
 // actually bought. Two views come from the same orders:
-//   - the current routine: the products in their most recent order that had any
+//   - the current routine: what they bought in the 4 months up to their last product order
 //   - the purchase history: every product across all their orders, with how
 //     many they bought and when
 // Square tells us which products and when, not which skincare step each one
@@ -56,25 +56,49 @@ function orderItems(order, byVariation) {
     .filter(Boolean);
 }
 
+// What she was likely using: everything bought in the 4 months up to her last product order.
+// One order is often a single product, so a single order would badly under-count a routine.
+const ROUTINE_WINDOW_DAYS = 120;
+// A last product order older than this is probably not what she uses now.
+const STALE_AFTER_DAYS = 180;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
- * The current routine: the products on her most recent order that included any.
- * Her latest order is often just a facial, which has no shop products, so this
- * looks back to the last order that did. `laterVisitAt` is set when a newer
- * order without products exists, so the page can say so. `orders` is newest first.
+ * The current routine: the products bought in the 4 months up to her most
+ * recent order that included products, each once, newest first, with the date
+ * it was last bought. Her latest order is often just a facial, so `laterVisitAt`
+ * is set when a newer order without products exists. `stale` is true when the
+ * last product order was over 6 months ago. `orders` is newest first.
  */
-export function routineFromOrders(orders, products) {
+export function routineFromOrders(orders, products, now = Date.now()) {
   const byVariation = productsByVariation(products);
-  for (const order of orders) {
-    const items = orderItems(order, byVariation).map(({ name, slug, image }) => ({ name, slug, image }));
-    if (!items.length) continue;
-    return {
-      items,
-      orderedAt: order.created_at,
-      laterVisitAt: order === orders[0] ? null : orders[0].created_at,
-      squareOrderUrl: `https://squareup.com/dashboard/orders/overview/${order.id}`,
-    };
+  const withProducts = orders
+    .map((order) => ({ order, items: orderItems(order, byVariation) }))
+    .filter((entry) => entry.items.length);
+  if (!withProducts.length) return null;
+
+  const latest = withProducts[0].order;
+  const latestMs = Date.parse(latest.created_at);
+  const cutoff = latestMs - ROUTINE_WINDOW_DAYS * DAY_MS;
+
+  const bought = new Map();
+  for (const { order, items } of withProducts) {
+    if (Date.parse(order.created_at) < cutoff) break;
+    for (const item of items) {
+      if (!bought.has(item.slug)) {
+        bought.set(item.slug, { name: item.name, slug: item.slug, image: item.image, boughtAt: order.created_at });
+      }
+    }
   }
-  return null;
+
+  return {
+    items: [...bought.values()],
+    orderedAt: latest.created_at,
+    laterVisitAt: latest === orders[0] ? null : orders[0].created_at,
+    stale: now - latestMs > STALE_AFTER_DAYS * DAY_MS,
+    windowDays: ROUTINE_WINDOW_DAYS,
+    squareOrderUrl: `https://squareup.com/dashboard/orders/overview/${latest.id}`,
+  };
 }
 
 /** Every product across all orders: how many were bought, first and last order date. Most recently bought first. */

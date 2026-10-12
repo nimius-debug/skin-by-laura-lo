@@ -30,6 +30,7 @@ function routineItem(item) {
       ${thumb(item)}
       <div class="routine-body">
         <div class="routine-name">${item.name}</div>
+        ${item.boughtAt ? html`<div class="history-meta">Bought ${formatDate(item.boughtAt.slice(0, 10))}</div>` : ""}
         ${goodFor ? html`<div class="routine-what"><strong>Good for:</strong> ${goodFor}</div>` : html`<div class="routine-what">No product details on file yet.</div>`}
         ${tags.length ? html`<div class="tag-row">${tags.map((tag) => html`<span class="tag-chip">${tag}</span>`)}</div>` : ""}
         ${insight?.formula ? html`<details class="routine-ingredients"><summary>Ingredients as published</summary><p>${insight.formula}</p></details>` : ""}
@@ -189,7 +190,8 @@ export function clientProfilePage({ client, notes, routine, history = [], flags 
               ${routine.items.map(routineItem)}
               ${routine.items.length === 0 ? html`<div style="color: var(--ink-soft); font-size: 13px;">Most recent order had no matching catalog items.</div>` : ""}
               <div style="height: 1px; background: #F0E8DC; margin: 4px 0;"></div>
-              <div style="font-size: 12px; color: var(--muted);">Last product order ${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}</div>
+              <div style="font-size: 12px; color: var(--muted);">Everything she bought in the 4 months up to her last product order (${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}).</div>
+              ${routine.stale ? html`<div style="font-size: 12px; color: var(--warn);">That was over 6 months ago, so ask what she uses now.</div>` : ""}
               ${routine.laterVisitAt ? html`<div style="font-size: 12px; color: var(--muted);">Her latest order (${formatDate(routine.laterVisitAt.slice(0, 10))}) had no shop products, only a service.</div>` : ""}
               <a href="${routine.squareOrderUrl}" target="_blank" rel="noopener" style="font-size: 12.5px;">View in Square</a>
             `

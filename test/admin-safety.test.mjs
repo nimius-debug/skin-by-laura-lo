@@ -22,14 +22,28 @@ const orders = [
 ];
 
 const routine = routineFromOrders(orders, products);
-check("the current routine is the latest order's products, with their photos",
-  routine.items, [{ name: "Mixi Clean", slug: "mixi-clean", image: "https://img.test/clean.jpg" }]);
+check("the current routine is the latest order's products, with their photos and date",
+  routine.items, [{ name: "Mixi Clean", slug: "mixi-clean", image: "https://img.test/clean.jpg", boughtAt: "2026-09-18T10:00:00Z" }]);
+check("an order from 6 months earlier is outside the routine window", routine.items.length, 1);
+
+const recent = [
+  { id: "o5", created_at: "2026-09-18T10:00:00Z", line_items: [{ catalog_object_id: "V1", quantity: "1" }] },
+  { id: "o4", created_at: "2026-08-20T10:00:00Z", line_items: [{ catalog_object_id: "V2", quantity: "1" }, { catalog_object_id: "V1", quantity: "1" }] },
+  { id: "o3", created_at: "2026-06-10T10:00:00Z", line_items: [{ catalog_object_id: "V3", quantity: "1" }] },
+];
+const windowed = routineFromOrders(recent, products, Date.parse("2026-10-01T00:00:00Z"));
+check("the routine combines products from orders in the 4 months up to the last one",
+  windowed.items.map((item) => [item.name, item.boughtAt.slice(0, 10)]), [["Mixi Clean", "2026-09-18"], ["Mixi Mandelic Acid 5%", "2026-08-20"]]);
+check("a product bought twice appears once, with its latest date", windowed.items.filter((item) => item.name === "Mixi Clean").length, 1);
+check("a recent last product order is not marked stale", windowed.stale, false);
+check("a last product order over 6 months ago is marked stale",
+  routineFromOrders(recent, products, Date.parse("2027-04-01T00:00:00Z")).stale, true);
 check("no orders means no routine", routineFromOrders([], products), null);
 const serviceOnlyLatest = [
   { id: "o3", created_at: "2026-04-04T15:00:00Z", line_items: [{ catalog_object_id: "A-SERVICE", quantity: "1" }] },
   ...orders,
 ];
-const lookedBack = routineFromOrders(serviceOnlyLatest, products);
+const lookedBack = routineFromOrders(serviceOnlyLatest, products, Date.parse("2026-10-01T00:00:00Z"));
 check("a service-only latest order looks back to the last order with products", lookedBack.items.map((item) => item.name), ["Mixi Clean"]);
 check("the routine keeps the product order's date and notes the later visit", [lookedBack.orderedAt, lookedBack.laterVisitAt], ["2026-09-18T10:00:00Z", "2026-04-04T15:00:00Z"]);
 check("the latest order having products leaves no later-visit note", routine.laterVisitAt, null);
