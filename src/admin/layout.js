@@ -15,7 +15,8 @@ a:hover { color: #96583C; }
 .admin-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; color: #D9CFC2; }
 .admin-nav a.active { background: var(--accent); color: #FFF8F2; font-weight: 600; }
 .admin-nav .spacer { flex: 1; }
-.logout-btn { all: unset; cursor: pointer; font-family: inherit; font-size: 13px; color: #D9CFC2; padding: 8px 14px; border-radius: 10px; }
+/* Same size, padding and colour as an inactive nav link, so it reads as part of the same list. */
+.logout-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; width: 100%; cursor: pointer; font-family: inherit; font-size: 14px; color: #D9CFC2; padding: 10px 14px; border-radius: 10px; }
 .logout-btn:hover { color: #FFF8F2; background: #3A322B; }
 .logout-btn:focus-visible { outline: 2px solid var(--accent); }
 .admin-nav .signed-in { font-size: 11px; color: #8A7E70; padding: 0 14px; line-height: 1.4; }
@@ -138,6 +139,7 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
   .admin-nav { width: 100%; min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 12px; }
   .admin-nav .brand { padding: 0 10px 0 4px; font-size: 15px; }
   .admin-nav a { padding: 8px 12px; }
+  .logout-btn { width: auto; padding: 8px 12px; }
   .admin-nav .spacer { flex: 1; }
   .admin-main { flex-basis: 100%; }
 }

@@ -200,6 +200,8 @@ check("an unreviewed product says so instead of staying silent", routineHtml.inc
 
 const shell = adminPage({ title: "Clients", body: "<p>x</p>" });
 check("the Log out button is styled on admin pages, not only the login page", /\.logout-btn\s*\{/.test(shell), true);
+check("Log out matches the nav links' font size and padding",
+  /\.admin-nav a\s*\{[^}]*padding: 10px 14px[^}]*font-size: 14px/.test(shell) && /\.logout-btn\s*\{[^}]*font-size: 14px[^}]*padding: 10px 14px/.test(shell), true);
 check("on a phone the sidebar becomes a top bar",
   /@media \(max-width: 760px\)\s*\{[^}]*\.admin-nav\s*\{[^}]*width: 100%[^}]*min-height: 0/.test(shell), true);
 check("the wrapped shell packs its rows at the top so the top bar isn't stretched", /\.admin-shell\s*\{[^}]*align-content: flex-start/.test(shell), true);
