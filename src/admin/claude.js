@@ -187,13 +187,13 @@ Write the preparation notes as ONLY a JSON object, no other text, in exactly thi
 Rules:
 - "flags": cross-check everything she has bought against every allergy, sensitivity, medication, reaction or pregnancy mentioned in her notes. Name the product, the ingredient from its list, and the note it conflicts with. Include the concerns already found above if they are real. Leave it empty if nothing conflicts. Never say a product is safe.
 - "visits": one entry per dated note, oldest first. Keep each cell to a short phrase.
-- "products": products she has bought, current routine first. At most 8.
+- "products": products she has bought, current routine first.
 - "watch" and "nextVisit": short, concrete items. Skip generic encouragement.
 - Use the formulation details, not just product names. If a note mentions irritation and a product contains an active known to cause that, say so.
 - If a product's formula is unverified or not on file, don't state its ingredients as fact; say it couldn't be checked.
 - If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.
 - When a product has an ingredient list, name the specific ingredients that matter for her concerns (for example a fragrance, an irritating botanical, or an active) and say why. Quote only what is in the list.
-- Keep "overview" to 2 sentences and each list to at most 6 items.`;
+- Keep "overview" to 2 sentences. "visits" has at most 10 rows (the most recent if she has more). Every other list has at most 6 items. Keep every string under 25 words.`;
   return prompt;
 }
 
@@ -227,7 +227,7 @@ export async function summarizeClient(env, data) {
     },
     body: JSON.stringify({
       model: summaryModel(env),
-      max_tokens: 2500,
+      max_tokens: 4096,
       messages: [{ role: "user", content: prompt }],
     }),
   });
