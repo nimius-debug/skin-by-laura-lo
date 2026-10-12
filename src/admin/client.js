@@ -52,6 +52,75 @@ export const ADMIN_CLIENT_JS = String.raw`
 
   /* --------------------------------------------------- client profile page */
 
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+
+  function insightSection(title, content) {
+    var wrap = el("div", "insight-section");
+    wrap.appendChild(el("h3", "", title));
+    wrap.appendChild(content);
+    return wrap;
+  }
+
+  /* Builds the AI summary from its structured parts. Text comes in through
+     textContent only, so nothing the model writes is ever read as markup. */
+  function renderInsight(body, insight) {
+    body.innerHTML = "";
+    body.appendChild(el("p", "insight-overview", insight.overview));
+
+    if (insight.visits && insight.visits.length) {
+      var table = el("table");
+      var headRow = el("tr");
+      ["Date", "Treatment", "How her skin responded"].forEach(function (label) {
+        headRow.appendChild(el("th", "", label));
+      });
+      var thead = el("thead");
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      var tbody = el("tbody");
+      insight.visits.forEach(function (visit) {
+        var row = el("tr");
+        row.appendChild(el("td", "date", visit.date));
+        row.appendChild(el("td", "", visit.treatment));
+        row.appendChild(el("td", "", visit.response));
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+
+      var tableWrap = el("div", "table-wrap");
+      tableWrap.appendChild(table);
+      body.appendChild(insightSection("Visits", tableWrap));
+    }
+
+    if (insight.products && insight.products.length) {
+      var products = el("ul", "products");
+      insight.products.forEach(function (product) {
+        var item = el("li");
+        item.appendChild(el("strong", "", product.name));
+        if (product.note) item.appendChild(el("span", "", product.note));
+        products.appendChild(item);
+      });
+      body.appendChild(insightSection("Products in the routine", products));
+    }
+
+    if (insight.watch && insight.watch.length) {
+      var watch = el("ul", "bullets");
+      insight.watch.forEach(function (line) { watch.appendChild(el("li", "", line)); });
+      body.appendChild(insightSection("Watch for", watch));
+    }
+
+    if (insight.nextVisit && insight.nextVisit.length) {
+      var next = el("ul", "checklist");
+      insight.nextVisit.forEach(function (line) { next.appendChild(el("li", "", line)); });
+      body.appendChild(insightSection("Next visit", next));
+    }
+  }
+
   function wireClientProfilePage() {
     document.querySelectorAll(".edit-note-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -104,7 +173,7 @@ export const ADMIN_CLIENT_JS = String.raw`
               summarizeBtn.disabled = false;
               return;
             }
-            document.getElementById("insight-text").textContent = result.data.summary;
+            renderInsight(document.getElementById("insight-body"), result.data.summary);
             document.getElementById("insight-placeholder").style.display = "none";
             document.getElementById("insight-result").style.display = "block";
           })

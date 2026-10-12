@@ -17,3 +17,7 @@ SQUARE_ENVIRONMENT="sandbox"
 ANTHROPIC_API_KEY=""
 # Optional override; defaults to claude-sonnet-5-5.
 # ANTHROPIC_MODEL=""
+
+# Login for /admin. Leave empty and /admin refuses everyone.
+ADMIN_USERNAME=""
+ADMIN_PASSWORD=""

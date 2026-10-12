@@ -230,11 +230,18 @@ npx wrangler r2 bucket create skin-by-laura-lo-client-notes
 npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0001_client_notes.sql
 ```
 
-**`/admin` must sit behind Cloudflare Access before going live** — nothing
-in this tool's own code checks who's asking. In the Cloudflare dashboard:
-Zero Trust → Access → Applications → add an application for this Worker's
-`/admin*` path, gated by Laura's email. This is a dashboard setting, not
-something in this repo.
+**`/admin` has its own login page.** Set the username and password as Worker
+secrets (they are never stored in the repo):
+
+```bash
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+```
+
+Until both are set, `/admin` refuses everyone. The session lasts 12 hours and
+is signed with the password, so changing `ADMIN_PASSWORD` signs everyone out.
+PDF/image note uploads are switched off (`UPLOADS_ENABLED` in
+`src/admin/routes.js`) while notes come from the Excel sheet.
 
 ## Not built (deliberately)
 
