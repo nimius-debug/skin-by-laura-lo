@@ -48,6 +48,48 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 @keyframes admin-spin { to { transform: rotate(360deg); } }
 .spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: admin-spin 0.8s linear infinite; }
 .entry-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.back-link { font-size: 13px; color: var(--ink-soft); }
+.profile-head { display: flex; flex-direction: column; gap: 4px; }
+.profile-head .page-title { font-size: 30px; }
+.synced { font-size: 13px; color: var(--good); font-weight: 600; }
+.section-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+.note-card { display: flex; flex-direction: column; gap: 10px; }
+.note-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.note-date { font-weight: 600; font-size: 14.5px; }
+.note-undated { color: var(--muted); font-weight: 500; font-style: italic; }
+.note-meta { display: flex; align-items: center; gap: 10px; }
+.note-view { margin: 0; font-size: 13.5px; line-height: 1.6; color: #4A4038; white-space: pre-wrap; }
+.note-foot { display: flex; align-items: center; gap: 14px; min-height: 18px; font-size: 13px; }
+.save-note-btn { display: none; background: none; border: none; padding: 0; margin: 0; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--good); }
+.file-list { display: flex; flex-direction: column; }
+.file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F0E8DC; }
+.file-row:last-child { border-bottom: none; padding-bottom: 0; }
+.file-row:first-child { padding-top: 6px; }
+.file-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.file-actions { display: flex; gap: 16px; flex: none; font-size: 13px; font-weight: 600; }
+.insight-card { display: flex; flex-direction: column; gap: 12px; }
+.btn-insight { background: var(--accent-soft); color: #96583C; width: 100%; justify-content: center; }
+.insight-label { font-size: 11px; font-weight: 600; color: #96583C; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 12px; }
+.insight { display: flex; flex-direction: column; gap: 20px; font-size: 14px; line-height: 1.6; color: #4A4038; }
+.insight-overview { margin: 0; }
+.insight h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #96583C; text-transform: uppercase; letter-spacing: .05em; }
+.insight .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.insight table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.insight th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; padding: 10px 14px; background: #FBF7F1; border-bottom: 1px solid var(--line); }
+.insight td { padding: 10px 14px; vertical-align: top; border-bottom: 1px solid #F0E8DC; }
+.insight tr:last-child td { border-bottom: none; }
+.insight td.date { white-space: nowrap; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.insight .products { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.insight .products li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.insight .products strong { display: block; color: var(--ink); margin-bottom: 2px; }
+.insight ul.bullets { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.insight ul.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.insight ul.checklist li { display: flex; gap: 10px; align-items: flex-start; }
+.insight ul.checklist li::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 4px; border: 1.5px solid var(--accent); border-radius: 4px; }
+@media (max-width: 640px) {
+  .admin-main { padding: 24px 16px; }
+  .insight th, .insight td { padding: 8px 10px; }
+}
 `;
 
 const LOGIN_STYLES = `

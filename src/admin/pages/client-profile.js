@@ -5,57 +5,92 @@ function formatDate(iso) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function sourceLabel(note) {
+  return note.source === "square" ? "From Square" : "From the Excel sheet";
+}
+
 function noteCard(note) {
-  const dateLabel = formatDate(note.note_date) || "No date detected";
-  const sourceLabel = note.source === "square" ? "From Square" : "✎ From Noteful — AI summary";
+  const dateLabel = formatDate(note.note_date);
+  // Square notes are the seller note exactly as Square has it. Noteful notes
+  // show the transcription of the Noteful export (extracted_text), not the
+  // short summary line, so what Laura wrote is what she sees.
+  const body = note.source === "square" ? note.summary : note.extracted_text || note.summary;
   return html`
-    <div class="card" style="display: flex; flex-direction: column; gap: 10px;" data-note-id="${note.id}">
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="font-weight: 600; font-size: 14.5px;">
-          ${dateLabel}
-          ${!note.note_date ? html`<span class="pill pill-muted" style="margin-left: 8px;">Set date</span>` : ""}
-        </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="note-badge">${sourceLabel}</span>
-          ${note.source === "noteful" ? html`<button type="button" class="icon-btn edit-note-btn" aria-label="Edit note" data-note-id="${note.id}">✎</button>` : ""}
+    <div class="card note-card" data-note-id="${note.id}">
+      <div class="note-head">
+        ${dateLabel
+          ? html`<div class="note-date">${dateLabel}</div>`
+          : html`<div class="note-date note-undated">Undated</div>`}
+        <div class="note-meta">
+          <span class="note-badge">${sourceLabel(note)}</span>
         </div>
       </div>
 
-      <p class="note-view" style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #4A4038;">${note.summary}</p>
-      <textarea class="note-edit" style="display: none; min-height: 100px;">${note.summary}</textarea>
+      <p class="note-view">${body}</p>
 
-      ${note.confidence === "low" ? html`
-        <div class="flag-warn"><span>⚠</span><span>Some of this was hard to read — check the original before relying on it.</span></div>
-      ` : ""}
+      ${note.confidence === "low" ? html`<div class="flag-warn"><span>⚠</span><span>Hard to read — check the original</span></div>` : ""}
 
-      <div style="display: flex; align-items: center; gap: 14px; margin-top: 2px;">
-        ${note.pdf_key ? html`<a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">View original</a>` : ""}
-        <button type="button" class="save-note-btn" data-note-id="${note.id}" style="display: none; all: unset; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--good);">Save</button>
+      ${note.pdf_key ? html`<div class="note-foot"><a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">View original</a></div>` : ""}
+    </div>
+  `;
+}
+
+function sourceFilesCard(files) {
+  if (!files.length) return "";
+  return html`
+    <div class="card">
+      <div class="section-label">Original files</div>
+      <div class="file-list">
+        ${files.map((file) => html`
+          <div class="file-row">
+            <span class="file-name">${file.file_name}</span>
+            <span class="file-actions">
+              <a href="https://drive.google.com/file/d/${file.drive_id}/view" target="_blank" rel="noopener">View</a>
+              <a href="https://drive.google.com/uc?export=download&amp;id=${file.drive_id}" rel="noopener">Download</a>
+            </span>
+          </div>
+        `)}
       </div>
     </div>
   `;
 }
 
-export function clientProfilePage({ client, notes, routine }) {
+function insightCard(client) {
   return html`
-    <a href="/admin" style="font-size: 13px; color: var(--ink-soft);">← All clients</a>
-
-    <div style="display: flex; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
-      <div style="flex: 1; min-width: 240px;">
-        <h1 class="page-title" style="font-size: 30px;">${client.name}</h1>
-        <div style="font-size: 13px; color: var(--good); font-weight: 600; margin-top: 4px;">Synced from Square ✓</div>
+    <div class="card insight-card">
+      <div class="section-label">Insights</div>
+      <div id="insight-placeholder">
+        <button type="button" class="btn btn-insight" id="summarize-btn" data-client-id="${client.id}">Summarize this client</button>
       </div>
+      <div id="insight-result" style="display: none;">
+        <div class="insight-label">✦ AI summary</div>
+        <div id="insight-body" class="insight"></div>
+      </div>
+    </div>
+  `;
+}
+
+export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) {
+  return html`
+    <a href="/admin" class="back-link">← All clients</a>
+
+    <div class="profile-head">
+      <h1 class="page-title">${client.name}</h1>
+      <div class="synced">Synced from Square ✓</div>
     </div>
 
     <div class="two-col">
       <div class="main">
-        <div style="font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em;">Notes</div>
+        ${sourceFilesCard(sourceFiles)}
+        ${insightCard(client)}
+
+        <div class="section-label">Notes</div>
         ${notes.length ? notes.map(noteCard) : html`<div class="card" style="color: var(--ink-soft);">No notes yet for this client.</div>`}
       </div>
 
       <div class="side">
         <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
-          <div style="font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em;">Current routine</div>
+          <div class="section-label">Current routine</div>
           ${routine
             ? html`
               ${routine.items.map((item) => html`<div style="font-size: 13.5px;">${item.name}</div>`)}
@@ -65,17 +100,6 @@ export function clientProfilePage({ client, notes, routine }) {
               <a href="${routine.squareOrderUrl}" target="_blank" rel="noopener" style="font-size: 12.5px;">View in Square</a>
             `
             : html`<div style="color: var(--ink-soft); font-size: 13px;">No completed Square orders yet.</div>`}
-        </div>
-
-        <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
-          <div style="font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em;">Insights</div>
-          <div id="insight-placeholder">
-            <button type="button" class="btn" id="summarize-btn" data-client-id="${client.id}" style="width: 100%; background: var(--accent-soft); color: #96583C; justify-content: center;">Summarize this client</button>
-          </div>
-          <div id="insight-result" style="display: none; background: var(--accent-soft); border-radius: 12px; padding: 12px 14px;">
-            <div style="font-size: 11px; font-weight: 600; color: #96583C; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px;">✦ AI summary</div>
-            <p id="insight-text" style="margin: 0; font-size: 13px; line-height: 1.5; color: #4A4038;"></p>
-          </div>
         </div>
       </div>
     </div>

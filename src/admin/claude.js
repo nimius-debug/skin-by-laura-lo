@@ -159,7 +159,16 @@ ${formulationsText ? `\nWhat's actually in those products:\n${formulationsText}\
 Note history, oldest first:
 ${notesText}
 
-Write a short, specific summary (2-4 sentences) of patterns worth noting before the next visit. Use the formulation details above, not just the product names — e.g. if a note mentions irritation and the routine contains an active known to cause that, say so; if two products in the routine work well together (or poorly), say that too. Be concrete; skip generic encouragement. If a product's formula is unverified, don't state its ingredients as fact. If there isn't enough history to say anything specific yet, say that plainly instead of inventing a pattern.`;
+Write the preparation notes as ONLY a JSON object, no other text, in exactly this shape:
+{"overview": "1-2 sentences", "visits": [{"date": "YYYY-MM-DD or null", "treatment": "what was done", "response": "how her skin responded"}], "products": [{"name": "product name from the routine", "note": "one short line on what it does for her, using the formulation details above"}], "watch": ["short concrete thing to watch"], "nextVisit": ["short item to check or do at the next visit"]}
+
+Rules:
+- "visits": one entry per dated note, oldest first. Keep each cell to a short phrase.
+- "products": only products in the current routine.
+- "watch" and "nextVisit": short, concrete items. Skip generic encouragement.
+- Use the formulation details, not just product names. If a note mentions irritation and the routine contains an active known to cause that, say so.
+- If a product's formula is unverified, don't state its ingredients as fact.
+- If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -170,7 +179,7 @@ Write a short, specific summary (2-4 sentences) of patterns worth noting before 
     },
     body: JSON.stringify({
       model: env.ANTHROPIC_MODEL || DEFAULT_MODEL,
-      max_tokens: 400,
+      max_tokens: 1200,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -181,7 +190,40 @@ Write a short, specific summary (2-4 sentences) of patterns worth noting before 
   }
 
   const payload = await response.json();
-  return payload?.content?.find((block) => block.type === "text")?.text?.trim() || "Nothing to summarize yet.";
+  const text = payload?.content?.find((block) => block.type === "text")?.text || "";
+  return planInsight(text);
+}
+
+/**
+ * Parse the client summary into { overview, visits, products, watch, nextVisit }.
+ * Never throws. A reply that isn't JSON keeps its text as the overview, so the
+ * page still shows something useful rather than an error.
+ */
+export function planInsight(responseText) {
+  const empty = { overview: "", visits: [], products: [], watch: [], nextVisit: [] };
+  const parsed = tryParseJson(responseText);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    const plain = typeof responseText === "string" ? responseText.trim() : "";
+    return { ...empty, overview: plain.slice(0, 2000) || "Nothing to summarize yet." };
+  }
+
+  const text = (value) => (typeof value === "string" ? value.trim() : "");
+  const list = (value) => (Array.isArray(value) ? value : []);
+
+  const insight = {
+    overview: text(parsed.overview),
+    visits: list(parsed.visits)
+      .map((visit) => ({ date: text(visit?.date) || "Undated", treatment: text(visit?.treatment), response: text(visit?.response) }))
+      .filter((visit) => visit.treatment || visit.response),
+    products: list(parsed.products)
+      .map((product) => ({ name: text(product?.name), note: text(product?.note) }))
+      .filter((product) => product.name),
+    watch: list(parsed.watch).map(text).filter(Boolean),
+    nextVisit: list(parsed.nextVisit).map(text).filter(Boolean),
+  };
+
+  if (!insight.overview) insight.overview = "Nothing to summarize yet.";
+  return insight;
 }
 
 /**

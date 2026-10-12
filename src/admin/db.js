@@ -47,6 +47,14 @@ export async function listNotesForClient(env, clientId) {
   return results;
 }
 
+/** The original Google Drive files a client's notes were imported from, for download on their profile. */
+export async function listSourceFiles(env, clientId) {
+  const { results } = await env.CLIENT_NOTES_DB.prepare(
+    "SELECT file_name, drive_id FROM client_source_files WHERE client_id = ? ORDER BY file_name",
+  ).bind(clientId).all();
+  return results;
+}
+
 /**
  * A booking's seller_note, pulled in from a Square sync alongside the
  * client it belongs to. Keyed by the booking id so a later re-sync updates

@@ -1,6 +1,6 @@
 import { PDFDocument } from "pdf-lib";
 import { splitPdfPages, diffPages, hashImageBytes } from "../src/admin/pdf.js";
-import { planNoteEntries, formulationsFor } from "../src/admin/claude.js";
+import { planNoteEntries, formulationsFor, planInsight } from "../src/admin/claude.js";
 import { syncWindows, isCountableBooking } from "../src/admin/sync.js";
 
 let failures = 0;
@@ -139,6 +139,28 @@ check("a reviewed product's formulation summary is included", formulations.inclu
 check("a reviewed product's bestFor guidance is included", formulations.includes("Best for:"), true);
 check("a product with no formula on file is labelled honestly, not skipped", formulations.includes("Totally Made Up Product Name: no formula on file yet."), true);
 check("an empty routine never calls into the formula lookup", formulationsFor([]), "");
+
+const insight = planInsight(JSON.stringify({
+  overview: "  Oily, reacts to strong actives.  ",
+  visits: [
+    { date: "2026-03-02", treatment: "Gentle peel", response: "Calm, no redness" },
+    { date: null, treatment: "Facial", response: "" },
+    { date: "2026-05-10", treatment: "", response: "Mild sting" },
+    { date: "2026-06-01", treatment: "", response: "" },
+  ],
+  products: [{ name: "Toning mist", note: "Hydrates" }, { name: "", note: "dropped" }],
+  watch: ["Redness after acids", "  "],
+  nextVisit: ["Check hydration"],
+}));
+check("planInsight keeps the overview, trimmed", insight.overview, "Oily, reacts to strong actives.");
+check("planInsight labels a visit with no date as Undated", insight.visits[1].date, "Undated");
+check("planInsight drops a visit with nothing in it", insight.visits.length, 3);
+check("planInsight drops a product with no name", insight.products, [{ name: "Toning mist", note: "Hydrates" }]);
+check("planInsight drops blank list items", insight.watch, ["Redness after acids"]);
+check("planInsight reads a fenced json block", planInsight("```json\n{\"overview\": \"Fenced.\"}\n```").overview, "Fenced.");
+check("planInsight keeps plain text as the overview when it isn't JSON", planInsight("Just prose here.").overview, "Just prose here.");
+check("planInsight gives an empty reply a plain placeholder", planInsight("").overview, "Nothing to summarize yet.");
+check("planInsight fills in empty lists when the reply omits them", planInsight("{\"overview\": \"x\"}").visits, []);
 
 console.log(failures === 0 ? "\nAll admin-notes tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

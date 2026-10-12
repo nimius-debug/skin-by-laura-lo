@@ -267,9 +267,11 @@ export async function handleAdminRequest(request, env, url) {
   if (clientMatch && segments.length === 3 && method === "GET") {
     const client = await db.getClient(env, clientMatch);
     if (!client) return notFound();
-    const [notes, products] = await Promise.all([db.listNotesForClient(env, clientMatch), loadProducts(env)]);
+    const [notes, products, sourceFiles] = await Promise.all([
+      db.listNotesForClient(env, clientMatch), loadProducts(env), db.listSourceFiles(env, clientMatch),
+    ]);
     const routine = await currentRoutineFor(env, products, client.square_customer_id).catch(() => null);
-    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine }) }));
+    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, sourceFiles }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {
