@@ -1,7 +1,7 @@
 // What a client has bought is never stored — it's read live from their
 // completed Square orders, so it can never drift out of sync with what they
 // actually bought. Two views come from the same orders:
-//   - the current routine: the products in their most recent order
+//   - the current routine: the products in their most recent order that had any
 //   - the purchase history: every product across all their orders, with how
 //     many they bought and when
 // Square tells us which products and when, not which skincare step each one
@@ -56,16 +56,25 @@ function orderItems(order, byVariation) {
     .filter(Boolean);
 }
 
-/** The latest order, as the "current routine". `orders` is newest first. */
+/**
+ * The current routine: the products on her most recent order that included any.
+ * Her latest order is often just a facial, which has no shop products, so this
+ * looks back to the last order that did. `laterVisitAt` is set when a newer
+ * order without products exists, so the page can say so. `orders` is newest first.
+ */
 export function routineFromOrders(orders, products) {
-  const order = orders[0];
-  if (!order) return null;
-  const items = orderItems(order, productsByVariation(products)).map(({ name, slug, image }) => ({ name, slug, image }));
-  return {
-    items,
-    orderedAt: order.created_at,
-    squareOrderUrl: `https://squareup.com/dashboard/orders/overview/${order.id}`,
-  };
+  const byVariation = productsByVariation(products);
+  for (const order of orders) {
+    const items = orderItems(order, byVariation).map(({ name, slug, image }) => ({ name, slug, image }));
+    if (!items.length) continue;
+    return {
+      items,
+      orderedAt: order.created_at,
+      laterVisitAt: order === orders[0] ? null : orders[0].created_at,
+      squareOrderUrl: `https://squareup.com/dashboard/orders/overview/${order.id}`,
+    };
+  }
+  return null;
 }
 
 /** Every product across all orders: how many were bought, first and last order date. Most recently bought first. */

@@ -189,10 +189,11 @@ export function clientProfilePage({ client, notes, routine, history = [], flags 
               ${routine.items.map(routineItem)}
               ${routine.items.length === 0 ? html`<div style="color: var(--ink-soft); font-size: 13px;">Most recent order had no matching catalog items.</div>` : ""}
               <div style="height: 1px; background: #F0E8DC; margin: 4px 0;"></div>
-              <div style="font-size: 12px; color: var(--muted);">Last ordered ${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}</div>
+              <div style="font-size: 12px; color: var(--muted);">Last product order ${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}</div>
+              ${routine.laterVisitAt ? html`<div style="font-size: 12px; color: var(--muted);">Her latest order (${formatDate(routine.laterVisitAt.slice(0, 10))}) had no shop products, only a service.</div>` : ""}
               <a href="${routine.squareOrderUrl}" target="_blank" rel="noopener" style="font-size: 12.5px;">View in Square</a>
             `
-            : html`<div style="color: var(--ink-soft); font-size: 13px;">No completed Square orders yet.</div>`}
+            : html`<div style="color: var(--ink-soft); font-size: 13px;">No product orders found in Square yet.</div>`}
         </div>
 
         <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
