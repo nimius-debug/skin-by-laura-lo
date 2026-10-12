@@ -53,6 +53,8 @@ HIDE_UNCATEGORIZED = "true"
 #   npx wrangler secret put SQUARE_ENVIRONMENT   (optional: "sandbox")
 #   npx wrangler secret put ANTHROPIC_API_KEY    (for the /admin client-notes tool)
 #   npx wrangler secret put ANTHROPIC_MODEL      (optional override, e.g. a cheaper model)
+#   npx wrangler secret put ADMIN_USERNAME       (login for /admin)
+#   npx wrangler secret put ADMIN_PASSWORD       (login for /admin; changing it signs everyone out)
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

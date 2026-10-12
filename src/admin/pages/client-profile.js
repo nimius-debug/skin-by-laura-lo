@@ -45,7 +45,6 @@ export function clientProfilePage({ client, notes, routine }) {
         <h1 class="page-title" style="font-size: 30px;">${client.name}</h1>
         <div style="font-size: 13px; color: var(--good); font-weight: 600; margin-top: 4px;">Synced from Square ✓</div>
       </div>
-      <a href="/admin/clients/${client.id}/notes/new" class="btn btn-primary">+ Add Noteful note</a>
     </div>
 
     <div class="two-col">

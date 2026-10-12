@@ -32,7 +32,7 @@ table.data td { padding: 14px 16px; border-bottom: 1px solid #F0E8DC; font-size:
 table.data tr:last-child td { border-bottom: none; }
 table.data tr.row-link { cursor: pointer; }
 table.data tr.row-link:hover { background: #F3ECE2; }
-input[type="text"], input[type="search"], input[type="date"], textarea { font-family: inherit; font-size: 14px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); box-sizing: border-box; }
+input[type="text"], input[type="password"], input[type="search"], input[type="date"], textarea { font-family: inherit; font-size: 14px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); box-sizing: border-box; }
 textarea { width: 100%; }
 label.field { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); display: block; }
 label.field input, label.field textarea { display: block; margin-top: 6px; width: 100%; }
@@ -50,6 +50,17 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .entry-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 `;
 
+const LOGIN_STYLES = `
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+.login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 18px; }
+.login-brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px; }
+.login-form { display: flex; flex-direction: column; gap: 14px; }
+.login-form .btn { justify-content: center; }
+.login-error { color: var(--danger); font-size: 13.5px; }
+.logout-btn { all: unset; cursor: pointer; font-size: 13px; color: #D9CFC2; padding: 0 14px; }
+.logout-btn:hover { color: #FFF8F2; }
+`;
+
 function nav(active) {
   const link = (href, label, key) => html`<a href="${href}"${active === key ? raw(' class="active"') : ""}>${label}</a>`;
   return html`
@@ -57,9 +68,44 @@ function nav(active) {
       <div class="brand">Laura — Admin</div>
       ${link("/admin", "Clients", "clients")}
       <div class="spacer"></div>
-      <div class="signed-in">Signed in via Cloudflare Access</div>
+      <form method="post" action="/admin/logout" style="margin: 0;">
+        <button type="submit" class="logout-btn">Log out</button>
+      </form>
     </div>
   `;
+}
+
+export function loginPage({ error = "", username = "", configured = true } = {}) {
+  return toString(html`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Log in · Admin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&display=swap" />
+<style>${raw(ADMIN_STYLES)}${raw(LOGIN_STYLES)}</style>
+</head>
+<body>
+<main class="login-wrap">
+  <div class="card login-card">
+    <div class="login-brand">Laura — Admin</div>
+    ${configured
+      ? html`<form method="post" action="/admin/login" class="login-form">
+          <label class="field">Username
+            <input type="text" name="username" value="${username}" autocomplete="username" required autofocus />
+          </label>
+          <label class="field">Password
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          ${error ? html`<div class="login-error" role="alert">${error}</div>` : ""}
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>`
+      : html`<p class="login-error">Admin login isn't set up yet. Add the ADMIN_USERNAME and ADMIN_PASSWORD secrets, then redeploy.</p>`}
+  </div>
+</main>
+</body>
+</html>`);
 }
 
 /** Admin page shell. Deliberately separate from the storefront's page() — different audience, no cart/header/footer. */

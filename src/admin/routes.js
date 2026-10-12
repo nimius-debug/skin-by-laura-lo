@@ -1,11 +1,15 @@
-// Router for the /admin area. This is a separate, internal tool bolted onto
-// the storefront Worker — it must sit behind Cloudflare Access in production
-// (see README), since nothing in this file checks who's asking.
+// Router for the /admin area: a separate, internal tool bolted onto the
+// storefront Worker. Every route except the login page needs a valid session
+// cookie (see auth.js).
 
 import { settings } from "../config.js";
 import { getCatalog, isConfigured } from "../square.js";
 import { jsonResponse } from "../layout.js";
-import { adminPage, adminHtmlResponse } from "./layout.js";
+import { adminPage, adminHtmlResponse, loginPage } from "./layout.js";
+import {
+  adminAuthConfigured, clearedSessionCookie, createSessionToken, credentialsMatch,
+  isValidSession, readSessionCookie, sessionCookie,
+} from "./auth.js";
 import { clientsPage } from "./pages/clients.js";
 import { clientProfilePage } from "./pages/client-profile.js";
 import { uploadPage } from "./pages/upload.js";
@@ -17,8 +21,30 @@ import { syncClientsFromSquare } from "./sync.js";
 import * as storage from "./storage.js";
 import { ADMIN_CLIENT_JS } from "./client.js";
 
+// PDF/image note uploads are switched off while notes come from the Excel
+// sheet. Flip to true to bring the upload pages and routes back.
+const UPLOADS_ENABLED = false;
+
 function notFound() {
   return adminHtmlResponse(adminPage({ title: "Not found", body: "<p>Not found.</p>" }), { status: 404 });
+}
+
+function redirect(location, headers = {}) {
+  return new Response(null, { status: 303, headers: { location, "cache-control": "no-store", ...headers } });
+}
+
+async function handleLogin(request, env) {
+  if (!adminAuthConfigured(env)) {
+    return adminHtmlResponse(loginPage({ configured: false }), { status: 503 });
+  }
+  const form = await request.formData().catch(() => null);
+  const username = String(form?.get("username") || "");
+  const password = String(form?.get("password") || "");
+  if (!(await credentialsMatch(env, username, password))) {
+    return adminHtmlResponse(loginPage({ error: "Wrong username or password.", username }), { status: 401 });
+  }
+  const token = await createSessionToken(env);
+  return redirect("/admin", { "set-cookie": sessionCookie(token) });
 }
 
 async function loadProducts(env) {
@@ -207,6 +233,24 @@ export async function handleAdminRequest(request, env, url) {
     });
   }
 
+  if (url.pathname === "/admin/login" && method === "GET") {
+    if (await isValidSession(env, readSessionCookie(request))) return redirect("/admin");
+    return adminHtmlResponse(loginPage({ configured: adminAuthConfigured(env) }));
+  }
+
+  if (url.pathname === "/admin/login" && method === "POST") {
+    return handleLogin(request, env);
+  }
+
+  if (url.pathname === "/admin/logout" && method === "POST") {
+    return redirect("/admin/login", { "set-cookie": clearedSessionCookie() });
+  }
+
+  if (!(await isValidSession(env, readSessionCookie(request)))) {
+    if (method === "GET") return redirect("/admin/login");
+    return jsonResponse({ message: "Please log in to the admin first." }, 401);
+  }
+
   // GET /admin
   if (url.pathname === "/admin" && method === "GET") {
     const clients = await db.listClients(env);
@@ -229,16 +273,19 @@ export async function handleAdminRequest(request, env, url) {
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {
+    if (!UPLOADS_ENABLED) return notFound();
     const client = await db.getClient(env, clientMatch);
     if (!client) return notFound();
     return adminHtmlResponse(adminPage({ title: `Add a note — ${client.name}`, body: uploadPage({ client }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments.length === 4 && method === "POST") {
+    if (!UPLOADS_ENABLED) return notFound();
     return handleUpload(request, env, clientMatch);
   }
 
   if (clientMatch && segments[3] === "notes" && segments[5] === "confirm" && method === "POST") {
+    if (!UPLOADS_ENABLED) return notFound();
     return handleConfirm(request, env, clientMatch, segments[4]);
   }
 
