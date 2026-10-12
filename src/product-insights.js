@@ -253,6 +253,7 @@ function generatedReview(record) {
       : "I am holding the ingredient interpretation until the current package panel can be confirmed. That is more useful—and more honest—than guessing from a product name or marketing description.",
     useNote: record.considerations,
     ingredients,
+    formula: record.formula || "",
     formulaSource: sourceUrl(record.source),
     formulaSourceLabel: sourceLabel(record.source),
     confidence: record.confidence,

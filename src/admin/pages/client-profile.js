@@ -1,5 +1,6 @@
 import { html } from "../../html.js";
 import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
+import { productInsightFor } from "../../product-insights.js";
 
 // The sheet's own column names, in the order Laura reads them.
 const SHEET_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Possible treatments"];
@@ -11,6 +12,19 @@ function formatDate(iso) {
 
 function sourceLabel(note) {
   return note.source === "square" ? "From Square" : "From the Excel sheet";
+}
+
+// One product in the routine: what it is, its published ingredient list, and what to keep in mind.
+function routineItem(item) {
+  const insight = productInsightFor(item.name);
+  return html`
+    <div class="routine-item">
+      <div class="routine-name">${item.name}</div>
+      <div class="routine-what">${insight ? insight.summary : "No product details on file yet."}</div>
+      ${insight?.formula ? html`<details class="routine-ingredients"><summary>Ingredients as published</summary><p>${insight.formula}</p></details>` : ""}
+      ${insight?.keepInMind ? html`<div class="routine-keep">Keep in mind: ${insight.keepInMind}</div>` : ""}
+    </div>
+  `;
 }
 
 function sheetBody(note) {
@@ -114,7 +128,7 @@ export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) 
           <div class="section-label">Current routine</div>
           ${routine
             ? html`
-              ${routine.items.map((item) => html`<div style="font-size: 13.5px;">${item.name}</div>`)}
+              ${routine.items.map(routineItem)}
               ${routine.items.length === 0 ? html`<div style="color: var(--ink-soft); font-size: 13px;">Most recent order had no matching catalog items.</div>` : ""}
               <div style="height: 1px; background: #F0E8DC; margin: 4px 0;"></div>
               <div style="font-size: 12px; color: var(--muted);">Last ordered ${formatDate(routine.orderedAt?.slice(0, 10)) || routine.orderedAt}</div>

@@ -59,6 +59,13 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .note-undated { color: var(--muted); font-weight: 500; font-style: italic; }
 .note-meta { display: flex; align-items: center; gap: 10px; }
 .note-view { margin: 0; font-size: 13.5px; line-height: 1.6; color: #4A4038; white-space: pre-wrap; }
+.routine-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #F0E8DC; }
+.routine-item:last-child { border-bottom: none; }
+.routine-name { font-size: 13.5px; font-weight: 600; }
+.routine-what { font-size: 12.5px; line-height: 1.5; color: #4A4038; }
+.routine-ingredients summary { font-size: 12px; font-weight: 600; color: #96583C; cursor: pointer; }
+.routine-ingredients p { font-size: 12px; line-height: 1.5; color: var(--ink-soft); margin: 6px 0 0; overflow-wrap: anywhere; }
+.routine-keep { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .sheet-fields { display: flex; flex-direction: column; gap: 12px; }
 .sheet-field { display: flex; flex-direction: column; gap: 4px; }
 .sheet-label { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }

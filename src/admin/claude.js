@@ -168,7 +168,9 @@ Rules:
 - "watch" and "nextVisit": short, concrete items. Skip generic encouragement.
 - Use the formulation details, not just product names. If a note mentions irritation and the routine contains an active known to cause that, say so.
 - If a product's formula is unverified, don't state its ingredients as fact.
-- If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.`;
+- If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.
+- When a product has an ingredient list, name the specific ingredients that matter for her concerns (for example a fragrance, an irritating botanical, or an active) and say why. Quote only what is in the list.
+- Keep "overview" to 2 sentences and each list to at most 6 items.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -179,7 +181,7 @@ Rules:
     },
     body: JSON.stringify({
       model: env.ANTHROPIC_MODEL || DEFAULT_MODEL,
-      max_tokens: 1200,
+      max_tokens: 2500,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -190,6 +192,9 @@ Rules:
   }
 
   const payload = await response.json();
+  if (payload?.stop_reason === "max_tokens") {
+    throw new Error("The summary ran out of room before it finished. Click Summarize again.");
+  }
   const text = payload?.content?.find((block) => block.type === "text")?.text || "";
   return planInsight(text);
 }
@@ -204,6 +209,8 @@ export function planInsight(responseText) {
   const parsed = tryParseJson(responseText);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     const plain = typeof responseText === "string" ? responseText.trim() : "";
+    // Half-finished JSON is never shown raw; ask for another try instead.
+    if (/^\s*[{\[]|^```/.test(plain)) return { ...empty, overview: "The summary came back incomplete. Click Summarize again." };
     return { ...empty, overview: plain.slice(0, 2000) || "Nothing to summarize yet." };
   }
 
@@ -247,7 +254,10 @@ export function formulationsFor(items) {
           ? " (only a partial formula is confirmed)"
           : "";
 
-      return `- ${item.name}${caveat}: ${insight.summary} Best for: ${insight.bestFor}${insight.keepInMind ? ` Keep in mind: ${insight.keepInMind}` : ""}`;
+      const ingredients = insight.formula
+        ? `\n  Ingredients as published: ${insight.formula}`
+        : "\n  Ingredients: no published list on file.";
+      return `- ${item.name}${caveat}: ${insight.summary} Best for: ${insight.bestFor}${insight.keepInMind ? ` Keep in mind: ${insight.keepInMind}` : ""}${ingredients}`;
     })
     .join("\n");
 }
