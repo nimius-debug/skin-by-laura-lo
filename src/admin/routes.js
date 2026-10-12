@@ -193,7 +193,8 @@ async function handleInsight(env, clientId) {
     return jsonResponse({ summary });
   } catch (error) {
     console.error("Client summary failed:", error.message);
-    return jsonResponse({ message: "Couldn't generate a summary right now." }, 502);
+    // Admin-only page: show the reason (Anthropic's error text, never the key) so a bad model name or key is obvious.
+    return jsonResponse({ message: `Couldn't summarize: ${error.message}`.slice(0, 400) }, 502);
   }
 }
 
