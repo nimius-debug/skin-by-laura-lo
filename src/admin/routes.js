@@ -15,7 +15,7 @@ import { clientProfilePage } from "./pages/client-profile.js";
 import { uploadPage } from "./pages/upload.js";
 import * as db from "./db.js";
 import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
-import { extractNoteEntries, summarizeClient } from "./claude.js";
+import { extractNoteEntries, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
 import { clientPurchasesFor } from "./routine.js";
 import { findFlags } from "./safety.js";
 import { productInsightFor } from "../product-insights.js";
@@ -49,16 +49,28 @@ async function handleLogin(request, env) {
   return redirect("/admin", { "set-cookie": sessionCookie(token) });
 }
 
-/** Everything the client page and the summary need about what a client bought, plus the safety flags for it. */
+/**
+ * Everything the client page and the summary need about what a client bought,
+ * plus the safety flags for it. `purchasesFailed` is true when Square was
+ * reachable in principle but the orders couldn't be read, so callers can avoid
+ * acting on incomplete data.
+ */
 async function loadClientPurchases(env, client, notes) {
   const products = await loadProducts(env);
-  const purchases = await clientPurchasesFor(env, products, client.square_customer_id).catch(() => null);
+  let purchases = null;
+  let purchasesFailed = false;
+  try {
+    purchases = await clientPurchasesFor(env, products, client.square_customer_id);
+  } catch (error) {
+    console.error("Reading client purchases failed:", error.message);
+    purchasesFailed = true;
+  }
   const history = purchases?.history || [];
   const flags = findFlags({
     notes,
     products: history.map((item) => ({ name: item.name, formula: productInsightFor(item.name)?.formula || "" })),
   });
-  return { routine: purchases?.routine || null, history, flags };
+  return { routine: purchases?.routine || null, history, flags, purchasesFailed };
 }
 
 async function loadProducts(env) {
@@ -194,16 +206,30 @@ async function handleConfirm(request, env, clientId, draftId) {
   return jsonResponse({ noteIds, redirect: `/admin/clients/${clientId}` });
 }
 
-async function handleInsight(env, clientId) {
+async function handleInsight(env, clientId, { refresh = false } = {}) {
   const client = await db.getClient(env, clientId);
   if (!client) return jsonResponse({ message: "Client not found" }, 404);
 
   const notes = await db.listNotesForClient(env, clientId);
-  const { routine, history, flags } = await loadClientPurchases(env, client, notes);
+  const { routine, history, flags, purchasesFailed } = await loadClientPurchases(env, client, notes);
+  if (purchasesFailed) {
+    // Don't spend tokens on a summary that is missing what she bought.
+    return jsonResponse({ message: "Couldn't read her purchases from Square just now, so nothing was summarized. Try again in a moment." }, 503);
+  }
+  const data = { client, notes, routine, history, flags };
+
+  // The API is only called for new or changed inputs, or an explicit regenerate.
+  // The same notes, purchases, ingredient lists and flags reuse the saved summary for free.
+  const hash = await summaryInputHash(env, data);
+  const saved = await db.getSavedSummary(env, clientId);
+  if (saved && saved.hash === hash && !refresh) {
+    return jsonResponse({ summary: saved.summary, cached: true, savedAt: saved.createdAt });
+  }
 
   try {
-    const summary = await summarizeClient(env, { client, notes, routine, history, flags });
-    return jsonResponse({ summary });
+    const summary = await summarizeClient(env, data);
+    await db.saveSummary(env, clientId, { hash, summary, model: summaryModel(env) });
+    return jsonResponse({ summary, cached: false, savedAt: new Date().toISOString() });
   } catch (error) {
     console.error("Client summary failed:", error.message);
     // Admin-only page: show the reason (Anthropic's error text, never the key) so a bad model name or key is obvious.
@@ -282,8 +308,15 @@ export async function handleAdminRequest(request, env, url) {
     const client = await db.getClient(env, clientMatch);
     if (!client) return notFound();
     const [notes, sourceFiles] = await Promise.all([db.listNotesForClient(env, clientMatch), db.listSourceFiles(env, clientMatch)]);
-    const { routine, history, flags } = await loadClientPurchases(env, client, notes);
-    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, history, flags, sourceFiles }) }));
+    const { routine, history, flags, purchasesFailed } = await loadClientPurchases(env, client, notes);
+    const saved = await db.getSavedSummary(env, clientMatch);
+    const savedSummary = saved && {
+      summary: saved.summary,
+      savedAt: saved.createdAt,
+      // null when the purchases couldn't be read, so the page doesn't claim it is out of date.
+      current: purchasesFailed ? null : saved.hash === (await summaryInputHash(env, { client, notes, routine, history, flags })),
+    };
+    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, history, flags, sourceFiles, savedSummary }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {
@@ -304,7 +337,7 @@ export async function handleAdminRequest(request, env, url) {
   }
 
   if (clientMatch && segments[3] === "insight" && method === "POST") {
-    return handleInsight(env, clientMatch);
+    return handleInsight(env, clientMatch, { refresh: url.searchParams.get("refresh") === "1" });
   }
 
   if (segments[1] === "notes" && segments[3] === "original" && method === "GET") {

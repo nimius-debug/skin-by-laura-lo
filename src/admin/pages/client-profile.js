@@ -134,22 +134,34 @@ function sourceFilesCard(files) {
   `;
 }
 
-function insightCard(client) {
+function savedMeta(saved) {
+  const day = formatDate(String(saved.savedAt || "").slice(0, 10));
+  const when = day ? `Saved ${day}.` : "Saved.";
+  if (saved.current === true) return `${when} Nothing has changed since, so no new AI call is made.`;
+  if (saved.current === false) return `${when} Her notes, purchases or flags have changed since. Update to refresh it.`;
+  return when;
+}
+
+// The AI summary. A saved one shows straight away (free); the button only calls the API when the inputs changed or on Regenerate.
+function insightCard(client, saved) {
+  const regenerate = saved?.current === false ? "Update summary" : "Regenerate (new AI call)";
   return html`
-    <div class="card insight-card">
+    <div class="card insight-card" id="insight-card" data-saved="${saved ? JSON.stringify(saved.summary) : ""}">
       <div class="section-label">Insights</div>
-      <div id="insight-placeholder">
+      <div id="insight-placeholder" style="${saved ? "display: none;" : ""}">
         <button type="button" class="btn btn-insight" id="summarize-btn" data-client-id="${client.id}">Summarize this client</button>
       </div>
-      <div id="insight-result" style="display: none;">
+      <div id="insight-result" style="${saved ? "" : "display: none;"}">
         <div class="insight-label">✦ AI summary</div>
+        <div id="insight-meta" class="insight-meta">${saved ? savedMeta(saved) : ""}</div>
         <div id="insight-body" class="insight"></div>
+        <button type="button" class="btn btn-secondary btn-regenerate" id="regenerate-btn" data-client-id="${client.id}" data-label="${regenerate}">${regenerate}</button>
       </div>
     </div>
   `;
 }
 
-export function clientProfilePage({ client, notes, routine, history = [], flags = [], sourceFiles = [] }) {
+export function clientProfilePage({ client, notes, routine, history = [], flags = [], sourceFiles = [], savedSummary = null }) {
   return html`
     <a href="/admin" class="back-link">← All clients</a>
 
@@ -163,7 +175,7 @@ export function clientProfilePage({ client, notes, routine, history = [], flags 
     <div class="two-col">
       <div class="main">
         ${flagsCard(flags)}
-        ${insightCard(client)}
+        ${insightCard(client, savedSummary)}
 
         <div class="section-label">Notes</div>
         ${notes.length ? notes.map(noteCard) : html`<div class="card" style="color: var(--ink-soft);">No notes yet for this client.</div>`}

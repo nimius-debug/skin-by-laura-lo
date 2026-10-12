@@ -96,6 +96,8 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .file-actions { display: flex; gap: 16px; flex: none; font-size: 13px; font-weight: 600; }
 .insight-card { display: flex; flex-direction: column; gap: 12px; }
 .btn-insight { background: var(--accent-soft); color: #96583C; width: 100%; justify-content: center; }
+.insight-meta { font-size: 12px; color: var(--muted); margin: -4px 0 14px; }
+.btn-regenerate { margin-top: 16px; font-size: 13px; padding: 8px 14px; }
 .insight-label { font-size: 11px; font-weight: 600; color: #96583C; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 12px; }
 .insight { display: flex; flex-direction: column; gap: 20px; font-size: 14px; line-height: 1.6; color: #4A4038; }
 .insight-overview { margin: 0; }

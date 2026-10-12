@@ -165,30 +165,57 @@ export const ADMIN_CLIENT_JS = String.raw`
       });
     });
 
-    var summarizeBtn = document.getElementById("summarize-btn");
-    if (summarizeBtn) {
-      summarizeBtn.addEventListener("click", function () {
-        var clientId = summarizeBtn.getAttribute("data-client-id");
-        summarizeBtn.disabled = true;
-        summarizeBtn.textContent = "Thinking...";
-        fetch("/admin/clients/" + clientId + "/insight", { method: "POST" })
-          .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
-          .then(function (result) {
-            if (!result.ok) {
-              summarizeBtn.textContent = result.data.message || "Couldn't summarize right now.";
-              summarizeBtn.disabled = false;
-              return;
-            }
-            renderInsight(document.getElementById("insight-body"), result.data.summary);
-            document.getElementById("insight-placeholder").style.display = "none";
-            document.getElementById("insight-result").style.display = "block";
-          })
-          .catch(function () {
-            summarizeBtn.textContent = "Couldn't summarize right now.";
-            summarizeBtn.disabled = false;
-          });
-      });
+    var card = document.getElementById("insight-card");
+    var insightBody = document.getElementById("insight-body");
+    var insightMeta = document.getElementById("insight-meta");
+
+    function showInsight(insight, meta) {
+      renderInsight(insightBody, insight);
+      if (meta !== null) insightMeta.textContent = meta;
+      document.getElementById("insight-placeholder").style.display = "none";
+      document.getElementById("insight-result").style.display = "block";
     }
+
+    // A saved summary is shown straight away, with no API call.
+    var saved = card && card.getAttribute("data-saved");
+    if (saved) {
+      try { renderInsight(insightBody, JSON.parse(saved)); } catch (error) { /* leave the button to regenerate */ }
+    }
+
+    // force=true asks for a fresh AI call even if nothing changed (Regenerate).
+    function runSummary(button, force) {
+      var idleLabel = button.getAttribute("data-label") || button.textContent;
+      var clientId = button.getAttribute("data-client-id");
+      button.disabled = true;
+      button.textContent = "Thinking...";
+      fetch("/admin/clients/" + clientId + "/insight" + (force ? "?refresh=1" : ""), { method: "POST" })
+        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok) {
+            button.textContent = result.data.message || "Couldn't summarize right now.";
+            button.disabled = false;
+            return;
+          }
+          showInsight(
+            result.data.summary,
+            result.data.cached
+              ? "Saved earlier. Nothing has changed, so no new AI call was made."
+              : "Just generated and saved."
+          );
+          button.disabled = false;
+          button.textContent = idleLabel;
+        })
+        .catch(function () {
+          button.textContent = "Couldn't summarize right now.";
+          button.disabled = false;
+        });
+    }
+
+    var summarizeBtn = document.getElementById("summarize-btn");
+    if (summarizeBtn) summarizeBtn.addEventListener("click", function () { runSummary(summarizeBtn, false); });
+
+    var regenerateBtn = document.getElementById("regenerate-btn");
+    if (regenerateBtn) regenerateBtn.addEventListener("click", function () { runSummary(regenerateBtn, true); });
   }
 
   /* -------------------------------------------------------------- upload */

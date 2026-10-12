@@ -146,11 +146,8 @@ function noteForPrompt(note) {
     .join(" | ");
 }
 
-export async function summarizeClient(env, { client, notes, routine, history = [], flags = [] }) {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not configured");
-  }
-
+/** The full prompt for a client's summary. Pure, so the same inputs always give the same text (and the same cache key). */
+export function summaryPrompt({ client, notes, routine, history = [], flags = [] }) {
   const dated = notes.filter((note) => note.note_date).sort((a, b) => a.note_date.localeCompare(b.note_date));
   const undated = notes.filter((note) => !note.note_date);
   const notesText = notes.length
@@ -197,6 +194,29 @@ Rules:
 - If there isn't enough history to say anything specific, say that plainly in "overview" and leave the lists empty. Don't invent a pattern.
 - When a product has an ingredient list, name the specific ingredients that matter for her concerns (for example a fragrance, an irritating botanical, or an active) and say why. Quote only what is in the list.
 - Keep "overview" to 2 sentences and each list to at most 6 items.`;
+  return prompt;
+}
+
+export function summaryModel(env) {
+  return env.ANTHROPIC_MODEL || DEFAULT_MODEL;
+}
+
+/**
+ * A fingerprint of everything that goes into a summary: the model and the full
+ * prompt (notes, purchases, ingredient lists, flags, instructions). If it is
+ * unchanged, the saved summary is still right and no API call is needed.
+ */
+export async function summaryInputHash(env, data) {
+  const bytes = new TextEncoder().encode(`${summaryModel(env)}\n${summaryPrompt(data)}`);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function summarizeClient(env, data) {
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new Error("ANTHROPIC_API_KEY is not configured");
+  }
+  const prompt = summaryPrompt(data);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -206,7 +226,7 @@ Rules:
       "anthropic-version": ANTHROPIC_VERSION,
     },
     body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL || DEFAULT_MODEL,
+      model: summaryModel(env),
       max_tokens: 2500,
       messages: [{ role: "user", content: prompt }],
     }),
