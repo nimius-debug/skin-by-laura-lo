@@ -72,6 +72,12 @@ export const ADMIN_CLIENT_JS = String.raw`
     body.innerHTML = "";
     body.appendChild(el("p", "insight-overview", insight.overview));
 
+    if (insight.flags && insight.flags.length) {
+      var flags = el("ul", "bullets flags");
+      insight.flags.forEach(function (line) { flags.appendChild(el("li", "", line)); });
+      body.appendChild(insightSection("Flags to check", flags));
+    }
+
     if (insight.visits && insight.visits.length) {
       var table = el("table");
       var headRow = el("tr");

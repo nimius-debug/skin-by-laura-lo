@@ -280,6 +280,15 @@ export function productInsightFor(productName) {
   return REVIEWS.get(productKey(productName)) || null;
 }
 
+/** One sentence on who a product suits, from its reviewed "best for" text. Empty when the product has no review. */
+export function shortGoodFor(productName) {
+  const text = productInsightFor(productName)?.bestFor?.trim();
+  if (!text) return "";
+  const sentence = text.split(/(?<=[.!?])\s+|;\s+| — /)[0].trim();
+  if (sentence.length <= 170) return sentence;
+  return `${sentence.slice(0, 167).replace(/\s+\S*$/, "")}…`;
+}
+
 export function productInsightCoverage() {
   return {
     total: PRODUCT_FORMULAS.length,

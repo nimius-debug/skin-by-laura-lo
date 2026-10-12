@@ -16,7 +16,9 @@ import { uploadPage } from "./pages/upload.js";
 import * as db from "./db.js";
 import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
 import { extractNoteEntries, summarizeClient } from "./claude.js";
-import { currentRoutineFor } from "./routine.js";
+import { clientPurchasesFor } from "./routine.js";
+import { findFlags } from "./safety.js";
+import { productInsightFor } from "../product-insights.js";
 import { syncClientsFromSquare } from "./sync.js";
 import * as storage from "./storage.js";
 import { ADMIN_CLIENT_JS } from "./client.js";
@@ -45,6 +47,18 @@ async function handleLogin(request, env) {
   }
   const token = await createSessionToken(env);
   return redirect("/admin", { "set-cookie": sessionCookie(token) });
+}
+
+/** Everything the client page and the summary need about what a client bought, plus the safety flags for it. */
+async function loadClientPurchases(env, client, notes) {
+  const products = await loadProducts(env);
+  const purchases = await clientPurchasesFor(env, products, client.square_customer_id).catch(() => null);
+  const history = purchases?.history || [];
+  const flags = findFlags({
+    notes,
+    products: history.map((item) => ({ name: item.name, formula: productInsightFor(item.name)?.formula || "" })),
+  });
+  return { routine: purchases?.routine || null, history, flags };
 }
 
 async function loadProducts(env) {
@@ -185,11 +199,10 @@ async function handleInsight(env, clientId) {
   if (!client) return jsonResponse({ message: "Client not found" }, 404);
 
   const notes = await db.listNotesForClient(env, clientId);
-  const products = await loadProducts(env);
-  const routine = await currentRoutineFor(env, products, client.square_customer_id).catch(() => null);
+  const { routine, history, flags } = await loadClientPurchases(env, client, notes);
 
   try {
-    const summary = await summarizeClient(env, { client, notes, routine });
+    const summary = await summarizeClient(env, { client, notes, routine, history, flags });
     return jsonResponse({ summary });
   } catch (error) {
     console.error("Client summary failed:", error.message);
@@ -268,11 +281,9 @@ export async function handleAdminRequest(request, env, url) {
   if (clientMatch && segments.length === 3 && method === "GET") {
     const client = await db.getClient(env, clientMatch);
     if (!client) return notFound();
-    const [notes, products, sourceFiles] = await Promise.all([
-      db.listNotesForClient(env, clientMatch), loadProducts(env), db.listSourceFiles(env, clientMatch),
-    ]);
-    const routine = await currentRoutineFor(env, products, client.square_customer_id).catch(() => null);
-    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, sourceFiles }) }));
+    const [notes, sourceFiles] = await Promise.all([db.listNotesForClient(env, clientMatch), db.listSourceFiles(env, clientMatch)]);
+    const { routine, history, flags } = await loadClientPurchases(env, client, notes);
+    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, history, flags, sourceFiles }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {

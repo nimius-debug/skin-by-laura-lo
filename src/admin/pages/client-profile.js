@@ -1,6 +1,6 @@
 import { html } from "../../html.js";
 import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
-import { productInsightFor } from "../../product-insights.js";
+import { productInsightFor, shortGoodFor } from "../../product-insights.js";
 
 // The sheet's own column names, in the order Laura reads them.
 const SHEET_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Possible treatments"];
@@ -14,15 +14,60 @@ function sourceLabel(note) {
   return note.source === "square" ? "From Square" : "From the Excel sheet";
 }
 
-// One product in the routine: what it is, its published ingredient list, and what to keep in mind.
+function thumb(item) {
+  return item.image
+    ? html`<img class="thumb" src="${item.image}" alt="" width="44" height="44" loading="lazy" />`
+    : html`<span class="thumb thumb-blank" aria-hidden="true"></span>`;
+}
+
+// One product in the routine: its photo, who it suits, what it does, its published ingredient list, and what to keep in mind.
 function routineItem(item) {
   const insight = productInsightFor(item.name);
+  const goodFor = shortGoodFor(item.name);
+  const tags = (insight?.tags || []).slice(0, 4);
   return html`
     <div class="routine-item">
-      <div class="routine-name">${item.name}</div>
-      <div class="routine-what">${insight ? insight.summary : "No product details on file yet."}</div>
-      ${insight?.formula ? html`<details class="routine-ingredients"><summary>Ingredients as published</summary><p>${insight.formula}</p></details>` : ""}
-      ${insight?.keepInMind ? html`<div class="routine-keep">Keep in mind: ${insight.keepInMind}</div>` : ""}
+      ${thumb(item)}
+      <div class="routine-body">
+        <div class="routine-name">${item.name}</div>
+        ${goodFor ? html`<div class="routine-what"><strong>Good for:</strong> ${goodFor}</div>` : html`<div class="routine-what">No product details on file yet.</div>`}
+        ${tags.length ? html`<div class="tag-row">${tags.map((tag) => html`<span class="tag-chip">${tag}</span>`)}</div>` : ""}
+        ${insight?.formula ? html`<details class="routine-ingredients"><summary>Ingredients as published</summary><p>${insight.formula}</p></details>` : ""}
+        ${insight?.keepInMind ? html`<div class="routine-keep"><strong>Keep in mind:</strong> ${insight.keepInMind}</div>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+// Everything she has bought, newest first, with how many and when.
+function historyItem(item) {
+  const last = formatDate(item.lastBought);
+  return html`
+    <div class="history-item">
+      ${thumb(item)}
+      <div class="history-body">
+        <div class="routine-name">${item.name}</div>
+        <div class="history-meta">${item.count > 1 ? `${item.count} bought · ` : ""}last ${last || "date unknown"}</div>
+      </div>
+    </div>
+  `;
+}
+
+// Allergies and anything else to double-check, found by comparing her notes with what she has bought.
+function flagsCard(flags) {
+  if (!flags.length) return "";
+  return html`
+    <div class="card flags-card">
+      <div class="section-label">Heads-up</div>
+      <div class="flag-list">
+        ${flags.map((flag) => html`
+          <div class="flag-item flag-level-${flag.level}">
+            <span class="flag-icon" aria-hidden="true">${flag.level === "warn" ? "⚠" : "•"}</span>
+            <div><strong>${flag.title}.</strong> ${flag.detail}</div>
+          </div>
+        `)}
+      </div>
+      <div class="flag-foot">From her notes and what she has bought. A prompt to double-check ingredient lists, not medical advice.</div>
     </div>
   `;
 }
@@ -104,7 +149,7 @@ function insightCard(client) {
   `;
 }
 
-export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) {
+export function clientProfilePage({ client, notes, routine, history = [], flags = [], sourceFiles = [] }) {
   return html`
     <a href="/admin" class="back-link">← All clients</a>
 
@@ -117,6 +162,7 @@ export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) 
 
     <div class="two-col">
       <div class="main">
+        ${flagsCard(flags)}
         ${insightCard(client)}
 
         <div class="section-label">Notes</div>
@@ -135,6 +181,13 @@ export function clientProfilePage({ client, notes, routine, sourceFiles = [] }) 
               <a href="${routine.squareOrderUrl}" target="_blank" rel="noopener" style="font-size: 12.5px;">View in Square</a>
             `
             : html`<div style="color: var(--ink-soft); font-size: 13px;">No completed Square orders yet.</div>`}
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="section-label">Everything she has bought</div>
+          ${history.length
+            ? history.map(historyItem)
+            : html`<div style="color: var(--ink-soft); font-size: 13px;">No product purchases found in Square.</div>`}
         </div>
       </div>
     </div>

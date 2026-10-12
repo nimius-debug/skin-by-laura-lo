@@ -193,7 +193,7 @@ const routineHtml = toString(clientProfilePage({
   routine: { items: [{ name: "Mixi Clean" }, { name: "Made Up Toner" }], orderedAt: "2026-09-18T00:00:00Z", squareOrderUrl: "#" },
   sourceFiles: [],
 }));
-check("the routine says what each product is", routineHtml.includes("sulfate-free gel cleanser"), true);
+check("the routine says in one line who each product is good for", routineHtml.includes("Good for:") && routineHtml.includes("Sensitive and acne-prone skin wanting a gentle"), true);
 check("the routine shows the ingredient list for a reviewed product", routineHtml.includes("Ingredients as published") && routineHtml.includes("Watermelon Extract"), true);
 check("an unreviewed product says so instead of staying silent", routineHtml.includes("No product details on file yet."), true);
 
