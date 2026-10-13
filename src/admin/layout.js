@@ -9,12 +9,16 @@ const ADMIN_STYLES = `
 body { margin: 0; font-family: 'Work Sans', system-ui, sans-serif; color: var(--ink); background: var(--ground); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: #96583C; }
-.admin-shell { display: flex; flex-wrap: wrap; min-height: 100vh; }
+.admin-shell { display: flex; flex-wrap: wrap; align-content: flex-start; min-height: 100vh; }
 .admin-nav { flex: none; width: 220px; min-height: 100vh; box-sizing: border-box; background: var(--ink); padding: 28px 18px; display: flex; flex-direction: column; gap: 4px; }
 .admin-nav .brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 17px; color: var(--ground); padding: 0 14px 22px; }
 .admin-nav a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; color: #D9CFC2; }
 .admin-nav a.active { background: var(--accent); color: #FFF8F2; font-weight: 600; }
 .admin-nav .spacer { flex: 1; }
+/* Same size, padding and colour as an inactive nav link, so it reads as part of the same list. */
+.logout-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; width: 100%; cursor: pointer; font-family: inherit; font-size: 14px; color: #D9CFC2; padding: 10px 14px; border-radius: 10px; }
+.logout-btn:hover { color: #FFF8F2; background: #3A322B; }
+.logout-btn:focus-visible { outline: 2px solid var(--accent); }
 .admin-nav .signed-in { font-size: 11px; color: #8A7E70; padding: 0 14px; line-height: 1.4; }
 .admin-main { flex: 999 1 560px; min-width: 0; padding: 36px 44px; display: flex; flex-direction: column; gap: 22px; }
 h1.page-title { margin: 0; font-family: 'Fraunces', serif; font-weight: 600; font-size: 28px; }
@@ -131,6 +135,14 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .insight ul.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .insight ul.checklist li { display: flex; gap: 10px; align-items: flex-start; }
 .insight ul.checklist li::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 4px; border: 1.5px solid var(--accent); border-radius: 4px; }
+@media (max-width: 760px) {
+  .admin-nav { width: 100%; min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 12px; }
+  .admin-nav .brand { padding: 0 10px 0 4px; font-size: 15px; }
+  .admin-nav a { padding: 8px 12px; }
+  .logout-btn { width: auto; padding: 8px 12px; }
+  .admin-nav .spacer { flex: 1; }
+  .admin-main { flex-basis: 100%; }
+}
 @media (max-width: 640px) {
   .admin-main { padding: 24px 16px; }
   .insight th, .insight td { padding: 8px 10px; }
@@ -144,8 +156,6 @@ const LOGIN_STYLES = `
 .login-form { display: flex; flex-direction: column; gap: 14px; }
 .login-form .btn { justify-content: center; }
 .login-error { color: var(--danger); font-size: 13.5px; }
-.logout-btn { all: unset; cursor: pointer; font-size: 13px; color: #D9CFC2; padding: 0 14px; }
-.logout-btn:hover { color: #FFF8F2; }
 `;
 
 function nav(active) {
