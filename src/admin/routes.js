@@ -8,8 +8,9 @@ import { jsonResponse } from "../layout.js";
 import { adminPage, adminHtmlResponse, loginPage } from "./layout.js";
 import {
   adminAuthConfigured, clearedSessionCookie, createSessionToken, credentialsMatch,
-  isValidSession, readSessionCookie, sessionCookie,
+  isValidSession, readSession, readSessionCookie, sessionCookie, shouldRenew,
 } from "./auth.js";
+import { clearFailures, lockedFor, loginKey, recordFailure } from "./lockout.js";
 import { clientsPage } from "./pages/clients.js";
 import { clientProfilePage } from "./pages/client-profile.js";
 import { uploadPage } from "./pages/upload.js";
@@ -23,6 +24,8 @@ import { productInsightFor } from "../product-insights.js";
 import { syncClientsFromSquare } from "./sync.js";
 import * as storage from "./storage.js";
 import { ADMIN_CLIENT_JS } from "./client.js";
+import { MANIFEST, OFFLINE_HTML, SERVICE_WORKER_JS } from "./pwa.js";
+import { iconBytes } from "./icons.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
 // sheet. Flip to true to bring the upload pages and routes back.
@@ -36,18 +39,30 @@ function redirect(location, headers = {}) {
   return new Response(null, { status: 303, headers: { location, "cache-control": "no-store", ...headers } });
 }
 
+const tooManyTries = (minutes) => `Too many wrong tries. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+
 async function handleLogin(request, env) {
   if (!adminAuthConfigured(env)) {
     return adminHtmlResponse(loginPage({ configured: false }), { status: 503 });
   }
+  const key = loginKey(request);
+  const locked = await lockedFor(env, key);
+  if (locked) return adminHtmlResponse(loginPage({ error: tooManyTries(locked) }), { status: 429 });
+
   const form = await request.formData().catch(() => null);
   const username = String(form?.get("username") || "");
   const password = String(form?.get("password") || "");
+  const remember = form?.get("remember") === "on";
   if (!(await credentialsMatch(env, username, password))) {
-    return adminHtmlResponse(loginPage({ error: "Wrong username or password.", username }), { status: 401 });
+    const nowLocked = await recordFailure(env, key);
+    return adminHtmlResponse(
+      loginPage({ error: nowLocked ? tooManyTries(nowLocked) : "Wrong username or password.", username, remember }),
+      { status: nowLocked ? 429 : 401 },
+    );
   }
-  const token = await createSessionToken(env);
-  return redirect("/admin", { "set-cookie": sessionCookie(token) });
+  await clearFailures(env, key);
+  const token = await createSessionToken(env, Date.now(), { remember });
+  return redirect("/admin", { "set-cookie": sessionCookie(token, { remember }) });
 }
 
 /** The shop catalog, and whether it could be read. Without it, products can't be told apart from services. */
@@ -276,8 +291,38 @@ export async function handleAdminRequest(request, env, url) {
 
   if (url.pathname === "/admin/assets/admin.js") {
     return new Response(ADMIN_CLIENT_JS, {
-      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" },
+      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=31536000, immutable" },
     });
+  }
+
+  // The Home Screen app's service worker and offline screen. Public, and they hold no client data.
+  if (url.pathname === "/admin/sw.js" && method === "GET") {
+    return new Response(SERVICE_WORKER_JS, {
+      headers: {
+        "content-type": "text/javascript; charset=utf-8",
+        "cache-control": "no-cache",
+        // Lets a worker served from /admin/ look after /admin itself (the clients list).
+        "service-worker-allowed": "/admin",
+      },
+    });
+  }
+  if (url.pathname === "/admin/offline" && method === "GET") {
+    return new Response(OFFLINE_HTML, {
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache", "x-robots-tag": "noindex, nofollow" },
+    });
+  }
+
+  // The Home Screen app's manifest and icons. Public: the phone fetches them without the login cookie.
+  if (url.pathname === "/admin/manifest.webmanifest" && method === "GET") {
+    return new Response(JSON.stringify(MANIFEST), {
+      headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=3600" },
+    });
+  }
+  const iconMatch = url.pathname.match(/^\/admin\/assets\/([a-z0-9-]+\.png)$/);
+  if (iconMatch && method === "GET") {
+    const bytes = iconBytes(iconMatch[1]);
+    if (!bytes) return notFound();
+    return new Response(bytes, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" } });
   }
 
   if (url.pathname === "/admin/login" && method === "GET") {
@@ -293,11 +338,22 @@ export async function handleAdminRequest(request, env, url) {
     return redirect("/admin/login", { "set-cookie": clearedSessionCookie() });
   }
 
-  if (!(await isValidSession(env, readSessionCookie(request)))) {
+  const session = await readSession(env, readSessionCookie(request));
+  if (!session) {
     if (method === "GET") return redirect("/admin/login");
     return jsonResponse({ message: "Please log in to the admin first." }, 401);
   }
 
+  const response = await handleSignedIn(request, env, url, segments, method);
+  // "Keep me signed in": each day of use pushes the 90 days forward, so a phone that is used stays signed in.
+  if (!shouldRenew(session)) return response;
+  const renewed = new Response(response.body, response);
+  renewed.headers.append("set-cookie", sessionCookie(await createSessionToken(env, Date.now(), { remember: true }), { remember: true }));
+  return renewed;
+}
+
+/** Every route that needs a signed-in session. */
+async function handleSignedIn(request, env, url, segments, method) {
   // GET /admin
   if (url.pathname === "/admin" && method === "GET") {
     const clients = await db.listClients(env);
@@ -328,7 +384,7 @@ export async function handleAdminRequest(request, env, url) {
       // null when the purchases couldn't be read, so the page doesn't claim it is out of date.
       current: purchasesFailed ? null : saved.hash === (await summaryInputHash(env, { client, notes, routine, history, flags })),
     };
-    return adminHtmlResponse(adminPage({ title: client.name, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, purchases: { syncedAt, source, failed: purchasesFailed } }) }));
+    return adminHtmlResponse(adminPage({ title: client.name, back: { href: "/admin", label: "Clients" }, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, purchases: { syncedAt, source, failed: purchasesFailed } }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {
