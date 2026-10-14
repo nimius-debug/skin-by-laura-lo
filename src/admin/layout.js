@@ -1,13 +1,11 @@
 import { html, toString, raw } from "../html.js";
-import { APP_HEAD } from "./pwa.js";
-
-const ASSET_VERSION = "20261011-admin-v1";
+import { APP_HEAD, ASSET_VERSION } from "./pwa.js";
 
 const ADMIN_STYLES = `
 :root { --ink:#2A241F; --ink-soft:#6E6358; --line:#E7DCCB; --ground:#FBF6F0; --surface:#FFFFFF;
   --accent:#B8714F; --accent-soft:#F8EFE7; --good:#6B9071; --warn:#D6A24A; --danger:#C1554A; --muted:#9A8E7E; }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 a, button, summary { -webkit-tap-highlight-color: transparent; }
 body { margin: 0; font-family: 'Work Sans', system-ui, sans-serif; color: var(--ink); background: var(--ground); }
 a { color: var(--accent); text-decoration: none; }
@@ -22,6 +20,11 @@ a:hover { color: #96583C; }
 .logout-btn { all: unset; box-sizing: border-box; display: flex; align-items: center; width: 100%; cursor: pointer; font-family: inherit; font-size: 14px; color: #D9CFC2; padding: 10px 14px; border-radius: 10px; }
 .logout-btn:hover { color: #FFF8F2; background: #3A322B; }
 .logout-btn:focus-visible { outline: 2px solid var(--accent); }
+.admin-nav, .btn, .logout-btn, .routine-summary, .nav-back { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.btn:active { transform: scale(.98); opacity: .9; }
+.admin-nav a:active, .logout-btn:active { opacity: .7; }
+table.data tr.row-link:active { background: #EFE5D8; }
+.nav-back { display: none; }
 .admin-nav .signed-in { font-size: 11px; color: #8A7E70; padding: 0 14px; line-height: 1.4; }
 .admin-main { flex: 999 1 560px; min-width: 0; padding: 36px 44px; display: flex; flex-direction: column; gap: 22px; }
 h1.page-title { margin: 0; font-family: 'Fraunces', serif; font-weight: 600; font-size: 28px; }
@@ -138,46 +141,76 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .insight ul.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
 .insight ul.checklist li { display: flex; gap: 10px; align-items: flex-start; }
 .insight ul.checklist li::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 4px; border: 1.5px solid var(--accent); border-radius: 4px; }
+@view-transition { navigation: auto; }
+.admin-nav { view-transition-name: admin-nav; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+/* Pull to refresh (Home Screen app only; see client.js). */
+.ptr { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 8px); z-index: 30; width: 36px; height: 36px; margin-left: -18px; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 2px 12px rgba(42,36,31,.2); display: flex; align-items: center; justify-content: center;
+  opacity: 0; transform: translateY(-48px); pointer-events: none; transition: opacity .15s; }
+.ptr-spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent); }
+.ptr-ready .ptr-spinner { border-color: var(--accent); }
+.ptr-loading .ptr-spinner { border-color: var(--line); border-top-color: var(--accent); animation: admin-spin .8s linear infinite; }
+/* In the Home Screen app, stop the page bouncing so pull to refresh feels right. */
+@media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }
 @media (max-width: 760px) {
   /* iOS zooms the page when a field under 16px is tapped; this keeps the screen steady. */
   input, textarea { font-size: 16px; }
-  .admin-nav { width: 100%; min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 12px; }
-  .admin-nav .brand { padding: 0 10px 0 4px; font-size: 15px; }
-  .admin-nav a { padding: 8px 12px; }
-  .logout-btn { width: auto; padding: 8px 12px; }
+  .admin-nav { position: sticky; top: 0; z-index: 20; width: 100%; min-height: 0; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 4px;
+    padding: calc(env(safe-area-inset-top) + 4px) max(10px, env(safe-area-inset-right)) 4px max(10px, env(safe-area-inset-left));
+    background: rgba(42, 36, 31, .9); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
+  .admin-nav .brand { padding: 0 10px 0 6px; font-size: 17px; }
+  .admin-nav a { min-height: 44px; padding: 0 12px; }
+  /* The Clients link isn't needed on a phone: the list is the home screen, and client pages have a back button. */
+  .admin-nav a:not(.nav-back) { display: none; }
+  .admin-nav .nav-back { display: flex; gap: 2px; padding: 0 10px 0 2px; font-size: 17px; color: #FFF8F2; }
+  .nav-back-chevron { font-size: 30px; line-height: 1; margin-top: -4px; }
+  .admin-nav.has-back .brand { display: none; }
+  .logout-btn { width: auto; min-height: 44px; padding: 0 12px; font-size: 15px; }
   .admin-nav .spacer { flex: 1; }
-  .admin-main { flex-basis: 100%; }
+  .admin-main { flex-basis: 100%; gap: 18px;
+    padding: 20px max(16px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .back-link { display: none; }
+  .btn { min-height: 44px; }
+  .routine-summary { min-height: 52px; }
+  table.data td { padding-top: 16px; padding-bottom: 16px; }
 }
 @media (max-width: 640px) {
-  .admin-main { padding: 24px 16px; }
   .insight th, .insight td { padding: 8px 10px; }
 }
 `;
 
 const LOGIN_STYLES = `
-.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
-.login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 18px; }
-.login-brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 20px; }
+body.login-body { background: var(--ink); }
+.login-wrap { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  padding: calc(24px + env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+.login-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 18px; padding: 24px 22px; border-radius: 20px; }
+.login-brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; }
 .login-form { display: flex; flex-direction: column; gap: 14px; }
-.login-form .btn { justify-content: center; }
-.login-error { color: var(--danger); font-size: 13.5px; }
+.login-form input[type="text"], .login-form input[type="password"] { min-height: 48px; font-size: 16px; }
+.login-remember { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; color: var(--ink-soft); }
+.login-remember input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+.login-form .btn { justify-content: center; min-height: 50px; font-size: 16px; border-radius: 12px; }
+.login-error { color: var(--danger); font-size: 14px; }
 `;
 
-function nav(active) {
+function nav(active, back) {
   const link = (href, label, key) => html`<a href="${href}"${active === key ? raw(' class="active"') : ""}>${label}</a>`;
   return html`
-    <div class="admin-nav">
+    <nav class="admin-nav${back ? " has-back" : ""}" aria-label="Admin">
+      ${back ? html`<a class="nav-back" href="${back.href}"><span class="nav-back-chevron" aria-hidden="true">‹</span>${back.label}</a>` : ""}
       <div class="brand">Laura — Admin</div>
       ${link("/admin", "Clients", "clients")}
       <div class="spacer"></div>
       <form method="post" action="/admin/logout" style="margin: 0;">
         <button type="submit" class="logout-btn">Log out</button>
       </form>
-    </div>
+    </nav>
   `;
 }
 
-export function loginPage({ error = "", username = "", configured = true } = {}) {
+export function loginPage({ error = "", username = "", configured = true, remember = true } = {}) {
   return toString(html`<!doctype html>
 <html lang="en">
 <head>
@@ -188,17 +221,21 @@ ${raw(APP_HEAD)}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&display=swap" />
 <style>${raw(ADMIN_STYLES)}${raw(LOGIN_STYLES)}</style>
 </head>
-<body>
+<body class="login-body">
 <main class="login-wrap">
   <div class="card login-card">
     <div class="login-brand">Laura — Admin</div>
     ${configured
       ? html`<form method="post" action="/admin/login" class="login-form">
           <label class="field">Username
-            <input type="text" name="username" value="${username}" autocomplete="username" required autofocus />
+            <input type="text" name="username" value="${username}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required />
           </label>
           <label class="field">Password
-            <input type="password" name="password" autocomplete="current-password" required />
+            <input type="password" name="password" autocomplete="current-password" enterkeyhint="go" required />
+          </label>
+          <label class="login-remember">
+            <input type="checkbox" name="remember" value="on"${remember ? raw(" checked") : ""} />
+            Keep me signed in on this device
           </label>
           ${error ? html`<div class="login-error" role="alert">${error}</div>` : ""}
           <button type="submit" class="btn btn-primary">Log in</button>
@@ -211,7 +248,7 @@ ${raw(APP_HEAD)}
 }
 
 /** Admin page shell. Deliberately separate from the storefront's page() — different audience, no cart/header/footer. */
-export function adminPage({ title, body, active = "clients" }) {
+export function adminPage({ title, body, active = "clients", back = null }) {
   return toString(html`<!doctype html>
 <html lang="en">
 <head>
@@ -224,7 +261,7 @@ ${raw(APP_HEAD)}
 </head>
 <body>
 <div class="admin-shell">
-${nav(active)}
+${nav(active, back)}
 <div class="admin-main">${body}</div>
 </div>
 <script src="/admin/assets/admin.js?v=${ASSET_VERSION}" defer></script>

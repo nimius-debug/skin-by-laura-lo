@@ -12,7 +12,7 @@ export function clientsPage({ clients }) {
         <h1 class="page-title">Clients</h1>
         <div style="font-size: 13px; color: var(--ink-soft); margin-top: 2px;">${clients.length} client${clients.length === 1 ? "" : "s"} — synced from Square bookings</div>
       </div>
-      <input type="search" id="client-search" placeholder="Search clients" aria-label="Search clients" style="width: 220px;" />
+      <input type="search" id="client-search" placeholder="Search clients" aria-label="Search clients" enterkeyhint="search" autocapitalize="none" autocorrect="off" spellcheck="false" style="width: 220px; max-width: 100%;" />
       <button type="button" class="btn btn-primary" id="sync-btn">Sync from Square</button>
     </div>
     <div id="sync-status" style="font-size: 13px; color: var(--ink-soft);"></div>

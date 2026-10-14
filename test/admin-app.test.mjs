@@ -18,7 +18,7 @@ check("the manifest is public and served as a web manifest", [manifestRes.status
 const manifest = await manifestRes.json();
 check("it opens the admin as a standalone app", [manifest.display, manifest.start_url], ["standalone", "/admin"]);
 check("the start page is inside the app's scope", manifest.start_url.startsWith(manifest.scope), true);
-check("it names the app and sets brand colours", [manifest.short_name, manifest.theme_color, manifest.background_color], ["Laura Admin", "#2A241F", "#FBF6F0"]);
+check("it names the app and sets brand colours", [manifest.short_name, manifest.theme_color, manifest.background_color], ["Laura Admin", "#2A241F", "#2A241F"]);
 check("the manifest holds nothing but app details", Object.keys(MANIFEST).sort(),
   ["background_color", "display", "icons", "id", "name", "scope", "short_name", "start_url", "theme_color"]);
 
@@ -44,8 +44,8 @@ check("the admin itself still needs a login", [clientsRes.status, clientsRes.hea
 for (const [name, markup] of [["admin pages", adminPage({ title: "Clients", body: "<p>x</p>" })], ["the login page", loginPage({})]]) {
   check(`${name} link the manifest and the iPhone icon`,
     markup.includes('rel="manifest" href="/admin/manifest.webmanifest"') && markup.includes('rel="apple-touch-icon" href="/admin/assets/apple-touch-icon.png"'), true);
-  check(`${name} ask iOS to open as a full-screen app with a dark status bar`,
-    markup.includes('name="apple-mobile-web-app-capable" content="yes"') && markup.includes('name="apple-mobile-web-app-status-bar-style" content="black"') && markup.includes('name="theme-color" content="#2A241F"'), true);
+  check(`${name} ask iOS to open full screen, running under a translucent status bar`,
+    markup.includes('name="apple-mobile-web-app-capable" content="yes"') && markup.includes('name="apple-mobile-web-app-status-bar-style" content="black-translucent"') && markup.includes('name="theme-color" content="#2A241F"'), true);
 }
 check("on a phone, fields are 16px so iOS doesn't zoom in when one is tapped",
   /@media \(max-width: 760px\)\s*\{[^}]*input, textarea \{ font-size: 16px; \}/.test(adminPage({ title: "x", body: "" })), true);

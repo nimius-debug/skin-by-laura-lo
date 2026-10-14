@@ -393,10 +393,67 @@ export const ADMIN_CLIENT_JS = String.raw`
     }
   }
 
+  /* --------------------------------------------------- Home Screen app */
+
+  function isHomeScreenApp() {
+    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  }
+
+  // Keeps the app's own files on the phone and shows an offline screen with no connection.
+  // It never stores client pages (see /admin/sw.js).
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/admin/sw.js", { scope: "/admin" }).catch(function () { /* the app works without it */ });
+  }
+
+  // A Home Screen app has no browser reload, so pulling down at the top of a page reloads it, like a native list.
+  function wirePullToRefresh() {
+    if (!isHomeScreenApp()) return;
+    var THRESHOLD = 72;
+    var indicator = document.createElement("div");
+    indicator.className = "ptr";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.innerHTML = '<span class="ptr-spinner"></span>';
+    document.body.appendChild(indicator);
+
+    var startY = null;
+    var pulled = 0;
+    function reset() {
+      indicator.style.transform = "";
+      indicator.style.opacity = "";
+      indicator.classList.remove("ptr-ready");
+    }
+    window.addEventListener("touchstart", function (event) {
+      startY = window.scrollY <= 0 && event.touches.length === 1 ? event.touches[0].clientY : null;
+      pulled = 0;
+    }, { passive: true });
+    window.addEventListener("touchmove", function (event) {
+      if (startY === null) return;
+      pulled = Math.max(0, event.touches[0].clientY - startY);
+      if (window.scrollY > 0) { startY = null; reset(); return; }
+      var distance = Math.min(pulled, 120);
+      indicator.style.transform = "translateY(" + (distance - 48) + "px)";
+      indicator.style.opacity = String(Math.min(1, distance / THRESHOLD));
+      indicator.classList.toggle("ptr-ready", distance >= THRESHOLD);
+    }, { passive: true });
+    window.addEventListener("touchend", function () {
+      if (startY === null) return;
+      startY = null;
+      if (pulled >= THRESHOLD) {
+        indicator.classList.add("ptr-loading");
+        window.location.reload();
+      } else {
+        reset();
+      }
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     wireClientsPage();
     wireClientProfilePage();
     wireUploadPage();
+    registerServiceWorker();
+    wirePullToRefresh();
   });
 })();
 `;

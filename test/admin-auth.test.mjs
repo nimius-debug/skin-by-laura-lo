@@ -30,11 +30,13 @@ check("a session expires after 12 hours", await isValidSession(env, token, NOW +
 check("a missing cookie is not a session", await isValidSession(env, null, NOW), false);
 check("a made-up cookie is not a session", await isValidSession(env, "9999999999.abc", NOW), false);
 
-const [expires, signature] = token.split(".");
-const tampered = `${expires}.${signature.slice(0, -1)}${signature.endsWith("0") ? "1" : "0"}`;
+const [expires, kind, signature] = token.split(".");
+const tampered = `${expires}.${kind}.${signature.slice(0, -1)}${signature.endsWith("0") ? "1" : "0"}`;
 check("a tampered signature is rejected", await isValidSession(env, tampered, NOW), false);
-const pushedExpiry = `${Number(expires) + 3600}.${signature}`;
+const pushedExpiry = `${Number(expires) + 3600}.${kind}.${signature}`;
 check("a changed expiry is rejected", await isValidSession(env, pushedExpiry, NOW), false);
+check("a short session can't be turned into a remembered one", await isValidSession(env, `${expires}.r.${signature}`, NOW), false);
+check("an old two-part token is not a session", await isValidSession(env, `${expires}.${signature}`, NOW), false);
 
 const rotated = { ...env, ADMIN_PASSWORD: "a new password" };
 check("changing the password signs old sessions out", await isValidSession(rotated, token, NOW), false);
