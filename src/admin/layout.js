@@ -1,4 +1,5 @@
 import { html, toString, raw } from "../html.js";
+import { APP_HEAD } from "./pwa.js";
 
 const ASSET_VERSION = "20261011-admin-v1";
 
@@ -6,6 +7,8 @@ const ADMIN_STYLES = `
 :root { --ink:#2A241F; --ink-soft:#6E6358; --line:#E7DCCB; --ground:#FBF6F0; --surface:#FFFFFF;
   --accent:#B8714F; --accent-soft:#F8EFE7; --good:#6B9071; --warn:#D6A24A; --danger:#C1554A; --muted:#9A8E7E; }
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+a, button, summary { -webkit-tap-highlight-color: transparent; }
 body { margin: 0; font-family: 'Work Sans', system-ui, sans-serif; color: var(--ink); background: var(--ground); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: #96583C; }
@@ -136,6 +139,8 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .insight ul.checklist li { display: flex; gap: 10px; align-items: flex-start; }
 .insight ul.checklist li::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 4px; border: 1.5px solid var(--accent); border-radius: 4px; }
 @media (max-width: 760px) {
+  /* iOS zooms the page when a field under 16px is tapped; this keeps the screen steady. */
+  input, textarea { font-size: 16px; }
   .admin-nav { width: 100%; min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 10px 12px; }
   .admin-nav .brand { padding: 0 10px 0 4px; font-size: 15px; }
   .admin-nav a { padding: 8px 12px; }
@@ -177,7 +182,7 @@ export function loginPage({ error = "", username = "", configured = true } = {})
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+${raw(APP_HEAD)}
 <meta name="robots" content="noindex, nofollow" />
 <title>Log in · Admin</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&display=swap" />
@@ -211,7 +216,7 @@ export function adminPage({ title, body, active = "clients" }) {
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+${raw(APP_HEAD)}
 <meta name="robots" content="noindex, nofollow" />
 <title>${title ? `${title} · Admin` : "Admin"}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&display=swap" />

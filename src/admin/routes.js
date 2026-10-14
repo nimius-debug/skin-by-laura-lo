@@ -23,6 +23,8 @@ import { productInsightFor } from "../product-insights.js";
 import { syncClientsFromSquare } from "./sync.js";
 import * as storage from "./storage.js";
 import { ADMIN_CLIENT_JS } from "./client.js";
+import { MANIFEST } from "./pwa.js";
+import { iconBytes } from "./icons.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
 // sheet. Flip to true to bring the upload pages and routes back.
@@ -278,6 +280,19 @@ export async function handleAdminRequest(request, env, url) {
     return new Response(ADMIN_CLIENT_JS, {
       headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=300" },
     });
+  }
+
+  // The Home Screen app's manifest and icons. Public: the phone fetches them without the login cookie.
+  if (url.pathname === "/admin/manifest.webmanifest" && method === "GET") {
+    return new Response(JSON.stringify(MANIFEST), {
+      headers: { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=3600" },
+    });
+  }
+  const iconMatch = url.pathname.match(/^\/admin\/assets\/([a-z0-9-]+\.png)$/);
+  if (iconMatch && method === "GET") {
+    const bytes = iconBytes(iconMatch[1]);
+    if (!bytes) return notFound();
+    return new Response(bytes, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" } });
   }
 
   if (url.pathname === "/admin/login" && method === "GET") {
