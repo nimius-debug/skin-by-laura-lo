@@ -26,6 +26,7 @@ import * as storage from "./storage.js";
 import { ADMIN_CLIENT_JS } from "./client.js";
 import { MANIFEST, OFFLINE_HTML, SERVICE_WORKER_JS } from "./pwa.js";
 import { iconBytes } from "./icons.js";
+import { handleCampaignRoute } from "./campaigns/routes.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
 // sheet. Flip to true to bring the upload pages and routes back.
@@ -364,6 +365,9 @@ async function handleSignedIn(request, env, url, segments, method) {
   if (url.pathname === "/admin/sync" && method === "POST") {
     return handleSync(env);
   }
+
+  const campaignResponse = await handleCampaignRoute(request, env, url, segments, method);
+  if (campaignResponse) return campaignResponse;
 
   const clientMatch = segments[1] === "clients" ? segments[2] : null;
 

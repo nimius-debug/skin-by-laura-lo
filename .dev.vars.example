@@ -21,3 +21,7 @@ ANTHROPIC_API_KEY=""
 # Login for /admin. Leave empty and /admin refuses everyone.
 ADMIN_USERNAME=""
 ADMIN_PASSWORD=""
+
+# Email campaigns (/admin/campaigns). Sends through Resend; leave empty locally
+# so nothing is ever emailed from a dev machine.
+RESEND_API_KEY=""

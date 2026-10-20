@@ -46,5 +46,6 @@ export function schemaMigrations() {
     read("0003_client_summaries.sql"),
     read("0004_client_purchases.sql"),
     read("0005_admin_login_attempts.sql"),
+    read("0006_email_campaigns.sql"),
   ];
 }

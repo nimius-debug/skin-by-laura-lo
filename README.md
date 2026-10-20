@@ -243,6 +243,53 @@ is signed with the password, so changing `ADMIN_PASSWORD` signs everyone out.
 PDF/image note uploads are switched off (`UPLOADS_ENABLED` in
 `src/admin/routes.js`) while notes come from the Excel sheet.
 
+### Email campaigns
+
+`/admin/campaigns` writes and sends the twice-weekly client email (Tuesday
+and Thursday). Square has no API for its own marketing emails, so they go
+out through [Resend](https://resend.com).
+
+1. **Write.** Type the week's idea, or tap the microphone and say it. The
+   recording is typed out by Workers AI (Whisper, the `AI` binding) and
+   added to the text; the audio is never stored.
+2. **Find clients.** Claude writes one shared email in Laura's voice, plus
+   a list of words to look for. Every client's notes and stored purchases
+   are searched for those words, and only clients with a hit are sent to
+   Claude (first name only, no surname), which decides whether they really
+   relate and writes a short personal note. Personal notes never name
+   medications, pregnancy, allergies or diagnoses, and stay gentle for
+   clients flagged as sensitive.
+3. **Review.** Every version (the shared one and each personal one) is
+   approved, edited, or rejected and redrafted with Laura's feedback. On a
+   phone the versions and the preview are two tabs.
+4. **Send.** Everyone in Square with an email address gets it, except
+   people who unsubscribed (here or in Square). Clients with an approved
+   personal version get that; everyone else gets the shared email.
+   Emails are queued and sent by the scheduled run every 15 minutes, at
+   most `EMAIL_DAILY_LIMIT` a day (95, under Resend's free 100), so a
+   longer list finishes the next day.
+
+Every email has the studio's address, an unsubscribe link, and one-click
+unsubscribe headers. Unsubscribe links are signed, open a confirmation page
+first (so mail scanners can't unsubscribe anyone), and are kept in D1.
+
+**Reminders.** On Tuesday and Thursday at 9:00 am (Tampa time) Laura gets a
+reminder email at `REMINDER_EMAIL` with three topic ideas from recent notes,
+and a phone notification on any phone where she tapped "Turn on phone
+notifications" (on an iPhone this works in the Home Screen app). Each day
+can be switched off on the Campaigns page. No reminder is sent if a
+campaign was already started that day.
+
+**Setup.** Migration `0006_email_campaigns.sql` creates the tables. Then:
+
+1. Create a Resend account and verify `skinbylauralo.com` (Resend shows DNS
+   records to add in Cloudflare DNS).
+2. `npx wrangler secret put RESEND_API_KEY`
+3. Check `CAMPAIGN_FROM_EMAIL`, `REMINDER_EMAIL` and `EMAIL_DAILY_LIMIT`
+   under `[vars]` in `wrangler.toml`. Replies go to `SUPPORT_EMAIL`.
+4. `npx wrangler deploy`, which also turns on the `AI` binding and the
+   15-minute cron trigger.
+
 ## Not built (deliberately)
 
 Blueprint phases intentionally left out — see §7 of the blueprint:
