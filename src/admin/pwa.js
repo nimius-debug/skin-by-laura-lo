@@ -95,8 +95,9 @@ const SHELL_FILES = [
 const SHELL_VERSION = contentVersion(SHELL_FILES.join("|") + OFFLINE_HTML);
 
 /** The service worker, served from /admin/sw.js with its scope widened to /admin. */
-export const SERVICE_WORKER_JS = `// Laura Admin service worker. Keeps the app's own files on the phone for fast launches
-// and shows an offline screen when there's no connection. It never stores client pages or data.
+export const SERVICE_WORKER_JS = `// Laura Admin service worker. Keeps the app's own files on the phone for fast launches,
+// shows an offline screen when there's no connection, and shows the email reminders.
+// It never stores client pages or data.
 const CACHE = "admin-shell-${SHELL_VERSION}";
 const SHELL = ${JSON.stringify(SHELL_FILES)};
 
@@ -110,6 +111,21 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys.filter((key) => key.startsWith("admin-shell-") && key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
+});
+
+// Tuesday and Thursday reminders. The push carries no data, so the message is fixed here.
+self.addEventListener("push", (event) => {
+  event.waitUntil(self.registration.showNotification("Time for this week's email", {
+    body: "Tap to write today's email to your clients.",
+    icon: "/admin/assets/icon-192.png",
+    badge: "/admin/assets/icon-192.png",
+    tag: "campaign-reminder",
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow("/admin/campaigns/new"));
 });
 
 self.addEventListener("fetch", (event) => {

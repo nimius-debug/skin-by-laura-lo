@@ -46,6 +46,13 @@ HIDE_SOLD_OUT = "false"
 # Set to "false" to show uncategorized products again.
 HIDE_UNCATEGORIZED = "true"
 
+# Email campaigns (/admin/campaigns). Emails go out through Resend, from an
+# address on a domain verified in Resend; replies go to SUPPORT_EMAIL in
+# src/config.js. Nothing sends until the RESEND_API_KEY secret is set.
+CAMPAIGN_FROM_EMAIL = "laura@skinbylauralo.com"
+REMINDER_EMAIL = "skinbylauralo@gmail.com" # Tuesday/Thursday reminders and test emails
+EMAIL_DAILY_LIMIT = "95"                   # Resend's free plan allows 100 a day
+
 # ---------------------------------------------------------------------------
 # Secrets — DO NOT put these here. Set them with:
 #   npx wrangler secret put SQUARE_ACCESS_TOKEN
@@ -55,6 +62,7 @@ HIDE_UNCATEGORIZED = "true"
 #   npx wrangler secret put ANTHROPIC_MODEL      (optional override, e.g. a cheaper model)
 #   npx wrangler secret put ADMIN_USERNAME       (login for /admin)
 #   npx wrangler secret put ADMIN_PASSWORD       (login for /admin; changing it signs everyone out)
+#   npx wrangler secret put RESEND_API_KEY       (sends the email campaigns; from resend.com)
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -81,6 +89,15 @@ bucket_name = "skin-by-laura-lo-client-notes"
 # the Worker, so every rendered route is unaffected.
 [assets]
 directory = "./public"
+
+# Voice recording on the "New email" screen is typed out by Workers AI.
+[ai]
+binding = "AI"
+
+# Every 15 minutes: sends queued campaign emails (within the daily limit) and
+# the Tuesday/Thursday 9 am reminders (Tampa time).
+[triggers]
+crons = ["*/15 * * * *"]
 
 [observability]
 enabled = true

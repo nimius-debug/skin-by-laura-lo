@@ -12,6 +12,8 @@ import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
 import { handleAdminRequest } from "./admin/routes.js";
+import { handleUnsubscribe } from "./admin/campaigns/routes.js";
+import { runScheduled } from "./admin/campaigns/schedule.js";
 
 const MAX_QTY = 10;
 const MAX_LINES = 50;
@@ -216,6 +218,11 @@ export default {
       return handleAdminRequest(request, env, url);
     }
 
+    // Unsubscribe links in the client emails. Public: the link itself is signed.
+    if (path === "/email/unsubscribe") {
+      return handleUnsubscribe(request, env, url);
+    }
+
     // ------------------------------------------------------------- assets
     if (path === "/assets/styles.css") return asset(STYLES, "text/css; charset=utf-8");
     if (path === "/assets/cart.js") return asset(CLIENT_JS, "text/javascript; charset=utf-8");
@@ -359,5 +366,11 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
     }
 
     return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+  },
+
+  // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails
+  // within the daily limit, and the Tuesday/Thursday reminders.
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduled(env, new Date(controller.scheduledTime)));
   },
 };
