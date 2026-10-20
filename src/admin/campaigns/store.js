@@ -34,10 +34,11 @@ export async function getCampaign(env, campaignId) {
   return campaignFromRow(await env.CLIENT_NOTES_DB.prepare("SELECT * FROM email_campaigns WHERE id = ?").bind(campaignId).first());
 }
 
-export async function updateCampaign(env, campaignId, { content, usage, status }) {
+export async function updateCampaign(env, campaignId, { content, goal, usage, status }) {
   const sets = [];
   const values = [];
   if (content) { sets.push("content_json = ?"); values.push(JSON.stringify(content)); }
+  if (goal) { sets.push("goal = ?"); values.push(goal); }
   if (usage) { sets.push("usage_json = ?"); values.push(JSON.stringify(usage)); }
   if (status) {
     sets.push("status = ?"); values.push(status);

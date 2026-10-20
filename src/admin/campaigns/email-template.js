@@ -16,9 +16,22 @@ export function escapeHtml(value) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-/** Escaped text with line breaks kept. */
-function lines(value) {
-  return escapeHtml(value).replace(/\r?\n/g, "<br>");
+const LINK = /https?:\/\/[^\s<]+[^\s<.,;:!?)'"]/g;
+
+/**
+ * Escaped text with Laura's light formatting: line breaks kept, **bold**, and
+ * web addresses made clickable. Nothing else becomes markup.
+ */
+function rich(value) {
+  return escapeHtml(value)
+    .replace(/\r?\n/g, "<br>")
+    .replace(/\*\*([^*<]+?)\*\*/g, "<strong>$1</strong>")
+    .replace(LINK, (url) => `<a href="${url}" style="color:${COLORS.accentText};font-weight:bold;">${url}</a>`);
+}
+
+/** The plain-text copy of formatted text: the same words without the ** marks. */
+export function plain(value) {
+  return String(value ?? "").replace(/\*\*([^*]+?)\*\*/g, "$1");
 }
 
 const CALLS_TO_ACTION = {
@@ -30,7 +43,8 @@ const CALLS_TO_ACTION = {
 /**
  * One finished email.
  *   content:  the shared email { subject, preheader, eyebrow, headline, paragraphs[], tips[] }
- *   personal: { personalNote } for a personal version, or null for the shared one
+ *   content.ps: an optional P.S. everyone gets
+ *   personal: { personalNote, ps } for a personal version, or null for the shared one
  *   product:  { label, name, goodFor, note, url, image } or null
  * Returns { subject, html, text }.
  */
@@ -40,6 +54,7 @@ export function renderEmail({ content, personal = null, product = null, firstNam
   const paragraphs = (content.paragraphs || []).filter(Boolean);
   const tips = (content.tips || []).filter(Boolean);
   const note = personal?.personalNote?.trim() || "";
+  const postscripts = [content.ps, personal?.ps].map((ps) => String(ps || "").trim()).filter(Boolean);
 
   const p = (html) => `<p style="margin:0 0 18px;font-family:${SANS};font-size:16px;line-height:1.65;color:${COLORS.ink};">${html}</p>`;
 
@@ -48,7 +63,7 @@ export function renderEmail({ content, personal = null, product = null, firstNam
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.tint};border-radius:12px;">
               <tr><td style="padding:18px 20px;">
                 <div style="font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.accentText};padding-bottom:6px;">A note just for you</div>
-                <div style="font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.ink};">${lines(note)}</div>
+                <div style="font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.ink};">${rich(note)}</div>
               </td></tr>
             </table>
           </td></tr>` : "";
@@ -59,7 +74,7 @@ export function renderEmail({ content, personal = null, product = null, firstNam
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               ${tips.map((tip, index) => `<tr>
                 <td width="34" valign="top" style="padding:0 0 12px;"><div style="width:24px;height:24px;line-height:24px;border-radius:12px;background:${COLORS.ink};color:${COLORS.ground};font-family:${SANS};font-size:13px;font-weight:bold;text-align:center;">${index + 1}</div></td>
-                <td valign="top" style="padding:2px 0 12px;font-family:${SANS};font-size:15.5px;line-height:1.55;color:${COLORS.ink};">${lines(tip)}</td>
+                <td valign="top" style="padding:2px 0 12px;font-family:${SANS};font-size:15.5px;line-height:1.55;color:${COLORS.ink};">${rich(tip)}</td>
               </tr>`).join("")}
             </table>
           </td></tr>` : "";
@@ -73,7 +88,7 @@ export function renderEmail({ content, personal = null, product = null, firstNam
                   <div style="font-family:${SANS};font-size:11.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.accentText};">${escapeHtml(product.label || "Worth a look")}</div>
                   <div style="font-family:${SANS};font-size:16px;font-weight:bold;color:${COLORS.ink};padding:4px 0;">${escapeHtml(product.name)}</div>
                   ${product.goodFor ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};">Good for: ${escapeHtml(product.goodFor)}</div>` : ""}
-                  ${product.note ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;">${lines(product.note)}</div>` : ""}
+                  ${product.note ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;">${rich(product.note)}</div>` : ""}
                   ${product.url ? `<div style="padding-top:8px;"><a href="${escapeHtml(product.url)}" style="font-family:${SANS};font-size:14px;font-weight:bold;color:${COLORS.accentText};">See it in the shop</a></div>` : ""}
                 </td>
               </tr>
@@ -110,11 +125,12 @@ export function renderEmail({ content, personal = null, product = null, firstNam
           <tr><td style="padding:0 0 20px;font-family:${SERIF};font-size:30px;line-height:1.2;font-weight:bold;color:${COLORS.ink};">${escapeHtml(content.headline)}</td></tr>
           <tr><td>${p(`Hi ${escapeHtml(greetingName)},`)}</td></tr>
           ${noteBlock}
-          <tr><td>${paragraphs.map((text) => p(lines(text))).join("")}</td></tr>
+          <tr><td>${paragraphs.map((text) => p(rich(text))).join("")}</td></tr>
           ${tipsBlock}
           ${productBlock}
           ${ctaBlock}
           <tr><td style="padding:0 0 22px;font-family:${SANS};font-size:16px;line-height:1.6;color:${COLORS.ink};">See you soon,<br><span style="font-family:${SERIF};font-size:20px;font-weight:bold;">Laura</span></td></tr>
+          ${postscripts.map((ps) => `<tr><td style="padding:0 0 22px;font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.soft};"><strong>P.S.</strong> ${rich(ps)}</td></tr>`).join("")}
         </table>
       </td></tr>
       <tr><td align="center" style="padding:22px 16px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${COLORS.muted};">
@@ -133,14 +149,15 @@ export function renderEmail({ content, personal = null, product = null, firstNam
     "",
     `Hi ${greetingName},`,
     "",
-    ...(note ? [`A note just for you: ${note}`, ""] : []),
-    ...paragraphs.flatMap((paragraph) => [paragraph, ""]),
-    ...(tips.length ? [content.tipsTitle || "What helps", ...tips.map((tip, index) => `${index + 1}. ${tip}`), ""] : []),
-    ...(product ? [`${product.label || "Worth a look"}: ${product.name}`, ...(product.goodFor ? [`Good for: ${product.goodFor}`] : []), ...(product.note ? [product.note] : []), ...(product.url ? [product.url] : []), ""] : []),
+    ...(note ? [`A note just for you: ${plain(note)}`, ""] : []),
+    ...paragraphs.flatMap((paragraph) => [plain(paragraph), ""]),
+    ...(tips.length ? [content.tipsTitle || "What helps", ...tips.map((tip, index) => `${index + 1}. ${plain(tip)}`), ""] : []),
+    ...(product ? [`${product.label || "Worth a look"}: ${product.name}`, ...(product.goodFor ? [`Good for: ${product.goodFor}`] : []), ...(product.note ? [plain(product.note)] : []), ...(product.url ? [product.url] : []), ""] : []),
     ...(cta ? [`${cta.label}: ${cta.url}`, ""] : []),
     "See you soon,",
     "Laura",
     "",
+    ...postscripts.flatMap((ps) => [`P.S. ${plain(ps)}`, ""]),
     `Skin by Laura Lo · ${BUSINESS_ADDRESS}`,
     `Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n");

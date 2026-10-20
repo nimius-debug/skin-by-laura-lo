@@ -3,7 +3,8 @@
 import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
-import { draftCampaign, redraftPersonal, redraftShared } from "./drafting.js";
+import { costHistory } from "./cost.js";
+import { costEstimateInputs, draftCampaign, redraftPersonal, redraftShared } from "./drafting.js";
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
 import {
@@ -12,6 +13,7 @@ import {
 import { settings } from "../../config.js";
 import * as store from "./store.js";
 import { transcribeAudio } from "./transcribe.js";
+import { voiceHints } from "./voice.js";
 
 const GOALS = new Set(["book", "shop", "news"]);
 const DAY_NAMES = { Tue: "Tuesday", Thu: "Thursday" };
@@ -72,6 +74,16 @@ async function reminderSwitches(env) {
   })));
 }
 
+/** Measured prompt sizes for the cost estimate, or null if the shop or notes can't be read right now. */
+async function estimateInputsOrNull(env, goal) {
+  try {
+    return await costEstimateInputs(env, { goal });
+  } catch (error) {
+    console.error("Measuring the cost estimate failed:", error.message);
+    return null;
+  }
+}
+
 async function homePage(env, url) {
   const [campaigns, reminders] = await Promise.all([store.listCampaigns(env, 20), reminderSwitches(env)]);
   const week = weekSummary(campaigns, new Date(), reminders.filter((reminder) => reminder.on).map((reminder) => reminder.weekday));
@@ -128,9 +140,12 @@ async function reviewPage(env, url, campaignId) {
   const requested = url.searchParams.get("v");
   const selected = versions.find((version) => version.id === requested) || versions[0];
   const view = url.searchParams.get("view") === "preview" || (requested && url.searchParams.get("view") !== "list") ? "preview" : "list";
-  const [counts, estimate] = await Promise.all([
+  const editing = url.searchParams.get("edit") === "1" && campaign.status === "review";
+  const [counts, estimate, costInputs] = await Promise.all([
     store.sendCounts(env, campaignId),
     campaign.status === "review" ? recipientEstimate(env) : null,
+    // Only a rejected version shows the redraft button and what it costs.
+    campaign.status === "review" && selected.status === "rejected" ? estimateInputsOrNull(env, campaign.goal) : null,
   ]);
   return adminHtmlResponse(adminPage({
     title: campaign.content.eyebrow || "Review",
@@ -139,8 +154,8 @@ async function reviewPage(env, url, campaignId) {
     body: campaignReviewPage({
       campaign, versions, selected, view,
       previewHtml: previewFor(env, campaign, selected),
-      counts, estimate, dailyLimit: dailyLimit(env),
-      editing: url.searchParams.get("edit") === "1" && campaign.status === "review",
+      counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing,
+      hints: voiceHints(versionText(campaign, selected)),
       canTest: sendingConfigured(env) && Boolean(env.REMINDER_EMAIL),
       notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
     }),
@@ -150,6 +165,47 @@ async function reviewPage(env, url, campaignId) {
 const lines = (text) => String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 const paragraphs = (text) => String(text || "").split(/\r?\n\s*\r?\n/).map((block) => block.trim()).filter(Boolean);
 const field = (form, name, max) => String(form.get(name) || "").trim().slice(0, max);
+
+/** The words in a version that Laura's voice guide applies to. */
+function versionText(campaign, version) {
+  if (!version.isShared) return [version.personal?.personalNote, version.personal?.product?.note, version.personal?.ps];
+  const content = campaign.content;
+  return [...(content.paragraphs || []), ...(content.tips || []), content.ps];
+}
+
+/** The campaign and version as the editor's form would leave them. Pure: nothing is saved. */
+export function applyEdits(campaign, version, form) {
+  if (version.isShared) {
+    const goal = String(form.get("goal") || "");
+    const content = {
+      ...campaign.content,
+      subject: field(form, "subject", 120) || campaign.content.subject,
+      preheader: field(form, "preheader", 160),
+      eyebrow: field(form, "eyebrow", 60),
+      headline: field(form, "headline", 140) || campaign.content.headline,
+      paragraphs: paragraphs(form.get("paragraphs")).slice(0, 8),
+      tipsTitle: field(form, "tipsTitle", 80),
+      tips: lines(form.get("tips")).slice(0, 8),
+      ps: field(form, "ps", 600),
+    };
+    return { campaign: { ...campaign, content, goal: GOALS.has(goal) ? goal : campaign.goal }, version };
+  }
+  const personal = { ...version.personal, personalNote: field(form, "personalNote", 1200), ps: field(form, "ps", 600) };
+  if (personal.product) personal.product = { ...personal.product, note: field(form, "productNote", 300) };
+  return { campaign, version: { ...version, personal } };
+}
+
+/** The editor's live preview: the email as it would look with the unsaved changes, and the voice hints. */
+async function handlePreview(request, env, campaignId, versionId) {
+  const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
+  if (!campaign || !version || version.campaign_id !== campaignId) return jsonResponse({ message: "Not found" }, 404);
+  const form = await request.formData().catch(() => new FormData());
+  const edited = applyEdits(campaign, version, form);
+  return jsonResponse({
+    html: previewFor(env, edited.campaign, edited.version),
+    hints: voiceHints(versionText(edited.campaign, edited.version)),
+  });
+}
 
 async function handleVersionAction(request, env, campaignId, versionId) {
   const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
@@ -165,23 +221,9 @@ async function handleVersionAction(request, env, campaignId, versionId) {
       return redirect(back);
     }
     if (action === "save") {
-      if (version.isShared) {
-        const content = {
-          ...campaign.content,
-          subject: field(form, "subject", 120) || campaign.content.subject,
-          preheader: field(form, "preheader", 160),
-          eyebrow: field(form, "eyebrow", 60),
-          headline: field(form, "headline", 140) || campaign.content.headline,
-          paragraphs: paragraphs(form.get("paragraphs")).slice(0, 8),
-          tipsTitle: field(form, "tipsTitle", 80),
-          tips: lines(form.get("tips")).slice(0, 8),
-        };
-        await store.updateCampaign(env, campaignId, { content });
-      } else {
-        const personal = { ...version.personal, personalNote: field(form, "personalNote", 1200) };
-        if (personal.product) personal.product = { ...personal.product, note: field(form, "productNote", 300) };
-        await store.updateVersion(env, versionId, { personal });
-      }
+      const edited = applyEdits(campaign, version, form);
+      if (version.isShared) await store.updateCampaign(env, campaignId, { content: edited.campaign.content, goal: edited.campaign.goal });
+      else await store.updateVersion(env, versionId, { personal: edited.version.personal });
       await store.updateVersion(env, versionId, { status: "review" });
       return redirect(withMessage(back, { notice: "Saved. Approve it when it reads right." }));
     }
@@ -263,11 +305,15 @@ export async function handleCampaignRoute(request, env, url, segments, method) {
   if (!first && method === "GET") return homePage(env, url);
   if (!first && method === "POST") return handleDraft(request, env);
   if (first === "new" && !second && method === "GET") {
+    const [estimate, recent] = await Promise.all([estimateInputsOrNull(env, "book"), store.listCampaigns(env, 10)]);
     return adminHtmlResponse(adminPage({
       title: "New email",
       active: "campaigns",
       back: { href: "/admin/campaigns", label: "Campaigns" },
-      body: newCampaignPage({ topic: url.searchParams.get("topic") || "", missing: setupMissing(env), error: url.searchParams.get("error") }),
+      body: newCampaignPage({
+        topic: url.searchParams.get("topic") || "", missing: setupMissing(env), error: url.searchParams.get("error"),
+        estimate, history: costHistory(recent),
+      }),
     }));
   }
   if (first === "transcribe" && method === "POST") return handleTranscribe(request, env);
@@ -276,6 +322,7 @@ export async function handleCampaignRoute(request, env, url, segments, method) {
   if (first === "push" && method === "POST") return handlePushSubscribe(request, env);
 
   if (first && !second && method === "GET") return reviewPage(env, url, first);
+  if (first && second === "versions" && third && segments[5] === "preview" && method === "POST") return handlePreview(request, env, first, third);
   if (first && second === "versions" && third && method === "POST") return handleVersionAction(request, env, first, third);
   if (first && second === "send" && method === "POST") return handleSend(env, first);
   if (first && second === "test" && method === "POST") return handleTest(request, env, first);

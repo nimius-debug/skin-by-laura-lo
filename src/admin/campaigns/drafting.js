@@ -5,11 +5,11 @@
 import { settings } from "../../config.js";
 import { getCatalog, isConfigured } from "../../square.js";
 import { shortGoodFor } from "../../product-insights.js";
-import { draftPersonalNotes, draftSharedEmail } from "./ai.js";
+import { campaignModel, draftPersonalNotes, draftSharedEmail } from "./ai.js";
+import { estimateInputs, PERSONAL_BATCH } from "./cost.js";
 import { loadProfiles, pickCandidates, profileForPrompt, promptSafeName } from "./matching.js";
 import * as store from "./store.js";
 
-const PERSONAL_BATCH = 8;
 // AI calls running at once. Workers allows six open connections per request.
 const PARALLEL_CALLS = 4;
 
@@ -82,6 +82,17 @@ async function personalDrafts(env, { shared, profiles, productNames, feedback = 
     });
   }
   return drafts;
+}
+
+/** The measured prompt sizes for the cost estimate: this shop's products and every client who could match. */
+export async function costEstimateInputs(env, { goal = "book" } = {}) {
+  const [products, profiles] = await Promise.all([shopProducts(env), loadProfiles(env)]);
+  return estimateInputs({
+    model: campaignModel(env),
+    goal,
+    productNames: products.map((product) => product.name),
+    clientProfiles: profiles.filter((profile) => profile.noteTexts.length || profile.purchases.length).map(profileForPrompt),
+  });
 }
 
 /** Writes a new campaign from Laura's idea and returns its id. */
@@ -161,7 +172,8 @@ export async function redraftPersonal(env, { campaign, version, feedback }) {
   if (!result?.draft.personalNote) throw new Error("The AI didn't write a new note. Try different feedback, or edit it yourself.");
   await store.updateVersion(env, version.id, {
     status: "review",
-    personal: personalFrom(result.draft, profile, { products, siteUrl }),
+    // Laura's own P.S. for this client stays through a redraft.
+    personal: { ...personalFrom(result.draft, profile, { products, siteUrl }), ...(version.personal?.ps ? { ps: version.personal.ps } : {}) },
     reason: result.draft.reason || version.reason,
     feedback,
   });

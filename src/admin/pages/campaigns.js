@@ -1,4 +1,5 @@
 import { html, toString } from "../../html.js";
+import { costOf, estimateCampaign, estimateRedraft, formatCost, modelName } from "../campaigns/cost.js";
 
 // The email campaign screens: the Campaigns home, writing a new email, and
 // reviewing each version before it is sent. On a phone the review screen
@@ -92,7 +93,7 @@ export function campaignsHomePage({ campaigns, week, reminders, missing, notice,
     <section class="card camp-recent" aria-label="Recent emails">
       <div class="section-label">Recent emails</div>
       ${campaigns.length ? html`<div class="camp-table-wrap"><table class="data">
-        <thead><tr><th scope="col">Date</th><th scope="col">Topic</th><th scope="col">Status</th><th scope="col">Sent</th><th scope="col">Personal</th><th scope="col">Unsubscribed</th></tr></thead>
+        <thead><tr><th scope="col">Date</th><th scope="col">Topic</th><th scope="col">Status</th><th scope="col">Sent</th><th scope="col">Personal</th><th scope="col">Unsubscribed</th><th scope="col">AI cost</th></tr></thead>
         <tbody>
           ${campaigns.map((campaign) => html`<tr class="row-link" data-href="/admin/campaigns/${campaign.id}">
             <td class="camp-nowrap">${shortDate(campaign.created_at)}</td>
@@ -101,6 +102,7 @@ export function campaignsHomePage({ campaigns, week, reminders, missing, notice,
             <td class="num">${campaign.sent_count}${campaign.queued_count ? html` <span class="camp-muted">+${campaign.queued_count} queued</span>` : ""}</td>
             <td class="num">${campaign.personal_count}</td>
             <td class="num">${campaign.unsubscribed_count}</td>
+            <td class="num">${formatCost(costOf(campaign.usage).dollars)}</td>
           </tr>`)}
         </tbody>
       </table></div>` : html`<p class="camp-muted">No emails yet. Press "New email" to write the first one.</p>`}
@@ -111,7 +113,29 @@ export function campaignsHomePage({ campaigns, week, reminders, missing, notice,
 
 // --- New email -------------------------------------------------------------
 
-export function newCampaignPage({ topic = "", goal = "book", missing, error }) {
+function costEstimateCard({ estimate, history, topic }) {
+  if (!estimate) {
+    return html`<div class="camp-cost"><div class="section-label">AI cost estimate</div>
+      <p class="camp-muted">The estimate couldn't be worked out right now (the shop or client notes didn't load). Each campaign still shows what it really cost.</p></div>`;
+  }
+  if (!estimate.price) {
+    return html`<div class="camp-cost"><div class="section-label">AI cost estimate</div>
+      <p class="camp-muted">There's no price on file for ${estimate.modelName}, so the cost can't be estimated. Add it to cost.js.</p></div>`;
+  }
+  const email = estimateCampaign(estimate, { topicChars: topic.length, matched: 0 });
+  const all = estimateCampaign(estimate, { topicChars: topic.length, matched: estimate.clientsWithNotes });
+  const example = (count) => estimateCampaign(estimate, { topicChars: topic.length, matched: count });
+  return html`<div class="camp-cost" data-cost-estimate="${JSON.stringify(estimate)}">
+    <div class="section-label">AI cost estimate</div>
+    <p><strong data-cost-email>About ${formatCost(email)}</strong> to write the email, plus <strong>about ${formatCost(example(10) - email)}</strong> for every 10 clients it matches.</p>
+    <p class="camp-muted" data-cost-examples>If 10 clients match: about ${formatCost(example(10))}. If 30 match: about ${formatCost(example(30))}.</p>
+    <p class="camp-muted">The most it could be, if all ${estimate.clientsWithNotes} clients with notes matched: <span data-cost-all>about ${formatCost(all)}</span>.</p>
+    ${history ? html`<p class="camp-muted">${history.count === 1 ? `Your last email cost ${formatCost(history.low)}.` : `Your last ${history.count} emails cost ${formatCost(history.low)} to ${formatCost(history.high)} each (${formatCost(history.average)} on average).`}</p>` : ""}
+    <p class="camp-muted">Written by ${estimate.modelName}. Each redraft costs about ${formatCost(estimateRedraft(estimate, { shared: true, topicChars: topic.length, previousChars: 1200 }))}. Sending through Resend adds nothing on the free plan.</p>
+  </div>`;
+}
+
+export function newCampaignPage({ topic = "", goal = "book", missing, error, estimate = null, history = null }) {
   return html`
     <div class="camp-head">
       <a class="back-link" href="/admin/campaigns">← Email campaigns</a>
@@ -155,6 +179,7 @@ export function newCampaignPage({ topic = "", goal = "book", missing, error }) {
           <li>You read each version, then approve, edit or reject it. Nothing sends until you press Send.</li>
         </ol>
         <div class="camp-muted">Personal notes never mention medications, pregnancy or diagnoses.</div>
+        ${costEstimateCard({ estimate, history, topic })}
       </aside>
     </div>
   `;
@@ -166,37 +191,45 @@ function versionName(version) {
   return version.isShared ? "Everyone else" : version.client_name || "Client";
 }
 
+const FORMAT_HINT = "Use **double stars** around words to make them bold. Web addresses become links.";
+
 function editForm({ campaign, version }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
+  const buttons = html`<div class="camp-actions">
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
+    </div>
+    <div class="camp-muted">The preview updates as you type. Nothing changes until you save.</div>`;
   if (version.isShared) {
     const content = campaign.content;
-    return html`<form method="post" action="${action}" class="camp-edit">
+    return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
       <input type="hidden" name="action" value="save" />
       <label class="field">Subject line<input type="text" name="subject" value="${content.subject}" maxlength="120" required /></label>
       <label class="field">Preview line (shown after the subject in the inbox)<input type="text" name="preheader" value="${content.preheader}" maxlength="160" /></label>
       <label class="field">Small label above the headline<input type="text" name="eyebrow" value="${content.eyebrow}" maxlength="60" /></label>
       <label class="field">Headline<input type="text" name="headline" value="${content.headline}" maxlength="140" required /></label>
-      <label class="field">Paragraphs (leave a blank line between them)<textarea name="paragraphs" rows="8">${(content.paragraphs || []).join("\n\n")}</textarea></label>
+      <label class="field">Paragraphs (leave a blank line between them, and add as many as you like)<textarea name="paragraphs" rows="10">${(content.paragraphs || []).join("\n\n")}</textarea></label>
+      <div class="camp-muted">${FORMAT_HINT}</div>
       <label class="field">Tips title<input type="text" name="tipsTitle" value="${content.tipsTitle}" maxlength="80" /></label>
-      <label class="field">Tips (one per line)<textarea name="tips" rows="4">${(content.tips || []).join("\n")}</textarea></label>
-      <div class="camp-actions">
-        <button type="submit" class="btn btn-primary">Save changes</button>
-        <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
-      </div>
+      <label class="field">Tips (one per line, leave empty for none)<textarea name="tips" rows="4">${(content.tips || []).join("\n")}</textarea></label>
+      <label class="field">P.S. (optional, after your name)<textarea name="ps" rows="2" maxlength="600" placeholder="For example: I have two openings left this Saturday ✨">${content.ps || ""}</textarea></label>
+      <label class="field">Button at the end
+        <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
+      </label>
+      ${buttons}
     </form>`;
   }
-  return html`<form method="post" action="${action}" class="camp-edit">
+  return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
     <input type="hidden" name="action" value="save" />
     <label class="field">Personal note<textarea name="personalNote" rows="5" required>${version.personal.personalNote || ""}</textarea></label>
     ${version.personal.product ? html`<label class="field">Line about ${version.personal.product.name}<textarea name="productNote" rows="2">${version.personal.product.note || ""}</textarea></label>` : ""}
-    <div class="camp-actions">
-      <button type="submit" class="btn btn-primary">Save changes</button>
-      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
-    </div>
+    <label class="field">P.S. just for ${versionName(version)} (optional)<textarea name="ps" rows="2" maxlength="600">${version.personal.ps || ""}</textarea></label>
+    <div class="camp-muted">${FORMAT_HINT} The rest of the email is the shared one. Edit "Everyone else" to change it for everybody.</div>
+    ${buttons}
   </form>`;
 }
 
-function versionActions({ campaign, version, editing }) {
+function versionActions({ campaign, version, editing, costInputs }) {
   if (campaign.status !== "review") return "";
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
   if (editing) return editForm({ campaign, version });
@@ -208,6 +241,7 @@ function versionActions({ campaign, version, editing }) {
         <button type="submit" class="btn btn-primary" name="action" value="redraft" data-busy-text="Redrafting…">Redraft with my note</button>
         <button type="submit" class="btn btn-secondary" name="action" value="review" formnovalidate>Keep this version</button>
       </div>
+      ${costInputs?.price ? html`<div class="camp-muted">A redraft costs about ${formatCost(estimateRedraft(costInputs, { shared: version.isShared, topicChars: campaign.topic.length, previousChars: JSON.stringify(campaign.content).length }))}.</div>` : ""}
       ${version.isShared ? "" : html`<div class="camp-muted">If you leave it rejected, ${versionName(version)} gets the email everyone else gets.</div>`}
     </form>`;
   }
@@ -225,6 +259,14 @@ function versionActions({ campaign, version, editing }) {
   </div>`;
 }
 
+/** "AI cost so far: $0.06 (5 AI calls, Claude Sonnet 5.5)". */
+function spentLine(campaign) {
+  const cost = costOf(campaign.usage);
+  if (!cost.calls) return "";
+  const amount = cost.dollars == null ? `${cost.tokens.toLocaleString("en-US")} tokens (no price on file for ${modelName(cost.model)})` : formatCost(cost.dollars);
+  return `AI cost so far: ${amount} (${plural(cost.calls, "AI call")}, ${modelName(cost.model)}).`;
+}
+
 function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, canTest }) {
   const shared = versions.find((version) => version.isShared);
   const personal = versions.filter((version) => !version.isShared);
@@ -240,7 +282,7 @@ function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, c
     const daysLeft = Math.ceil(counts.queued / dailyLimit);
     return html`<div class="camp-send-bar">
       <div class="camp-send-text">
-        <strong>${campaign.status === "sent" ? "Sent" : "Sending"}:</strong> ${counts.sent} of ${total} sent${counts.queued ? html`, ${counts.queued} queued (about ${plural(daysLeft, "more day")})` : ""}${counts.failed ? html`, ${counts.failed} failed` : ""}${counts.skipped ? html`, ${counts.skipped} unsubscribed` : ""}.
+        <strong>${campaign.status === "sent" ? "Sent" : "Sending"}:</strong> ${spentLine(campaign)} ${counts.sent} of ${total} sent${counts.queued ? html`, ${counts.queued} queued (about ${plural(daysLeft, "more day")})` : ""}${counts.failed ? html`, ${counts.failed} failed` : ""}${counts.skipped ? html`, ${counts.skipped} unsubscribed` : ""}.
       </div>
       ${testForm}
     </div>`;
@@ -249,22 +291,24 @@ function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, c
   const ready = shared?.status === "approved";
   const people = estimate ? `about ${estimate} clients` : "everyone with an email in Square";
   const days = estimate ? Math.ceil(estimate / dailyLimit) : 1;
+  const spent = spentLine(campaign);
+  const costText = `${spent ? `${spent} ` : ""}Sending adds no AI cost, and Resend's free plan covers it.`;
   return html`<div class="camp-send-bar">
     <div class="camp-send-text">
       ${ready
-        ? html`<strong>Goes to ${people}${approvedPersonal ? html` · ${approvedPersonal} personal` : ""}.</strong><span class="camp-send-more">${days > 1 ? html` Resend sends ${dailyLimit} a day, so it finishes over ${days} days.` : ""}${unreviewed ? html` ${plural(unreviewed, "personal version")} not approved yet: those clients get the email everyone else gets.` : ""}</span>`
-        : html`<strong>Approve the email everyone else gets before sending.</strong>`}
+        ? html`<strong>Goes to ${people}${approvedPersonal ? html` · ${approvedPersonal} personal` : ""}.</strong><span class="camp-send-more"> ${costText}${days > 1 ? html` Resend sends ${dailyLimit} a day, so it finishes over ${days} days.` : ""}${unreviewed ? html` ${plural(unreviewed, "personal version")} not approved yet: those clients get the email everyone else gets.` : ""}</span>`
+        : html`<strong>Approve the email everyone else gets before sending.</strong><span class="camp-send-more"> ${costText}</span>`}
     </div>
     <div class="camp-send-buttons">
       ${testForm}
-      <form method="post" action="/admin/campaigns/${campaign.id}/send" class="camp-inline-form" data-confirm="${ready ? `Send this email to ${people}? This can't be undone.` : ""}">
+      <form method="post" action="/admin/campaigns/${campaign.id}/send" class="camp-inline-form" data-confirm="${ready ? [`Send this email to ${people}?`, spent, "Sending adds no AI cost. This can't be undone."].filter(Boolean).join(" ") : ""}">
         <button type="submit" class="btn btn-primary camp-big-btn"${ready ? "" : html` disabled`}>Send to everyone</button>
       </form>
     </div>
   </div>`;
 }
 
-export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, dailyLimit, view, editing, notice, error, canTest }) {
+export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, hints = [], notice, error, canTest }) {
   const toReview = versions.filter((version) => version.status === "review").length;
   const personalCount = versions.length - 1;
   const title = topicLabel(campaign);
@@ -303,7 +347,11 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
             <div class="camp-detail-name">${versionName(selected)}</div>
             <div class="camp-muted">${selected.isShared ? "The email every other client gets." : selected.reason}</div>
           </div>
-          ${versionActions({ campaign, version: selected, editing })}
+          <div class="camp-hints" data-voice-hints${hints.length ? "" : html` hidden`}>
+            <div class="camp-hints-title">Laura's voice check</div>
+            <ul>${hints.map((hint) => html`<li>${hint}</li>`)}</ul>
+          </div>
+          ${versionActions({ campaign, version: selected, editing, costInputs })}
         </div>
         <div class="camp-preview">
           <iframe title="Email preview" class="camp-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${previewHtml}" loading="eager"></iframe>

@@ -7,6 +7,8 @@ import { localTime, maybeRemind, reminderDue } from "../src/admin/campaigns/sche
 import { handleCampaignRoute, handleUnsubscribe, weekSummary } from "../src/admin/campaigns/routes.js";
 import { draftCampaign, productCard, redraftPersonal } from "../src/admin/campaigns/drafting.js";
 import { addSubscription, listSubscriptions, notifyPhones } from "../src/admin/campaigns/push.js";
+import { costHistory, costOf, estimateCampaign, estimateInputs, formatCost } from "../src/admin/campaigns/cost.js";
+import { voiceHints } from "../src/admin/campaigns/voice.js";
 
 let failures = 0;
 function check(label, actual, expected) {
@@ -37,6 +39,16 @@ const content = {
   const personal = renderEmail({ content, personal: { personalNote: "Keep up the <mandelic>." }, firstName: "Maya", goal: "news", siteUrl: SITE, unsubscribeUrl: "u" });
   check("a personal version greets by first name and shows the note, escaped", [personal.html.includes("Hi Maya,"), personal.html.includes("Keep up the &lt;mandelic&gt;.")], [true, true]);
   check("the 'just news' goal has no sales button", personal.html.includes("Book a facial") || personal.html.includes("Visit the shop"), false);
+
+  const extras = renderEmail({
+    content: { ...content, paragraphs: ["This is **SO** important. See https://skinbylauralo.com/booking."], ps: "Two spots left Saturday" },
+    personal: { personalNote: "Proud of you.", ps: "Bring your SPF" }, firstName: "Maya", goal: "book", siteUrl: SITE, unsubscribeUrl: "u",
+  });
+  check("**bold** and web addresses are formatted, and the link keeps the final period out",
+    [extras.html.includes("<strong>SO</strong>"), extras.html.includes('href="https://skinbylauralo.com/booking"')], [true, true]);
+  check("the shared P.S. and the personal P.S. both show after Laura's name",
+    [extras.html.includes("Two spots left Saturday"), extras.html.includes("Bring your SPF"), extras.text.includes("P.S. Two spots left Saturday")], [true, true, true]);
+  check("the plain-text copy drops the ** marks", extras.text.includes("This is SO important."), true);
 }
 
 // --- matching -----------------------------------------------------------------
@@ -96,7 +108,7 @@ async function freshEnv(extra = {}) {
   const env = await freshEnv();
   await env.CLIENT_NOTES_DB.prepare("INSERT INTO clients (id, name, square_customer_id) VALUES ('c1', 'Maya Rivers', 'sq1')").run();
   const campaignId = await store.createCampaign(env, {
-    topic: "pigmentation", goal: "book", content, usage: {},
+    topic: "pigmentation", goal: "book", content, usage: { calls: 3, inputTokens: 9000, outputTokens: 3000, model: "claude-sonnet-5-5" },
     versions: [{ clientId: "c1", reason: "Notes: marks after breakouts", personal: { personalNote: "Keep going, Maya.", product: null } }],
   });
   const versions = await store.listVersions(env, campaignId);
@@ -219,13 +231,33 @@ async function freshEnv(extra = {}) {
   check("only https push addresses are saved", refused, true);
 }
 
+// --- Laura's voice check and the cost estimate ------------------------------------------
+{
+  check("the voice check flags dashes, semicolons and long sentences",
+    voiceHints(["Gentle wins — every time; trust me.", "This one sentence just keeps on going and going with far too many words to read easily."]).length, 3);
+  check("a draft that follows the guide has no hints", voiceHints(["I see this a lot. Go slow with acids. Your barrier will thank you ✨"]), []);
+
+  check("cost comes from the recorded tokens and the model's price",
+    costOf({ calls: 2, inputTokens: 1_000_000, outputTokens: 100_000, model: "claude-sonnet-5-5" }).dollars, 3);
+  check("a model without a price shows no dollar figure", costOf({ calls: 1, inputTokens: 10, outputTokens: 10, model: "some-new-model" }).dollars, null);
+  check("small amounts read plainly", [formatCost(0.004), formatCost(0.0712), formatCost(null)], ["under 1¢", "$0.07", "unknown"]);
+
+  const inputs = estimateInputs({ model: "claude-sonnet-5-5", productNames: ["Mixi Mandelic Acid 5%"], clientProfiles: ["Notes, newest first:\n- 2026-09-01: PIH on cheeks", "Notes, newest first:\n- none\nBought: SPF 50"] });
+  const none = estimateCampaign(inputs, { topicChars: 200, matched: 0 });
+  const ten = estimateCampaign(inputs, { topicChars: 200, matched: 10 });
+  check("the estimate is measured from the real prompts: a few cents for the email, more for each matching client",
+    [inputs.clientsWithNotes, none > 0.005 && none < 0.05, ten > none, ten < 0.2], [2, true, true, true]);
+  check("history shows what past campaigns really cost",
+    costHistory([{ usage: { calls: 1, inputTokens: 1000, outputTokens: 1000, model: "claude-sonnet-5-5" } }, { usage: {} }]), { count: 1, low: 0.012, high: 0.012, average: 0.012 });
+}
+
 // --- review screen ----------------------------------------------------------------------
 {
   const env = await freshEnv();
   await env.CLIENT_NOTES_DB.prepare("INSERT INTO clients (id, name, square_customer_id) VALUES ('c1', 'Maya Rivers', 'sq1')").run();
   await store.setSetting(env, "recipient_estimate", JSON.stringify({ count: 113, at: Date.now() }));
   const campaignId = await store.createCampaign(env, {
-    topic: "pigmentation", goal: "book", content, usage: {},
+    topic: "pigmentation", goal: "book", content, usage: { calls: 3, inputTokens: 9000, outputTokens: 3000, model: "claude-sonnet-5-5" },
     versions: [{ clientId: "c1", reason: "Notes: marks after breakouts", personal: { personalNote: "Keep going.", product: { ...content.product, label: "From your routine", note: "Bought in March." } } }],
   });
   const [shared, maya] = await store.listVersions(env, campaignId);
@@ -238,6 +270,17 @@ async function freshEnv(extra = {}) {
   check("the review screen lists every version and previews the selected one",
     [page.includes("Everyone else"), page.includes("Maya Rivers"), page.includes("Notes: marks after breakouts"), page.includes("srcdoc=")], [true, true, true, true]);
   check("sending waits for the shared version to be approved", page.includes("Approve the email everyone else gets before sending."), true);
+  check("before sending, the page says what the AI has cost so far", page.includes("AI cost so far: $0.05 (3 AI calls, Claude Sonnet 5.5)."), true);
+
+  const editor = await (await route(`/admin/campaigns/${campaignId}?v=${shared.id}&view=preview&edit=1`)).text();
+  check("the editor has a live preview, a P.S. and a choice of button", [editor.includes("data-live-preview"), editor.includes('name="ps"'), editor.includes('name="goal"')], [true, true, true]);
+  const preview = await route(`/admin/campaigns/${campaignId}/versions/${shared.id}/preview`, {
+    method: "POST", body: new URLSearchParams({ subject: "Live", headline: "Live headline", paragraphs: "Fresh words — here.", ps: "See you soon ✨" }),
+  });
+  const live = await preview.json();
+  check("the live preview shows unsaved changes and the voice check, without saving",
+    [live.html.includes("Live headline"), live.html.includes("See you soon ✨"), live.hints.some((hint) => hint.includes("dash")), (await store.getCampaign(env, campaignId)).content.headline],
+    [true, true, true, content.headline]);
 
   const post = (versionId, fields) => route(`/admin/campaigns/${campaignId}/versions/${versionId}`, { method: "POST", body: new URLSearchParams(fields) });
   await post(shared.id, { action: "approve" });
@@ -246,10 +289,13 @@ async function freshEnv(extra = {}) {
   await post(maya.id, { action: "save", personalNote: "Your <own> words.", productNote: "Use at night." });
   const edited = await store.getVersion(env, maya.id);
   check("an edit is saved and goes back to review", [edited.personal.personalNote, edited.personal.product.note, edited.status], ["Your <own> words.", "Use at night.", "review"]);
-  await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.\n\nTwo.", tips: "A\nB" });
+  await post(maya.id, { action: "save", personalNote: "Your <own> words.", productNote: "Use at night.", ps: "Just for you" });
+  check("a personal version can have its own P.S.", (await store.getVersion(env, maya.id)).personal.ps, "Just for you");
+  await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.\n\nTwo.", tips: "A\nB", ps: "Book soon", goal: "shop" });
   const saved = await store.getCampaign(env, campaignId);
   check("editing the shared email splits paragraphs on blank lines and tips on lines",
     [saved.content.subject, saved.content.paragraphs, saved.content.tips, saved.content.product.name], ["New subject", ["One.", "Two."], ["A", "B"], "Mixi Mandelic Acid 5%"]);
+  check("the shared P.S. and the button are saved", [saved.content.ps, saved.goal], ["Book soon", "shop"]);
 
   const ready = await (await route(`/admin/campaigns/${campaignId}`)).text();
   check("after an edit, the shared email needs approving again before it can send", ready.includes("Approve the email everyone else gets before sending."), true);
@@ -259,6 +305,10 @@ async function freshEnv(extra = {}) {
 
   const home = await (await route("/admin/campaigns")).text();
   check("the Campaigns home lists the campaign and the reminder switches", [home.includes("Recent emails"), home.includes("Tuesday reminder"), home.includes("Thursday reminder")], [true, true, true]);
+  check("the Campaigns home shows each email's AI cost", home.includes("<td class=\"num\">$0.05</td>"), true);
+  const newPage = await (await route("/admin/campaigns/new")).text();
+  check("the new email page estimates the AI cost before drafting, and shows past costs",
+    [newPage.includes("AI cost estimate"), newPage.includes("data-cost-estimate"), newPage.includes("Your last email cost $0.05.")], [true, true, true]);
   await route("/admin/campaigns/settings", { method: "POST", body: new URLSearchParams({ reminder_tue: "on" }) });
   check("the reminder switches are saved", [await store.getSetting(env, "reminder_tue"), await store.getSetting(env, "reminder_thu")], ["on", "off"]);
 
@@ -297,6 +347,7 @@ async function freshEnv(extra = {}) {
     check("only clients whose notes match are sent to the AI, without surnames",
       [personalPrompt.includes('first_name="Maya"'), personalPrompt.includes('first_name="Ana"'), personalPrompt.includes("Brows tinted"), personalPrompt.includes("Rivers")], [true, true, false, false]);
     check("every call asks for JSON matching a schema", requests.every((request) => request.output_config.format.type === "json_schema"), true);
+    check("every call is written from Laura's email voice guide", requests.every((request) => request.system.includes("playful big sister")), true);
     check("token use is recorded on the campaign", (await store.getCampaign(env, campaignId)).usage.calls, 2);
 
     const maya = versions[1];
