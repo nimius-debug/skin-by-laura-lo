@@ -1,13 +1,11 @@
 // Which clients might relate to this week's email. A cheap first pass looks for
 // the topic's words in each client's notes and purchases; only clients with a
 // hit are sent to the AI, which decides whether they really relate and writes
-// their personal note. That keeps the AI cost to a couple of short calls.
+// their personal note. There is no cap: every client with a hit is checked.
 
 import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
 import { findFlags } from "../safety.js";
 import { productInsightFor } from "../../product-insights.js";
-
-const MAX_CANDIDATES = 24;
 
 export function firstNameOf(name) {
   return String(name || "").trim().split(/\s+/)[0] || "";
@@ -53,13 +51,12 @@ export function scoreProfile(profile, terms) {
   return { score: hits.length, hits };
 }
 
-/** Clients with at least one hit, strongest first, at most MAX_CANDIDATES. */
-export function pickCandidates(profiles, terms, max = MAX_CANDIDATES) {
+/** Every client with at least one hit, strongest first. */
+export function pickCandidates(profiles, terms) {
   return profiles
     .map((profile) => ({ profile, ...scoreProfile(profile, terms) }))
     .filter((match) => match.score > 0)
-    .sort((a, b) => b.score - a.score || a.profile.name.localeCompare(b.profile.name))
-    .slice(0, max);
+    .sort((a, b) => b.score - a.score || a.profile.name.localeCompare(b.profile.name));
 }
 
 const monthYear = (iso) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }) : "date unknown");

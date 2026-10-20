@@ -53,6 +53,8 @@ const content = {
   check("short shorthand like 'pih' matches only as a whole word", [scoreProfile(maya, ["pih"]).score, scoreProfile(priya, ["pih"]).score], [1, 0]);
   check("purchases count as well as notes", scoreProfile(jordan, terms).hits, ["mandelic", "even tone"]);
   check("candidates are clients with a hit, strongest first", pickCandidates([priya, jordan, maya], terms).map((match) => match.profile.firstName), ["Jordan", "Maya"]);
+  const many = Array.from({ length: 40 }, (_, index) => profile(`m${index}`, `Client ${index}`, "Working on PIH"));
+  check("every client with a hit is a candidate, with no cap", pickCandidates(many, terms).length, 40);
 }
 
 // --- product cards ------------------------------------------------------------

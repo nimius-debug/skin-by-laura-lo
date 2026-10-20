@@ -10,6 +10,8 @@ import { loadProfiles, pickCandidates, profileForPrompt, promptSafeName } from "
 import * as store from "./store.js";
 
 const PERSONAL_BATCH = 8;
+// AI calls running at once. Workers allows six open connections per request.
+const PARALLEL_CALLS = 4;
 
 async function shopProducts(env) {
   if (!isConfigured(env)) return [];
@@ -53,21 +55,30 @@ function personalFrom(draft, profile, { products, siteUrl }) {
   };
 }
 
-/** Personal drafts for the given profiles, a few clients per AI call. */
+/** Personal drafts for the given profiles, a few clients per AI call and a few calls at a time. */
 async function personalDrafts(env, { shared, profiles, productNames, feedback = "", usage }) {
-  const drafts = [];
+  const groups = [];
   for (let start = 0; start < profiles.length; start += PERSONAL_BATCH) {
     const group = profiles.slice(start, start + PERSONAL_BATCH);
-    const candidates = group.map((profile, index) => ({
-      ref: `c${start + index + 1}`,
-      firstName: promptSafeName(profile.firstName),
-      profile: profileForPrompt(profile),
-    }));
-    const results = await draftPersonalNotes(env, { shared, candidates, productNames, feedback, usage });
-    const byRef = new Map(results.map((result) => [result.ref, result]));
-    candidates.forEach((candidate, index) => {
-      const result = byRef.get(candidate.ref);
-      if (result) drafts.push({ profile: group[index], draft: result });
+    groups.push({
+      group,
+      candidates: group.map((profile, index) => ({
+        ref: `c${start + index + 1}`,
+        firstName: promptSafeName(profile.firstName),
+        profile: profileForPrompt(profile),
+      })),
+    });
+  }
+  const drafts = [];
+  for (let start = 0; start < groups.length; start += PARALLEL_CALLS) {
+    const wave = groups.slice(start, start + PARALLEL_CALLS);
+    const results = await Promise.all(wave.map(({ candidates }) => draftPersonalNotes(env, { shared, candidates, productNames, feedback, usage })));
+    wave.forEach(({ group, candidates }, waveIndex) => {
+      const byRef = new Map(results[waveIndex].map((result) => [result.ref, result]));
+      candidates.forEach((candidate, index) => {
+        const result = byRef.get(candidate.ref);
+        if (result) drafts.push({ profile: group[index], draft: result });
+      });
     });
   }
   return drafts;
