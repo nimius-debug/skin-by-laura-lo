@@ -272,6 +272,13 @@ const CAMPAIGN_STYLES = `
 .camp-actions .btn { white-space: nowrap; }
 .btn-reject { color: var(--danger); }
 .camp-edit, .camp-redraft { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.camp-edit select { font: inherit; font-size: 15px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.camp-cost { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.camp-cost p { margin: 0; font-size: 14px; line-height: 1.5; }
+.camp-hints { background: #FFF7E8; border: 1px solid #F0D9A8; border-radius: 12px; padding: 10px 14px; font-size: 13.5px; line-height: 1.5; }
+.camp-hints[hidden] { display: none; }
+.camp-hints-title { font-weight: 700; margin-bottom: 2px; }
+.camp-hints ul { margin: 0; padding-left: 18px; }
 .camp-edit input[type="text"] { font-size: 15px; }
 .camp-preview { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: var(--ground); }
 .camp-frame { display: block; width: 100%; height: 1200px; border: 0; background: var(--ground); }

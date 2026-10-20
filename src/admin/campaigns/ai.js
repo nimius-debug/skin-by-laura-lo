@@ -4,20 +4,22 @@
 // Every call asks for JSON that matches a schema (structured outputs), so a
 // reply is always well formed, and runs at low effort: these are short writing
 // jobs, and thinking counts against the response limit. Same model setting as
-// the client summaries (ANTHROPIC_MODEL, else the default below).
+// the client summaries (ANTHROPIC_MODEL, else the default below). Laura's voice
+// guide (voice.js) is the system prompt for every call.
+
+import { LAURA_EMAIL_VOICE } from "./voice.js";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MODEL = "claude-sonnet-5-5";
+// Response limits. The cost estimate uses them for its worst case.
+export const SHARED_MAX_TOKENS = 6000;
+export const PERSONAL_MAX_TOKENS = 12000;
 // Models that accept Anthropic's server-side fallback when a request is declined.
 const FALLBACK_MODELS = new Set(["claude-sonnet-5-5", "claude-opus-5-5", "claude-opus-5", "claude-fable-5-1"]);
 
 export function campaignModel(env) {
   return env.ANTHROPIC_MODEL || DEFAULT_MODEL;
 }
-
-const VOICE = `You write marketing emails for Skin by Laura Lo, a licensed esthetician's studio in Tampa, Florida. Write as Laura: warm, personal and direct.
-Use plain, short sentences at about a 5th-grade reading level. Be concise and clear: no filler, no jargon, no hype. If you name a skincare term or ingredient, add a few plain words to explain it.
-Never make medical claims, and never invent facts, studies, statistics or prices. If Laura mentions research, keep her point and write [ADD LINK TO THE RESEARCH] where the source belongs.`;
 
 /** One request that returns parsed JSON matching `schema`. Adds token counts to `usage`. */
 async function askForJson(env, { prompt, schema, maxTokens = 8000, usage }) {
@@ -37,7 +39,7 @@ async function askForJson(env, { prompt, schema, maxTokens = 8000, usage }) {
       max_tokens: maxTokens,
       ...(useFallback ? { fallbacks: "default" } : {}),
       output_config: { effort: "low", format: { type: "json_schema", schema } },
-      system: VOICE,
+      system: LAURA_EMAIL_VOICE,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -84,12 +86,9 @@ const GOALS = {
   news: "Just share the news. No sales push.",
 };
 
-/**
- * The shared email everyone gets, plus the words to look for in client notes and purchases.
- * `previous` and `feedback` are set when Laura asks for a redraft.
- */
-export async function draftSharedEmail(env, { topic, goal, productNames = [], previous = null, feedback = "", usage }) {
-  const prompt = `Laura wants to send this week's email to all her clients. Here is what she wants to talk about, in her own words (typed or spoken):
+/** The prompt for the shared email. Also measured by the cost estimate. */
+export function sharedEmailPrompt({ topic, goal, productNames = [], previous = null, feedback = "" }) {
+  return `Laura wants to send this week's email to all her clients. Here is what she wants to talk about, in her own words (typed or spoken):
 <topic>
 ${topic}
 </topic>
@@ -100,7 +99,7 @@ Products in her shop (use the exact name, or leave productName empty):
 ${productNames.slice(0, 80).map((name) => `- ${name}`).join("\n") || "- (none listed)"}
 ${previous ? `\nYour last draft:\n${JSON.stringify(previous)}\n\nLaura's feedback, which you must follow:\n${feedback}\n` : ""}
 Write the email as JSON:
-- subject: under 60 characters, inviting, no clickbait.
+- subject: under 50 characters, casual and inviting, like Laura texting. One ✨ is fine. No clickbait.
 - preheader: one short line shown after the subject in the inbox.
 - eyebrow: a short label such as "This week: pigmentation".
 - headline: one line.
@@ -108,7 +107,15 @@ Write the email as JSON:
 - tipsTitle and tips: a short title and 3 practical tips, one sentence each. Use an empty list if tips don't fit the topic.
 - productName: one product from the list that fits the topic, or "".
 - matchTerms: 10 to 25 lowercase words or short phrases that would appear in an esthetician's client notes or purchase records if a client relates to this topic. Include shorthand (for pigmentation: pih, pie, hyperpigmentation, dark spots, melasma, sun spots, brightening, mandelic, vitamin c, tranexamic) and the names of fitting products from the list.`;
-  const draft = await askForJson(env, { prompt, schema: SHARED_SCHEMA, maxTokens: 6000, usage });
+}
+
+/**
+ * The shared email everyone gets, plus the words to look for in client notes and purchases.
+ * `previous` and `feedback` are set when Laura asks for a redraft.
+ */
+export async function draftSharedEmail(env, { topic, goal, productNames = [], previous = null, feedback = "", usage }) {
+  const prompt = sharedEmailPrompt({ topic, goal, productNames, previous, feedback });
+  const draft = await askForJson(env, { prompt, schema: SHARED_SCHEMA, maxTokens: SHARED_MAX_TOKENS, usage });
   return {
     subject: draft.subject.trim(),
     preheader: draft.preheader.trim(),
@@ -136,14 +143,9 @@ const PERSONAL_SCHEMA = object({
   },
 });
 
-/**
- * Personal versions for clients whose notes or purchases might relate.
- * candidates: [{ ref, firstName, profile }] where profile is a short text of their notes, purchases and flags.
- * Returns [{ ref, related, reason, personalNote, productName, productNote }].
- */
-export async function draftPersonalNotes(env, { shared, candidates, productNames = [], feedback = "", usage }) {
-  if (!candidates.length) return [];
-  const prompt = `This week's email to all clients is about:
+/** The prompt for one batch of personal versions. Also measured by the cost estimate. */
+export function personalNotesPrompt({ shared, candidates, productNames = [], feedback = "" }) {
+  return `This week's email to all clients is about:
 <email>
 ${shared.headline}
 ${shared.paragraphs.join("\n")}
@@ -158,13 +160,23 @@ ${feedback ? `\nLaura's feedback on the last draft, which you must follow:\n${fe
 For every client, return one entry with their ref:
 - related: true only if their notes or purchases clearly connect to this topic. When in doubt, false; they still get the shared email.
 - reason: for Laura, one short line saying what connects them (for example "Notes: marks after breakouts; bought Mandelic 5% in March"). Empty if not related.
-- personalNote: 2 or 3 sentences to the client, in Laura's voice, that link the topic to their own skin journey and say what to keep doing. Do not greet them; the greeting is added for you.
+- personalNote: 2 or 3 short sentences to the client, in Laura's voice (use "I" and "we"), that link the topic to their own skin journey and say what to keep doing. Do not greet them; the greeting is added for you.
   Never mention medications, prescriptions, pregnancy, allergies, diagnoses or medical conditions by name, even if they are in the notes. Talk about skin goals instead ("the marks we've been fading", "the redness we've been calming").
   If their flags mention sensitive or reactive skin, an allergy or pregnancy, keep the advice gentle and do not recommend acids, retinoids or strong peels.
 - productName: a product they bought, or one from the shop list, that fits their version. Empty if none fits.
 - productNote: one short line about that product for them, such as when they last bought it or how to use it. Empty if no product.
 Empty strings for everything except ref and related when related is false.`;
-  const result = await askForJson(env, { prompt, schema: PERSONAL_SCHEMA, maxTokens: 12000, usage });
+}
+
+/**
+ * Personal versions for clients whose notes or purchases might relate.
+ * candidates: [{ ref, firstName, profile }] where profile is a short text of their notes, purchases and flags.
+ * Returns [{ ref, related, reason, personalNote, productName, productNote }].
+ */
+export async function draftPersonalNotes(env, { shared, candidates, productNames = [], feedback = "", usage }) {
+  if (!candidates.length) return [];
+  const prompt = personalNotesPrompt({ shared, candidates, productNames, feedback });
+  const result = await askForJson(env, { prompt, schema: PERSONAL_SCHEMA, maxTokens: PERSONAL_MAX_TOKENS, usage });
   return result.versions.map((version) => ({
     ref: version.ref,
     related: Boolean(version.related),

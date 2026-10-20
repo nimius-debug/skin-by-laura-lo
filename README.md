@@ -252,22 +252,33 @@ out through [Resend](https://resend.com).
 1. **Write.** Type the week's idea, or tap the microphone and say it. The
    recording is typed out by Workers AI (Whisper, the `AI` binding) and
    added to the text; the audio is never stored.
-2. **Find clients.** Claude writes one shared email in Laura's voice, plus
+2. **Find clients.** Claude writes one shared email in Laura's voice (the
+   guide is in `src/admin/campaigns/voice.js`; update it as she posts), plus
    a list of words to look for. Every client's notes and stored purchases
    are searched for those words, and only clients with a hit are sent to
    Claude (first name only, no surname), which decides whether they really
-   relate and writes a short personal note. Personal notes never name
+   relate and writes a short personal note. There is no cap on how many
+   clients get one. Personal notes never name
    medications, pregnancy, allergies or diagnoses, and stay gentle for
    clients flagged as sensitive.
 3. **Review.** Every version (the shared one and each personal one) is
-   approved, edited, or rejected and redrafted with Laura's feedback. On a
-   phone the versions and the preview are two tabs.
+   approved, edited, or rejected and redrafted with Laura's feedback. The
+   editor previews changes as she types, takes **bold** and links, adds a
+   P.S. (for everyone, or just one client), picks the button, and checks the
+   words against her voice guide. On a phone the versions and the preview
+   are two tabs.
 4. **Send.** Everyone in Square with an email address gets it, except
    people who unsubscribed (here or in Square). Clients with an approved
    personal version get that; everyone else gets the shared email.
    Emails are queued and sent by the scheduled run every 15 minutes, at
    most `EMAIL_DAILY_LIMIT` a day (95, under Resend's free 100), so a
    longer list finishes the next day.
+
+**Cost.** The new-email page estimates the AI cost before drafting,
+measured from the real prompts and the shop's products and client notes.
+Each campaign records the tokens it used, and the review page, the send
+button and the Campaigns home show what it really cost. Prices per model
+are in `src/admin/campaigns/cost.js`.
 
 Every email has the studio's address, an unsubscribe link, and one-click
 unsubscribe headers. Unsubscribe links are signed, open a confirmation page

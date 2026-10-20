@@ -444,6 +444,68 @@ export const ADMIN_CLIENT_JS = String.raw`
     });
   }
 
+  // While editing a version, the preview shows the unsaved changes and Laura's voice check.
+  function wireLivePreview() {
+    var form = document.querySelector("form[data-live-preview]");
+    var frame = document.querySelector("iframe.camp-frame");
+    if (!form || !frame) return;
+    var hints = document.querySelector("[data-voice-hints]");
+    var timer = null;
+    var latest = 0;
+    function refresh() {
+      var ticket = ++latest;
+      fetch(form.getAttribute("data-live-preview"), { method: "POST", body: new FormData(form), headers: { accept: "application/json" } })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+          if (!data || ticket !== latest) return;
+          frame.srcdoc = data.html;
+          if (!hints) return;
+          var list = hints.querySelector("ul");
+          list.textContent = "";
+          (data.hints || []).forEach(function (hint) {
+            var item = document.createElement("li");
+            item.textContent = hint;
+            list.appendChild(item);
+          });
+          hints.hidden = !(data.hints || []).length;
+        })
+        .catch(function () { /* keep the last preview */ });
+    }
+    form.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(refresh, 500);
+    });
+    form.addEventListener("change", refresh);
+  }
+
+  // The new-email page's cost estimate, redone as the topic grows. Same math as cost.js estimateCampaign.
+  function wireCostEstimate() {
+    var box = document.querySelector("[data-cost-estimate]");
+    var topic = document.querySelector("form[data-draft-form] textarea[name=topic]");
+    if (!box || !topic) return;
+    var inputs;
+    try { inputs = JSON.parse(box.getAttribute("data-cost-estimate")); } catch (error) { return; }
+    if (!inputs || !inputs.price) return;
+    function cost(topicChars, matched) {
+      var calls = Math.ceil(matched / inputs.batch);
+      var input = inputs.sharedInput + Math.ceil(topicChars / 3.5) + calls * inputs.personalCallInput + matched * inputs.clientInput;
+      var output = inputs.sharedOutput + calls * inputs.personalCallOutput + matched * inputs.clientOutput;
+      return (input * inputs.price.input + output * inputs.price.output) / 1e6;
+    }
+    function format(amount) {
+      if (amount < 0.01) return "under 1¢";
+      return "$" + amount.toFixed(2);
+    }
+    function update() {
+      var chars = topic.value.length;
+      box.querySelector("[data-cost-email]").textContent = "About " + format(cost(chars, 0));
+      box.querySelector("[data-cost-examples]").textContent = "If 10 clients match: about " + format(cost(chars, 10)) + ". If 30 match: about " + format(cost(chars, 30)) + ".";
+      box.querySelector("[data-cost-all]").textContent = "about " + format(cost(chars, inputs.clientsWithNotes));
+    }
+    topic.addEventListener("input", update);
+    update();
+  }
+
   function wireDraftForm() {
     var form = document.querySelector("form[data-draft-form]");
     if (!form) return;
@@ -647,6 +709,8 @@ export const ADMIN_CLIENT_JS = String.raw`
     wireUploadPage();
     wireCampaignLists();
     wireDraftForm();
+    wireLivePreview();
+    wireCostEstimate();
     registerServiceWorker();
     wirePushButton();
     wirePullToRefresh();
