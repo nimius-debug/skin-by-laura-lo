@@ -478,6 +478,49 @@ export const ADMIN_CLIENT_JS = String.raw`
     form.addEventListener("change", refresh);
   }
 
+  // The shared email's product picker: a product chosen from the shop becomes a ticked row.
+  function wireProductPicker() {
+    var picker = document.querySelector("[data-product-picker]");
+    if (!picker) return;
+    var list = picker.querySelector("[data-product-list]");
+    var select = picker.querySelector("[data-product-add]");
+    var empty = picker.querySelector("[data-product-empty]");
+    var max = Number(picker.getAttribute("data-max")) || 6;
+    function ticked() { return list.querySelectorAll("input:checked").length; }
+    function update() {
+      if (empty) empty.hidden = list.children.length > 0;
+      if (select) select.disabled = ticked() >= max;
+    }
+    list.addEventListener("change", update);
+    if (select) {
+      select.addEventListener("change", function () {
+        var option = select.options[select.selectedIndex];
+        if (!option || !option.value) return;
+        var row = document.createElement("label");
+        row.className = "camp-product";
+        var box = document.createElement("input");
+        box.type = "checkbox";
+        box.name = "product";
+        box.value = option.value;
+        box.checked = true;
+        row.appendChild(box);
+        var image = option.getAttribute("data-image");
+        var thumb = document.createElement(image ? "img" : "span");
+        if (image) { thumb.src = image; thumb.alt = ""; thumb.width = 40; thumb.height = 40; } else { thumb.className = "camp-product-img"; }
+        row.appendChild(thumb);
+        row.appendChild(el("span", "camp-product-name", option.value));
+        var price = option.getAttribute("data-price");
+        if (price) row.appendChild(el("span", "camp-product-price", price));
+        list.appendChild(row);
+        option.remove();
+        // The select is named too, for saving without JavaScript; here the new row carries the product.
+        select.value = "";
+        update();
+      });
+    }
+    update();
+  }
+
   // The new-email page's cost estimate, redone as the topic grows. Same math as cost.js estimateCampaign.
   function wireCostEstimate() {
     var box = document.querySelector("[data-cost-estimate]");
@@ -710,6 +753,7 @@ export const ADMIN_CLIENT_JS = String.raw`
     wireCampaignLists();
     wireDraftForm();
     wireLivePreview();
+    wireProductPicker();
     wireCostEstimate();
     registerServiceWorker();
     wirePushButton();

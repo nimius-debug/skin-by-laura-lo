@@ -1,5 +1,8 @@
 import { html, toString } from "../../html.js";
 import { costOf, estimateCampaign, estimateRedraft, formatCost, modelName } from "../campaigns/cost.js";
+import { MAX_EMAIL_PRODUCTS } from "../campaigns/drafting.js";
+import { contentProducts } from "../campaigns/email-template.js";
+import { formatMoney } from "../../config.js";
 
 // The email campaign screens: the Campaigns home, writing a new email, and
 // reviewing each version before it is sent. On a phone the review screen
@@ -174,6 +177,7 @@ export function newCampaignPage({ topic = "", goal = "book", missing, error, est
         <div class="section-label">What happens next</div>
         <ol class="camp-how">
           <li>The AI writes one email for everyone, in your voice and at a 5th-grade reading level.</li>
+          <li>Products you mention are added as cards with their photo, price and a shop link. Say "no products" to leave them out.</li>
           <li>It looks through every client's notes (from the Excel sheet and Square) and what they bought, and when.</li>
           <li>Clients it relates to get a short personal note added. Allergy and sensitivity flags keep that advice gentle.</li>
           <li>You read each version, then approve, edit or reject it. Nothing sends until you press Send.</li>
@@ -193,7 +197,38 @@ function versionName(version) {
 
 const FORMAT_HINT = "Use **double stars** around words to make them bold. Web addresses become links.";
 
-function editForm({ campaign, version }) {
+function productRow({ name, image, price }) {
+  return html`<label class="camp-product">
+    <input type="checkbox" name="product" value="${name}" checked />
+    ${image ? html`<img src="${image}" alt="" width="40" height="40" loading="lazy" />` : html`<span class="camp-product-img" aria-hidden="true"></span>`}
+    <span class="camp-product-name">${name}</span>
+    ${price ? html`<span class="camp-product-price">${price}</span>` : ""}
+  </label>`;
+}
+
+/** The shared email's product cards: untick one to take it out, or add one from the shop. */
+function productPicker({ campaign, shop }) {
+  const cards = contentProducts(campaign.content);
+  const inEmail = new Set(cards.map((card) => card.name));
+  const others = shop.filter((product) => !inEmail.has(product.name));
+  return html`<fieldset class="camp-products" data-product-picker data-max="${MAX_EMAIL_PRODUCTS}">
+    <legend>Products in this email</legend>
+    <input type="hidden" name="productsShown" value="1" />
+    <div class="camp-product-list" data-product-list>
+      ${cards.map((card) => productRow(card))}
+    </div>
+    <p class="camp-muted" data-product-empty${cards.length ? html` hidden` : ""}>No products in this email.</p>
+    ${others.length ? html`<label class="field">Add a product
+      <select name="product" data-product-add>
+        <option value="">Choose from the shop…</option>
+        ${others.map((product) => html`<option value="${product.name}" data-image="${product.image || ""}" data-price="${Number.isFinite(product.priceCents) ? formatMoney(product.priceCents) : ""}">${product.name}</option>`)}
+      </select>
+    </label>` : ""}
+    <div class="camp-muted">Each product shows as a card with its photo, price and a link to the shop. Untick one to take it out. Up to ${MAX_EMAIL_PRODUCTS}.</div>
+  </fieldset>`;
+}
+
+function editForm({ campaign, version, shop = [] }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
   const buttons = html`<div class="camp-actions">
       <button type="submit" class="btn btn-primary">Save changes</button>
@@ -212,6 +247,7 @@ function editForm({ campaign, version }) {
       <div class="camp-muted">${FORMAT_HINT}</div>
       <label class="field">Tips title<input type="text" name="tipsTitle" value="${content.tipsTitle}" maxlength="80" /></label>
       <label class="field">Tips (one per line, leave empty for none)<textarea name="tips" rows="4">${(content.tips || []).join("\n")}</textarea></label>
+      ${productPicker({ campaign, shop })}
       <label class="field">P.S. (optional, after your name)<textarea name="ps" rows="2" maxlength="600" placeholder="For example: I have two openings left this Saturday ✨">${content.ps || ""}</textarea></label>
       <label class="field">Button at the end
         <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
@@ -224,15 +260,15 @@ function editForm({ campaign, version }) {
     <label class="field">Personal note<textarea name="personalNote" rows="5" required>${version.personal.personalNote || ""}</textarea></label>
     ${version.personal.product ? html`<label class="field">Line about ${version.personal.product.name}<textarea name="productNote" rows="2">${version.personal.product.note || ""}</textarea></label>` : ""}
     <label class="field">P.S. just for ${versionName(version)} (optional)<textarea name="ps" rows="2" maxlength="600">${version.personal.ps || ""}</textarea></label>
-    <div class="camp-muted">${FORMAT_HINT} The rest of the email is the shared one. Edit "Everyone else" to change it for everybody.</div>
+    <div class="camp-muted">${FORMAT_HINT} The rest of the email is the shared one, products included. Edit "Everyone else" to change it for everybody.</div>
     ${buttons}
   </form>`;
 }
 
-function versionActions({ campaign, version, editing, costInputs }) {
+function versionActions({ campaign, version, editing, costInputs, shop }) {
   if (campaign.status !== "review") return "";
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  if (editing) return editForm({ campaign, version });
+  if (editing) return editForm({ campaign, version, shop });
   if (version.status === "rejected") {
     return html`<form method="post" action="${action}" class="camp-redraft" data-busy-form>
       <label class="field" for="feedback">What should change?</label>
@@ -308,7 +344,7 @@ function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, c
   </div>`;
 }
 
-export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, hints = [], notice, error, canTest }) {
+export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, shop = [], hints = [], notice, error, canTest }) {
   const toReview = versions.filter((version) => version.status === "review").length;
   const personalCount = versions.length - 1;
   const title = topicLabel(campaign);
@@ -351,7 +387,7 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
             <div class="camp-hints-title">Laura's voice check</div>
             <ul>${hints.map((hint) => html`<li>${hint}</li>`)}</ul>
           </div>
-          ${versionActions({ campaign, version: selected, editing, costInputs })}
+          ${versionActions({ campaign, version: selected, editing, costInputs, shop })}
         </div>
         <div class="camp-preview">
           <iframe title="Email preview" class="camp-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${previewHtml}" loading="eager"></iframe>

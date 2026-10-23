@@ -4,7 +4,10 @@ import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
-import { costEstimateInputs, draftCampaign, redraftPersonal, redraftShared } from "./drafting.js";
+import {
+  costEstimateInputs, draftCampaign, MAX_EMAIL_PRODUCTS, productCard, redraftPersonal, redraftShared, shopProducts,
+} from "./drafting.js";
+import { contentProducts } from "./email-template.js";
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
 import {
@@ -141,11 +144,13 @@ async function reviewPage(env, url, campaignId) {
   const selected = versions.find((version) => version.id === requested) || versions[0];
   const view = url.searchParams.get("view") === "preview" || (requested && url.searchParams.get("view") !== "list") ? "preview" : "list";
   const editing = url.searchParams.get("edit") === "1" && campaign.status === "review";
-  const [counts, estimate, costInputs] = await Promise.all([
+  const [counts, estimate, costInputs, shop] = await Promise.all([
     store.sendCounts(env, campaignId),
     campaign.status === "review" ? recipientEstimate(env) : null,
     // Only a rejected version shows the redraft button and what it costs.
     campaign.status === "review" && selected.status === "rejected" ? estimateInputsOrNull(env, campaign.goal) : null,
+    // The shared email's editor offers the shop's products to add.
+    editing && selected.isShared ? shopProducts(env) : [],
   ]);
   return adminHtmlResponse(adminPage({
     title: campaign.content.eyebrow || "Review",
@@ -154,7 +159,7 @@ async function reviewPage(env, url, campaignId) {
     body: campaignReviewPage({
       campaign, versions, selected, view,
       previewHtml: previewFor(env, campaign, selected),
-      counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing,
+      counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing, shop,
       hints: voiceHints(versionText(campaign, selected)),
       canTest: sendingConfigured(env) && Boolean(env.REMINDER_EMAIL),
       notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
@@ -170,11 +175,29 @@ const field = (form, name, max) => String(form.get(name) || "").trim().slice(0, 
 function versionText(campaign, version) {
   if (!version.isShared) return [version.personal?.personalNote, version.personal?.product?.note, version.personal?.ps];
   const content = campaign.content;
-  return [...(content.paragraphs || []), ...(content.tips || []), content.ps];
+  return [...(content.paragraphs || []), ...(content.tips || []), content.ps, ...contentProducts(content).map((card) => card.note)];
 }
 
-/** The campaign and version as the editor's form would leave them. Pure: nothing is saved. */
-export function applyEdits(campaign, version, form) {
+/**
+ * The shared email's products as the editor left them: the ones still ticked,
+ * in order, plus any added from the shop. A card already in the email keeps its note.
+ */
+function pickedProducts(form, current, { shop, siteUrl }) {
+  const names = [...new Set(form.getAll("product").map((name) => String(name).trim()).filter(Boolean))];
+  const cards = [];
+  for (const name of names) {
+    const card = current.find((entry) => entry.name === name)
+      || (shop.some((product) => product.name === name) ? productCard({ name, products: shop, siteUrl, label: "" }) : null);
+    if (card) cards.push(card);
+  }
+  return cards.slice(0, MAX_EMAIL_PRODUCTS);
+}
+
+/**
+ * The campaign and version as the editor's form would leave them. Pure: nothing is saved.
+ * `shop` is the shop's products, for products Laura adds to the shared email.
+ */
+export function applyEdits(campaign, version, form, { shop = [], siteUrl = "" } = {}) {
   if (version.isShared) {
     const goal = String(form.get("goal") || "");
     const content = {
@@ -188,6 +211,10 @@ export function applyEdits(campaign, version, form) {
       tips: lines(form.get("tips")).slice(0, 8),
       ps: field(form, "ps", 600),
     };
+    if (form.has("productsShown")) {
+      content.products = pickedProducts(form, contentProducts(campaign.content), { shop, siteUrl });
+      delete content.product;
+    }
     return { campaign: { ...campaign, content, goal: GOALS.has(goal) ? goal : campaign.goal }, version };
   }
   const personal = { ...version.personal, personalNote: field(form, "personalNote", 1200), ps: field(form, "ps", 600) };
@@ -195,12 +222,18 @@ export function applyEdits(campaign, version, form) {
   return { campaign, version: { ...version, personal } };
 }
 
+/** What applyEdits needs beyond the form: the shop, read only when the shared email's products were edited. */
+async function editContext(env, version, form) {
+  const shop = version.isShared && form.has("productsShown") ? await shopProducts(env) : [];
+  return { shop, siteUrl: settings(env).siteUrl };
+}
+
 /** The editor's live preview: the email as it would look with the unsaved changes, and the voice hints. */
 async function handlePreview(request, env, campaignId, versionId) {
   const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
   if (!campaign || !version || version.campaign_id !== campaignId) return jsonResponse({ message: "Not found" }, 404);
   const form = await request.formData().catch(() => new FormData());
-  const edited = applyEdits(campaign, version, form);
+  const edited = applyEdits(campaign, version, form, await editContext(env, version, form));
   return jsonResponse({
     html: previewFor(env, edited.campaign, edited.version),
     hints: voiceHints(versionText(edited.campaign, edited.version)),
@@ -221,7 +254,7 @@ async function handleVersionAction(request, env, campaignId, versionId) {
       return redirect(back);
     }
     if (action === "save") {
-      const edited = applyEdits(campaign, version, form);
+      const edited = applyEdits(campaign, version, form, await editContext(env, version, form));
       if (version.isShared) await store.updateCampaign(env, campaignId, { content: edited.campaign.content, goal: edited.campaign.goal });
       else await store.updateVersion(env, versionId, { personal: edited.version.personal });
       await store.updateVersion(env, versionId, { status: "review" });

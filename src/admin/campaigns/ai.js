@@ -76,7 +76,8 @@ const SHARED_SCHEMA = object({
   paragraphs: strings,
   tipsTitle: { type: "string" },
   tips: strings,
-  productName: { type: "string" },
+  skipProducts: { type: "boolean" },
+  products: { type: "array", items: object({ name: { type: "string" }, note: { type: "string" } }) },
   matchTerms: strings,
 });
 
@@ -95,7 +96,7 @@ ${topic}
 
 Goal: ${GOALS[goal] || GOALS.book}
 
-Products in her shop (use the exact name, or leave productName empty):
+Products in her shop (exact names):
 ${productNames.slice(0, 80).map((name) => `- ${name}`).join("\n") || "- (none listed)"}
 ${previous ? `\nYour last draft:\n${JSON.stringify(previous)}\n\nLaura's feedback, which you must follow:\n${feedback}\n` : ""}
 Write the email as JSON:
@@ -105,7 +106,9 @@ Write the email as JSON:
 - headline: one line.
 - paragraphs: 2 or 3 short paragraphs. Do not greet the reader; the greeting is added for you.
 - tipsTitle and tips: a short title and 3 practical tips, one sentence each. Use an empty list if tips don't fit the topic.
-- productName: one product from the list that fits the topic, or "".
+- skipProducts: true only if Laura says not to show, add or push products in this email. Otherwise false.
+- products: every product from the list that Laura names or clearly points to in her topic, even loosely ("the mandelic", "my vitamin C serum"), using the exact name from the list, in the order she mentions them. If she mentions none, add the one product that fits the topic best, or none if nothing fits or the goal is just news. Empty when skipProducts is true.${previous ? " Keep the products from your last draft unless her feedback changes them." : ""}
+  For each one, note: one short line on why it fits this email, in Laura's voice (for example "My go-to for fading those marks"), or "".
 - matchTerms: 10 to 25 lowercase words or short phrases that would appear in an esthetician's client notes or purchase records if a client relates to this topic. Include shorthand (for pigmentation: pih, pie, hyperpigmentation, dark spots, melasma, sun spots, brightening, mandelic, vitamin c, tranexamic) and the names of fitting products from the list.`;
 }
 
@@ -124,7 +127,8 @@ export async function draftSharedEmail(env, { topic, goal, productNames = [], pr
     paragraphs: draft.paragraphs.map((text) => text.trim()).filter(Boolean).slice(0, 4),
     tipsTitle: draft.tipsTitle.trim(),
     tips: draft.tips.map((text) => text.trim()).filter(Boolean).slice(0, 5),
-    productName: draft.productName.trim(),
+    skipProducts: Boolean(draft.skipProducts),
+    products: draft.skipProducts ? [] : draft.products.map((product) => ({ name: product.name.trim(), note: product.note.trim() })).filter((product) => product.name),
     matchTerms: [...new Set(draft.matchTerms.map((term) => term.trim().toLowerCase()).filter(Boolean))].slice(0, 30),
   };
 }
