@@ -185,7 +185,13 @@ function noteCard(note) {
 
       ${note.confidence === "low" ? html`<div class="flag-warn"><span>⚠</span><span>Hard to read — check the original</span></div>` : ""}
 
-      ${note.pdf_key ? html`<div class="note-foot"><a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">${note.source === "ipad" ? "View handwriting" : "View original"}</a></div>` : ""}
+      ${note.source === "ipad"
+        ? html`<div class="note-foot note-actions">
+            ${note.pdf_key ? html`<a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">View handwriting</a>` : ""}
+            <a href="/admin/notes/${note.id}/edit">Edit</a>
+            ${note.ink_key ? html`<a href="/admin/clients/${note.client_id}/write?note=${note.id}">Edit handwriting</a>` : ""}
+          </div>`
+        : note.pdf_key ? html`<div class="note-foot"><a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">View original</a></div>` : ""}
       ${note.source_submission_id ? html`<div class="note-foot"><a href="/admin/forms/submissions/${note.source_submission_id}">See the full form</a></div>` : ""}
     </div>
   `;

@@ -18,7 +18,8 @@ import * as db from "./db.js";
 import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
 import { extractNoteEntries, readInkNote, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
 import { cleanFields, fieldsAsText, noteFields, NOTE_FIELDS } from "./note-fields.js";
-import { notebookPage } from "./pages/notebook.js";
+import { notebookPage, noteEditPage } from "./pages/notebook.js";
+import { todaysAppointments } from "./today.js";
 import { NOTEBOOK_JS } from "./notebook-client.js";
 import { purchaseViewFrom } from "./routine.js";
 import { loadClientOrders } from "./purchases.js";
@@ -260,11 +261,41 @@ function lastNoteFor(notes) {
   return text ? { dateLabel: shortDate(note.note_date), text } : null;
 }
 
-async function handleWritePage(env, clientId) {
+/** An iPad note of this client's that can be opened again on the iPad, or null. */
+async function editableInkNote(env, clientId, noteId) {
+  if (!noteId) return null;
+  const note = await db.getNote(env, noteId);
+  return note && note.client_id === clientId && note.source === "ipad" && note.ink_key ? note : null;
+}
+
+/** The writing screen: a new note, or with ?note= one of her iPad notes to change. */
+async function handleWritePage(env, clientId, url) {
   const client = await db.getClient(env, clientId);
   if (!client) return notFound();
+  const noteId = url.searchParams.get("note");
+  const editing = await editableInkNote(env, clientId, noteId);
+  if (noteId && !editing) return notFound();
   const notes = await db.listNotesForClient(env, clientId);
-  return adminHtmlResponse(notebookPage({ client, lastNote: lastNoteFor(notes) }));
+  const earlier = editing ? notes.filter((note) => note.id !== editing.id) : notes;
+  return adminHtmlResponse(notebookPage({ client, lastNote: lastNoteFor(earlier), editing }));
+}
+
+/** The pen strokes of an iPad note, so the iPad can open it again. */
+async function handleInkStrokes(env, noteId) {
+  const note = await db.getNote(env, noteId);
+  if (!note?.ink_key) return notFound();
+  const object = await storage.getObject(env, note.ink_key);
+  if (!object) return notFound();
+  return new Response(object.body, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+}
+
+/** Throw away a draft this client replaced by tapping Done again, files and all. */
+async function discardDraft(env, clientId, draftId) {
+  const draft = draftId ? await db.getDraft(env, draftId) : null;
+  if (!draft || draft.client_id !== clientId) return;
+  const keys = db.draftObjectKeys(draft.entries);
+  if (keys.length) await storage.deleteObjects(env, keys);
+  await db.deleteDraft(env, draftId);
 }
 
 /**
@@ -297,22 +328,30 @@ async function handleInkRead(request, env, clientId) {
     return jsonResponse({ message: "The pen strokes didn't arrive. Try Done again." }, 400);
   }
 
+  const noteId = typeof form.get("note") === "string" ? form.get("note") : "";
+  const editing = noteId ? await editableInkNote(env, clientId, noteId) : null;
+  if (noteId && !editing) return jsonResponse({ message: "That note can't be changed here." }, 404);
+  const savedFields = editing ? noteFields(editing) || {} : null;
+  // Done tapped again: the earlier reading is no longer wanted.
+  await discardDraft(env, clientId, typeof form.get("replaces") === "string" ? form.get("replaces") : "");
+
   const draftId = db.newId("draft");
   const pdfKey = await storage.putDraftPage(env, draftId, 0, await storage.mergeImagesToPdf(pages.map((bytes) => ({ bytes, mediaType: "image/png" }))), "pdf");
   const inkKey = `drafts/${draftId}/ink.json`;
   await env.NOTES_BUCKET.put(inkKey, strokes);
 
-  let reading = { fields: {}, summary: "", confidence: "low", unclear: [] };
+  // Changing a saved note: if the reading fails, the review starts from what was saved, not blank.
+  let reading = { fields: savedFields || {}, summary: "", confidence: "low", unclear: [] };
   let readFailed = false;
   try {
-    reading = await readInkNote(env, pages);
+    reading = await readInkNote(env, pages, { current: savedFields });
   } catch (error) {
     console.error("Reading handwriting failed:", error.message);
     readFailed = true;
   }
 
   await db.saveDraft(env, draftId, clientId, {
-    entries: [{ kind: "ink", pdfKey, inkKey, fields: reading.fields, summary: reading.summary, confidence: reading.confidence }],
+    entries: [{ kind: "ink", noteId: noteId || null, pdfKey, inkKey, fields: reading.fields, summary: reading.summary, confidence: reading.confidence }],
     missingHashes: [],
   });
 
@@ -338,16 +377,59 @@ async function handleInkSave(request, env, clientId, draftId) {
   const unchanged = JSON.stringify(fields) === JSON.stringify(cleanFields(entry.fields));
   const summary = (unchanged && entry.summary) || text.slice(0, 600) || "Handwritten note. See the handwriting.";
 
+  const date = isIsoDate(body.date) ? body.date : null;
+  // She has checked every section against her page, so the note is no longer flagged as hard to read.
+  const editing = await editableInkNote(env, clientId, entry.noteId);
+  if (entry.noteId && !editing) return jsonResponse({ message: "That note no longer exists." }, 404);
+  if (editing) {
+    // The changed page and strokes replace the old ones at the note's own keys.
+    await storage.promoteDraftObject(env, entry.pdfKey, editing.pdf_key);
+    await storage.promoteDraftObject(env, entry.inkKey, editing.ink_key);
+    await db.updateInkNote(env, editing.id, { date, summary, text, fields, confidence: "high" });
+    await db.deleteDraft(env, draftId);
+    return jsonResponse({ noteId: editing.id, redirect: `/admin/clients/${clientId}` });
+  }
+
   const id = db.newId("note");
   const pdfKey = `notes/${clientId}/${id}.pdf`;
   const inkKey = `ink/${clientId}/${id}.json`;
   await storage.promoteDraftObject(env, entry.pdfKey, pdfKey);
   await storage.promoteDraftObject(env, entry.inkKey, inkKey);
-
-  // She has checked every section against her page, so the note is no longer flagged as hard to read.
-  await db.commitInkNote(env, clientId, { id, date: isIsoDate(body.date) ? body.date : null, summary, text, fields, confidence: "high", pdfKey, inkKey });
+  await db.commitInkNote(env, clientId, { id, date, summary, text, fields, confidence: "high", pdfKey, inkKey });
   await db.deleteDraft(env, draftId);
   return jsonResponse({ noteId: id, redirect: `/admin/clients/${clientId}` });
+}
+
+/** The dashboard's edit page for an iPad note's typed sections and date. */
+async function handleNoteEditPage(env, noteId) {
+  const note = await db.getNote(env, noteId);
+  if (!note || note.source !== "ipad") return notFound();
+  const client = await db.getClient(env, note.client_id);
+  if (!client) return notFound();
+  return adminHtmlResponse(adminPage({
+    title: `Edit note — ${client.name}`,
+    back: { href: `/admin/clients/${client.id}`, label: client.name },
+    body: noteEditPage({ client, note, fields: noteFields(note) || {} }),
+  }));
+}
+
+async function handleNoteEditSave(request, env, noteId) {
+  const note = await db.getNote(env, noteId);
+  if (!note || note.source !== "ipad") return notFound();
+  const form = await request.formData().catch(() => null);
+  if (!form) return redirect(`/admin/notes/${noteId}/edit`);
+  const fields = cleanFields(Object.fromEntries(NOTE_FIELDS.map((name) => [name, String(form.get(name) ?? "")])));
+  const text = fieldsAsText(fields);
+  const date = String(form.get("date") || "");
+  await db.updateInkNote(env, noteId, {
+    date: isIsoDate(date) ? date : null,
+    // Her own words are the summary once she has edited the note.
+    summary: text.slice(0, 600) || "Handwritten note. See the handwriting.",
+    text,
+    fields,
+    confidence: "high",
+  });
+  return redirect(`/admin/clients/${note.client_id}`);
 }
 
 async function handleInsight(env, clientId, { refresh = false } = {}) {
@@ -540,8 +622,8 @@ export async function handleAdminRequest(request, env, url) {
 async function handleSignedIn(request, env, url, segments, method) {
   // GET /admin
   if (url.pathname === "/admin" && method === "GET") {
-    const clients = await db.listClients(env);
-    return adminHtmlResponse(adminPage({ title: "Clients", body: clientsPage({ clients }) }));
+    const [clients, today] = await Promise.all([db.listClients(env), todaysAppointments(env)]);
+    return adminHtmlResponse(adminPage({ title: "Clients", body: clientsPage({ clients, today: isConfigured(env) ? today : null }) }));
   }
 
   // POST /admin/sync — pulls clients + seller notes from Square bookings
@@ -600,7 +682,7 @@ async function handleSignedIn(request, env, url, segments, method) {
 
   // The iPad writing screen, and its "Done" and "Save to dashboard".
   if (clientMatch && segments[3] === "write" && segments.length === 4 && method === "GET") {
-    return handleWritePage(env, clientMatch);
+    return handleWritePage(env, clientMatch, url);
   }
   if (clientMatch && segments[3] === "ink" && segments.length === 4 && method === "POST") {
     return handleInkRead(request, env, clientMatch);
@@ -611,6 +693,14 @@ async function handleSignedIn(request, env, url, segments, method) {
 
   if (clientMatch && segments[3] === "insight" && method === "POST") {
     return handleInsight(env, clientMatch, { refresh: url.searchParams.get("refresh") === "1" });
+  }
+
+  if (segments[1] === "notes" && segments[3] === "ink" && segments.length === 4 && method === "GET") {
+    return handleInkStrokes(env, segments[2]);
+  }
+  if (segments[1] === "notes" && segments[3] === "edit" && segments.length === 4) {
+    if (method === "GET") return handleNoteEditPage(env, segments[2]);
+    if (method === "POST") return handleNoteEditSave(request, env, segments[2]);
   }
 
   if (segments[1] === "notes" && segments[3] === "original" && method === "GET") {

@@ -10,6 +10,8 @@ import { NOTEBOOK_JS } from "../src/admin/notebook-client.js";
 import { APP_HEAD } from "../src/admin/pwa.js";
 import { iconBytes } from "../src/admin/icons.js";
 import worker from "../src/index.js";
+import { salonDay, appointmentRows, todaysAppointments } from "../src/admin/today.js";
+import { deleteStaleDrafts } from "../src/admin/db.js";
 
 let failures = 0;
 function check(label, actual, expected) {
@@ -165,7 +167,128 @@ function claudeReplies(text) {
   check("only PNG pages, real strokes and up to 12 pages are taken", [notPng.status, noStrokes.status, tooMany.status], [400, 400, 400]);
   check("nothing is sent to Claude for a bad upload", claudeCalls, 0);
 }
+
+// --- Done tapped twice, and drafts nobody saved ------------------------------------------
+{
+  claudeReplies(JSON.stringify({ fields: { "Treatment type": "First go" }, summary: "", confidence: "high", unclear: [] }));
+  const first = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: inkForm() })).json();
+  const again = inkForm();
+  again.append("replaces", first.draftId);
+  const second = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: again })).json();
+  const leftovers = [...bucket.objects.keys()].filter((key) => key.startsWith(`drafts/${first.draftId}/`));
+  const firstRow = await d1.prepare("SELECT id FROM note_drafts WHERE id = ?").bind(first.draftId).first();
+  check("tapping Done again throws the earlier draft away, files and all", [leftovers.length, firstRow, Boolean(second.draftId)], [0, null, true]);
+
+  d1.raw.exec(`UPDATE note_drafts SET created_at = datetime('now', '-2 days') WHERE id = '${second.draftId}'`);
+  const cleared = await deleteStaleDrafts(env);
+  check("a day-old draft nobody saved is cleared with its files", [cleared, [...bucket.objects.keys()].some((key) => key.startsWith(`drafts/${second.draftId}/`))], [1, false]);
+  check("a fresh draft is left alone", await deleteStaleDrafts(env), 0);
+}
+
+// --- changing a saved iPad note ----------------------------------------------------------------
+{
+  claudeReplies(JSON.stringify({ fields: { "Treatment type": "Peel" }, summary: "Peel.", confidence: "high", unclear: [] }));
+  const draft = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: inkForm() })).json();
+  const { noteId } = await (await call(`/admin/clients/client_maya/ink/${draft.draftId}/save`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date: "2026-10-20", fields: draft.reading.fields }) })).json();
+  const before = await d1.prepare("SELECT * FROM notes WHERE id = ?").bind(noteId).first();
+
+  const page = await (await call(`/admin/clients/client_maya/write?note=${noteId}`)).text();
+  check("a saved iPad note opens again on the writing screen", [page.includes(`data-note-id="${noteId}"`), page.includes('data-note-date="2026-10-20"'), page.includes("Edit note")], [true, true, true]);
+  check("someone else's or a missing note doesn't open", [(await call("/admin/clients/client_maya/write?note=note_old")).status, (await call("/admin/clients/client_maya/write?note=nope")).status], [404, 404]);
+  const strokes = await (await call(`/admin/notes/${noteId}/ink`)).json();
+  check("its pen strokes come back to draw", strokes.pages[0][0].points[0], [10, 10, 0.5]);
+
+  claudeReplies(JSON.stringify({ fields: { "Treatment type": "Peel + LED" }, summary: "Peel and LED.", confidence: "high", unclear: [] }));
+  const edit = inkForm({ strokes: JSON.stringify({ v: 1, pages: [[{ tool: "pen", color: "#000", points: [[20, 20, 0.4]] }]] }) });
+  edit.append("note", noteId);
+  const editDraft = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: edit })).json();
+  const saved = await (await call(`/admin/clients/client_maya/ink/${editDraft.draftId}/save`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date: "2026-10-21", fields: editDraft.reading.fields }) })).json();
+  const after = await d1.prepare("SELECT * FROM notes WHERE id = ?").bind(noteId).first();
+  const count = (await d1.prepare("SELECT COUNT(*) AS n FROM notes WHERE client_id = 'client_maya' AND source = 'ipad'").first()).n;
+  check("saving the changed note updates it in place", [saved.noteId, after.note_date, JSON.parse(after.fields_json)["Treatment type"], after.summary, after.pdf_key === before.pdf_key, after.ink_key === before.ink_key], [noteId, "2026-10-21", "Peel + LED", "Peel and LED.", true, true]);
+  check("the new strokes replace the old ones", JSON.parse(new TextDecoder().decode(bucket.objects.get(after.ink_key))).pages[0][0].points[0], [20, 20, 0.4]);
+
+  const otherNote = inkForm();
+  otherNote.append("note", "note_old");
+  check("only an iPad note of hers can be changed", (await call("/admin/clients/client_maya/ink", { method: "POST", body: otherNote })).status, 404);
+
+  // The dashboard's edit page, for the typed sections.
+  const editPage = await (await call(`/admin/notes/${noteId}/edit`)).text();
+  check("the dashboard can edit an iPad note's sections", [editPage.includes('name="Treatment type"'), editPage.includes("Peel + LED"), editPage.includes(`/admin/clients/client_maya/write?note=${noteId}`)], [true, true, true]);
+  const form = new URLSearchParams({ date: "2026-10-22", "Treatment type": "Peel + LED 10 min", "Notes / remarks": "calmer", "Purchase history": "", "Possible treatments": "" });
+  const posted = await call(`/admin/notes/${noteId}/edit`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
+  const edited = await d1.prepare("SELECT * FROM notes WHERE id = ?").bind(noteId).first();
+  check("saving the edit goes back to her page with the new words", [posted.status, posted.headers.get("location"), edited.note_date, JSON.parse(edited.fields_json), edited.summary], [303, "/admin/clients/client_maya", "2026-10-22", { "Treatment type": "Peel + LED 10 min", "Notes / remarks": "calmer" }, "Treatment type: Peel + LED 10 min | Notes / remarks: calmer"]);
+  check("Square notes have no edit page", (await call("/admin/notes/note_old/edit")).status, 404);
+  const profile = await (await call("/admin/clients/client_maya")).text();
+  check("her page links to Edit and Edit handwriting on iPad notes", [profile.includes(`/admin/notes/${noteId}/edit`), profile.includes(`write?note=${noteId}`)], [true, true]);
+
+  // Editing the handwriting after a dashboard correction: Claude is shown the saved sections, so her typing is kept.
+  let sentBody = null;
+  globalThis.fetch = async (url, init) => {
+    sentBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify({ fields: { "Treatment type": "Peel + LED 10 min", "Notes / remarks": "calmer\nless redness" }, summary: "Calmer.", confidence: "high", unclear: [] }) }] }), { status: 200 });
+  };
+  const again = inkForm();
+  again.append("note", noteId);
+  await (await call("/admin/clients/client_maya/ink", { method: "POST", body: again })).json();
+  const sentText = sentBody.messages[0].content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+  check("changing the handwriting shows Claude the saved sections and asks it to keep them", [sentText.includes("Peel + LED 10 min"), sentText.includes("calmer"), sentBody.system.includes("keep her typed wording")], [true, true, true]);
+
+  globalThis.fetch = async () => new Response("{}", { status: 529 });
+  const failing = inkForm();
+  failing.append("note", noteId);
+  const fallback = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: failing })).json();
+  check("if the reading fails while changing a note, the review starts from the saved sections", [fallback.readFailed, fallback.reading.fields], [true, { "Treatment type": "Peel + LED 10 min", "Notes / remarks": "calmer" }]);
+
+  sentBody = null;
+  globalThis.fetch = async (url, init) => {
+    sentBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify({ fields: { "Treatment type": "Peel" }, summary: "Peel.", confidence: "high", unclear: [] }) }] }), { status: 200 });
+  };
+  await call("/admin/clients/client_maya/ink", { method: "POST", body: inkForm() });
+  check("a new note's reading isn't given any saved sections", [JSON.stringify(sentBody.messages).includes("currently saved"), sentBody.system.includes("keep her typed wording")], [false, false]);
+}
 globalThis.fetch = realFetch;
+
+// --- today's appointments --------------------------------------------------------------------
+{
+  const summer = salonDay(new Date("2026-07-04T03:30:00Z")); // 11:30pm on Jul 3 in Tampa
+  check("the salon's day follows Tampa time in summer", summer, { day: "2026-07-03", start: "2026-07-03T04:00:00.000Z", end: "2026-07-04T04:00:00.000Z" });
+  const winter = salonDay(new Date("2026-12-10T15:00:00Z"));
+  check("and in winter", [winter.start, winter.end], ["2026-12-10T05:00:00.000Z", "2026-12-11T05:00:00.000Z"]);
+  const fallBack = salonDay(new Date("2026-11-01T12:00:00Z"));
+  check("the day clocks go back is 25 hours long", (Date.parse(fallBack.end) - Date.parse(fallBack.start)) / 3600000, 25);
+
+  const rows = appointmentRows([
+    { id: "b2", status: "ACCEPTED", start_at: "2026-10-23T18:00:00Z", customer_id: "SQ_NEW", appointment_segments: [{ service_variation_id: "V2" }] },
+    { id: "b1", status: "ACCEPTED", start_at: "2026-10-23T14:00:00Z", customer_id: "SQ_MAYA", appointment_segments: [{ service_variation_id: "V1" }] },
+    { id: "b3", status: "CANCELLED_BY_CUSTOMER", start_at: "2026-10-23T15:00:00Z", customer_id: "SQ_MAYA" },
+  ], {
+    clientsBySquareId: new Map([["SQ_MAYA", { id: "client_maya", name: "Maya Reyes" }]]),
+    serviceNames: new Map([["V1", "Acne bootcamp facial"], ["V2", "Brow lamination"]]),
+    customerNames: new Map([["SQ_NEW", "Nora Patel"]]),
+  });
+  check("today's bookings come in time order, cancelled ones left out", rows.map((row) => [row.time, row.name, row.clientId, row.services]), [["10:00 AM", "Maya Reyes", "client_maya", ["Acne bootcamp facial"]], ["2:00 PM", "Nora Patel", null, ["Brow lamination"]]]);
+
+  const squareEnv = { ...env, SQUARE_ACCESS_TOKEN: "t", SQUARE_LOCATION_ID: "L1" };
+  globalThis.fetch = async (url) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/v2/bookings") return new Response(JSON.stringify({ bookings: [{ id: "b1", status: "ACCEPTED", start_at: new Date().toISOString(), customer_id: "SQ_MAYA", appointment_segments: [{ service_variation_id: "V1" }] }] }));
+    if (path === "/v2/catalog/batch-retrieve") return new Response(JSON.stringify({ objects: [{ id: "V1", item_variation_data: { item_id: "I1", name: "Regular" } }], related_objects: [{ id: "I1", type: "ITEM", item_data: { name: "Acne bootcamp facial" } }] }));
+    return new Response(JSON.stringify({}), { status: 500 });
+  };
+  const home = await (await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"))).text();
+  check("the clients page opens on today's appointments with Write a note", [home.includes("Acne bootcamp facial"), home.includes('href="/admin/clients/client_maya/write"')], [true, true]);
+  globalThis.fetch = async () => { throw new Error("Square down"); };
+  const down = await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"));
+  check("when Square is down the clients page still opens and says so", [down.status, (await down.text()).includes("Couldn't read today's bookings")], [200, true]);
+  globalThis.fetch = (url, init) => new Promise((resolve) => setTimeout(() => resolve(new Response(JSON.stringify({ bookings: [] }))), 2000));
+  const started = Date.now();
+  const slow = await todaysAppointments(squareEnv, { timeoutMs: 100 });
+  check("a slow Square gives up on today's list instead of holding the page", [slow.failed, slow.rows, Date.now() - started < 1000], [true, [], true]);
+  globalThis.fetch = realFetch;
+}
 
 // --- getting it onto the iPad ------------------------------------------------------------
 {

@@ -18,6 +18,7 @@ import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
 import { handleAdminRequest } from "./admin/routes.js";
+import { deleteStaleDrafts } from "./admin/db.js";
 import { handleUnsubscribe } from "./admin/campaigns/routes.js";
 import { runScheduled } from "./admin/campaigns/schedule.js";
 
@@ -441,8 +442,10 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
   },
 
   // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails
-  // within the daily limit, and the Tuesday/Thursday reminders.
+  // within the daily limit, and the Tuesday/Thursday reminders. Also clears
+  // note drafts nobody saved.
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(runScheduled(env, new Date(controller.scheduledTime)));
+    ctx.waitUntil(deleteStaleDrafts(env).catch((error) => console.error("Clearing old drafts failed:", error.message)));
   },
 };

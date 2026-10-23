@@ -255,9 +255,16 @@ into the four sections; she checks or fixes them, then **Save to dashboard**. Th
 page as she wrote it behind "View handwriting". If the reading fails, she can still type the key
 points, or save the handwriting with nothing typed.
 
+The clients page opens on **today's appointments** from Square, each with a Write a note button,
+so the right client is one tap. A saved iPad note can be changed later: **Edit** (in the dashboard)
+for the typed sections and date, or **Edit handwriting** to reopen the page on the iPad, change it
+and save it again in place. On the page, a finger scrolls natively and two fingers pinch-zoom the
+page (up to 250%, also with the − / + buttons); the Pencil and a resting palm never scroll it.
+
 While she writes, every stroke is kept on the iPad (IndexedDB), so a dropped connection or a
 closed app loses nothing; reopening the client picks the note back up. That copy is deleted once
-the note is saved. It is the only client data the app keeps on a device.
+the note is saved. It is the only client data the app keeps on a device. Tapping Done again throws the
+earlier reading away, and the 15-minute cron clears any draft nobody saved within a day.
 
 **Putting it on the iPad:** in Safari open skinbylauralo.com/ipad (it leads to /admin), log in
 with "Keep me signed in", then Share, Add to Home Screen. It opens full screen from the icon, with
