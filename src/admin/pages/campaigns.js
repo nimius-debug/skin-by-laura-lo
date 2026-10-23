@@ -196,9 +196,9 @@ function kept(name, value) {
   return html`<input type="hidden" name="${name}" value="${value || ""}" data-field="${name}" />`;
 }
 
-// The editor: the email itself becomes editable in the preview below (see
-// client.js), and this bar holds what isn't in the email body: the subject,
-// the inbox preview line, the button, formatting and Save.
+// The editor: the email in the preview below is editable as it stands (see
+// client.js), subject and preview line included, and saves itself as Laura
+// types. This bar holds formatting, the button choice and the saved state.
 function editForm({ campaign, version }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
   const shared = version.isShared;
@@ -206,10 +206,9 @@ function editForm({ campaign, version }) {
   return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview">
     <input type="hidden" name="action" value="save" />
     ${shared ? html`
-      <label class="field">Subject line<input type="text" name="subject" value="${content.subject}" maxlength="120" required /></label>
-      <label class="field">Preview line (shown after the subject in the inbox)<input type="text" name="preheader" value="${content.preheader}" maxlength="160" /></label>
-      ${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
-      ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}`
+      ${kept("subject", content.subject)}${kept("preheader", content.preheader)}${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
+      ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}
+      ${kept("greeting", content.greeting)}${kept("buttonLabel", content.buttonLabel)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}`
     : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
     <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
       <button type="button" class="camp-tool" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
@@ -218,11 +217,10 @@ function editForm({ campaign, version }) {
         <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
       </label>` : ""}
       <span class="camp-toolbar-gap"></span>
-      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
-      <button type="submit" class="btn btn-primary">Save changes</button>
+      <span class="camp-saved" data-save-state aria-live="polite">Changes save as you type</span>
     </div>
     <div class="camp-muted">${shared
-      ? "Click anywhere in the email below and type. Enter starts a new paragraph or tip."
+      ? "Click anything in the email below and type, the subject too. Enter starts a new paragraph or tip."
       : html`Click the note, the product line or the P.S. below and type. The rest is the email everyone gets: edit "Everyone else" to change it for everybody.`}</div>
   </form>`;
 }
@@ -230,9 +228,9 @@ function editForm({ campaign, version }) {
 function versionActions({ campaign, version, editing, costInputs }) {
   if (campaign.status !== "review") return "";
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  if (editing) return editForm({ campaign, version });
+  const editor = editing ? editForm({ campaign, version }) : "";
   if (version.status === "rejected") {
-    return html`<form method="post" action="${action}" class="camp-redraft" data-busy-form>
+    return html`${editor}<form method="post" action="${action}" class="camp-redraft" data-busy-form>
       <label class="field" for="feedback">What should change?</label>
       <textarea id="feedback" name="feedback" rows="3" required maxlength="1000" placeholder="For example: softer, and don't suggest acids.">${version.feedback || ""}</textarea>
       <div class="camp-actions">
@@ -243,13 +241,12 @@ function versionActions({ campaign, version, editing, costInputs }) {
       ${version.isShared ? "" : html`<div class="camp-muted">If you leave it rejected, ${versionName(version)} gets the email everyone else gets.</div>`}
     </form>`;
   }
-  return html`<div class="camp-actions">
+  return html`${editor}<div class="camp-actions">
     <form method="post" action="${action}">
       ${version.status === "approved"
         ? html`<input type="hidden" name="action" value="review" /><button type="submit" class="btn btn-approved" title="Tap to undo">✓ Approved</button>`
         : html`<input type="hidden" name="action" value="approve" /><button type="submit" class="btn btn-approve">Approve</button>`}
     </form>
-    <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview&edit=1">Edit</a>
     <form method="post" action="${action}">
       <input type="hidden" name="action" value="reject" />
       <button type="submit" class="btn btn-secondary btn-reject">Reject</button>
