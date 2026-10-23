@@ -40,7 +40,7 @@ export async function upsertClientFromSquare(env, { squareCustomerId, name }) {
 
 export async function listNotesForClient(env, clientId) {
   const { results } = await env.CLIENT_NOTES_DB.prepare(
-    `SELECT id, note_date, summary, extracted_text, confidence, source, pdf_key, source_submission_id, fields_json, created_at
+    `SELECT id, note_date, summary, extracted_text, confidence, client_id, source, pdf_key, source_submission_id, fields_json, ink_key, created_at
      FROM notes WHERE client_id = ?
      ORDER BY (note_date IS NULL), note_date DESC, created_at DESC`,
   ).bind(clientId).all();
@@ -263,4 +263,38 @@ export async function commitInkNote(env, clientId, { id, date, summary, text, fi
      VALUES (?, ?, ?, ?, ?, ?, 'ipad', ?, ?, ?)`,
   ).bind(id, clientId, date, summary, text, confidence, pdfKey, JSON.stringify(fields), inkKey).run();
   return id;
+}
+
+/** A note handwritten on the iPad, rewritten after she edits it. Its files keep their keys. */
+export async function updateInkNote(env, noteId, { date, summary, text, fields, confidence }) {
+  await env.CLIENT_NOTES_DB.prepare(
+    `UPDATE notes SET note_date = ?, summary = ?, extracted_text = ?, fields_json = ?, confidence = ? WHERE id = ? AND source = 'ipad'`,
+  ).bind(date, summary, text, JSON.stringify(fields), confidence, noteId).run();
+}
+
+export async function getNote(env, noteId) {
+  return env.CLIENT_NOTES_DB.prepare("SELECT * FROM notes WHERE id = ?").bind(noteId).first();
+}
+
+/** R2 keys a draft holds: an upload's pages, or an iPad note's page and strokes. */
+export function draftObjectKeys(entries) {
+  return (entries || []).flatMap((entry) => [entry.draftPdfKey, entry.pdfKey, entry.inkKey]).filter((key) => typeof key === "string" && key.startsWith("drafts/"));
+}
+
+/**
+ * Remove drafts nobody saved: a closed tab, or Done tapped again on the iPad. Their files are
+ * deleted from R2 first, so a failure leaves the row to try again next time.
+ */
+export async function deleteStaleDrafts(env, { olderThanHours = 24, limit = 50 } = {}) {
+  const { results } = await env.CLIENT_NOTES_DB.prepare(
+    "SELECT id, entries_json FROM note_drafts WHERE created_at < datetime('now', ?) ORDER BY created_at LIMIT ?",
+  ).bind(`-${olderThanHours} hours`, limit).all();
+  for (const row of results) {
+    let entries = [];
+    try { entries = JSON.parse(row.entries_json); } catch { /* nothing to delete */ }
+    const keys = draftObjectKeys(entries);
+    if (keys.length) await env.NOTES_BUCKET.delete(keys);
+    await deleteDraft(env, row.id);
+  }
+  return results.length;
 }

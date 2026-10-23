@@ -19,6 +19,11 @@ export const NOTEBOOK_JS = String.raw`
 
   var clientId = root.getAttribute("data-client-id");
   var clientName = root.getAttribute("data-client-name") || "";
+  // Set when an earlier iPad note is opened to be changed.
+  var noteId = root.getAttribute("data-note-id") || "";
+  var noteDate = root.getAttribute("data-note-date") || "";
+  // The key this note's unsent copy is kept under on the iPad: one per client, or per note being changed.
+  var draftKey = noteId ? clientId + ":" + noteId : clientId;
 
   // The page in its own units. Canvases scale this to the screen.
   var PAGE_W = 820;
@@ -33,6 +38,13 @@ export const NOTEBOOK_JS = String.raw`
   ];
   var HIGHLIGHT = "#E9C46A";
   var ERASE_RADIUS = 12;
+  var MIN_ZOOM = 1;
+  var MAX_ZOOM = 2.5;
+  // Canvas pixels per page unit at most. Higher zoom is drawn slightly soft rather than risk
+  // the large canvases iPad Safari refuses to keep in memory.
+  var MAX_BACKING = 3;
+  // A touch this wide is a resting hand, not a fingertip.
+  var PALM_RADIUS = 30;
 
   var state = {
     pages: [[]],          // one list of strokes per page
@@ -41,7 +53,8 @@ export const NOTEBOOK_JS = String.raw`
     fingerDraws: false,
     undo: [],
     redo: [],
-    date: localToday(),
+    date: /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday(),
+    zoom: 1,
   };
 
   var scroller = document.getElementById("nb-scroll");
@@ -181,13 +194,14 @@ export const NOTEBOOK_JS = String.raw`
 
   function sizePage(index) {
     var view = pageViews[index];
-    var cssWidth = Math.min(PAGE_W, scroller.clientWidth - 32);
+    var cssWidth = Math.min(PAGE_W, scroller.clientWidth - 32) * state.zoom;
     var cssHeight = cssWidth * PAGE_H / PAGE_W;
     var dpr = window.devicePixelRatio || 1;
+    var backing = Math.min(cssWidth * dpr / PAGE_W, MAX_BACKING);
     view.canvas.style.width = cssWidth + "px";
     view.canvas.style.height = cssHeight + "px";
-    view.canvas.width = Math.round(cssWidth * dpr);
-    view.canvas.height = Math.round(cssHeight * dpr);
+    view.canvas.width = Math.round(PAGE_W * backing);
+    view.canvas.height = Math.round(PAGE_H * backing);
     view.committed.width = view.canvas.width;
     view.committed.height = view.canvas.height;
     view.scale = view.canvas.width / PAGE_W;
@@ -220,10 +234,12 @@ export const NOTEBOOK_JS = String.raw`
 
   function toPage(canvas, event) {
     var rect = canvas.getBoundingClientRect();
+    // A tenth of a page unit and a hundredth of pressure are finer than anyone can see, and keep
+    // a long note's strokes about a third of the size.
     return [
-      (event.clientX - rect.left) * PAGE_W / rect.width,
-      (event.clientY - rect.top) * PAGE_H / rect.height,
-      event.pointerType === "pen" ? event.pressure : 0.5,
+      Math.round((event.clientX - rect.left) * PAGE_W / rect.width * 10) / 10,
+      Math.round((event.clientY - rect.top) * PAGE_H / rect.height * 10) / 10,
+      event.pointerType === "pen" ? Math.round(event.pressure * 100) / 100 : 0.5,
     ];
   }
 
@@ -245,14 +261,19 @@ export const NOTEBOOK_JS = String.raw`
   function wirePointer(canvas, index) {
     var live = null;
     var erased = null;
-    var pan = null;
+
+    // Safari scrolls the page for any touch, the Pencil included. Stop it for the Pencil, for a
+    // resting palm, and for anything while the Pencil is down; a fingertip scrolls (with momentum).
+    function holdStill(event) {
+      if (event.touches.length !== 1) return;
+      var touch = event.touches[0];
+      if (touch.touchType === "stylus" || penDown || state.fingerDraws || touch.radiusX > PALM_RADIUS) event.preventDefault();
+    }
+    canvas.addEventListener("touchstart", holdStill, { passive: false });
+    canvas.addEventListener("touchmove", holdStill, { passive: false });
 
     canvas.addEventListener("pointerdown", function (event) {
-      if (event.pointerType === "touch" && !state.fingerDraws) {
-        // A finger scrolls the pages. While the Pencil is down a touch is a resting palm: ignore it.
-        if (!penDown) pan = { id: event.pointerId, y: event.clientY };
-        return;
-      }
+      if (event.pointerType === "touch" && (!state.fingerDraws || event.width > PALM_RADIUS * 2)) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       event.preventDefault();
       try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* a pointer that has already lifted */ }
@@ -269,11 +290,6 @@ export const NOTEBOOK_JS = String.raw`
     });
 
     canvas.addEventListener("pointermove", function (event) {
-      if (pan && event.pointerId === pan.id) {
-        scroller.scrollTop -= event.clientY - pan.y;
-        pan.y = event.clientY;
-        return;
-      }
       if (!live && !erased) return;
       var events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
       if (!events.length) events = [event];
@@ -288,7 +304,6 @@ export const NOTEBOOK_JS = String.raw`
     });
 
     function finish(event) {
-      if (pan && event.pointerId === pan.id) { pan = null; return; }
       if (event.pointerType === "pen") penDown = false;
       if (erased) {
         if (erased.length) record({ type: "erase", page: index, strokes: erased });
@@ -377,9 +392,9 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function saveLocal() {
-    var record = { clientId: clientId, date: state.date, pages: state.pages, updatedAt: Date.now() };
+    var record = { clientId: draftKey, date: state.date, pages: state.pages, updatedAt: Date.now() };
     return withStore("readwrite", function (store) {
-      return hasInk() ? store.put(record) : store.delete(clientId);
+      return hasInk() ? store.put(record) : store.delete(draftKey);
     }).then(function () {
       setStatus(hasInk() ? "Saved on this iPad" : "", "good");
     }).catch(function () {
@@ -395,11 +410,11 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function loadLocal() {
-    return withStore("readonly", function (store) { return store.get(clientId); }).catch(function () { return null; });
+    return withStore("readonly", function (store) { return store.get(draftKey); }).catch(function () { return null; });
   }
 
   function clearLocal() {
-    return withStore("readwrite", function (store) { return store.delete(clientId); }).catch(function () {});
+    return withStore("readwrite", function (store) { return store.delete(draftKey); }).catch(function () {});
   }
 
   /* --------------------------------------------------------------- tools */
@@ -471,6 +486,68 @@ export const NOTEBOOK_JS = String.raw`
     if (window.innerWidth < 1100) setLastOpen(false);
   }
 
+  /* ---------------------------------------------------------------- zoom */
+
+  var zoomLabel = document.getElementById("nb-zoom-reset");
+
+  // Zoom to the given level, keeping the point under (x, y) on screen where it is. Pages are re-drawn at
+  // the new size, so writing stays sharp.
+  function setZoom(zoom, x, y) {
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom * 100) / 100));
+    var box = scroller.getBoundingClientRect();
+    var ax = x === undefined ? box.width / 2 : x - box.left;
+    var ay = y === undefined ? box.height / 2 : y - box.top;
+    var ratio = zoom / state.zoom;
+    var left = (scroller.scrollLeft + ax) * ratio - ax;
+    var top = (scroller.scrollTop + ay) * ratio - ay;
+    state.zoom = zoom;
+    pageViews.forEach(function (_, index) { sizePage(index); });
+    scroller.scrollLeft = left;
+    scroller.scrollTop = top;
+    zoomLabel.textContent = Math.round(zoom * 100) + "%";
+    document.getElementById("nb-zoom-out").disabled = zoom <= MIN_ZOOM;
+    document.getElementById("nb-zoom-in").disabled = zoom >= MAX_ZOOM;
+  }
+
+  document.getElementById("nb-zoom-in").addEventListener("click", function () { setZoom(state.zoom + 0.25); });
+  document.getElementById("nb-zoom-out").addEventListener("click", function () { setZoom(state.zoom - 0.25); });
+  zoomLabel.addEventListener("click", function () { setZoom(1); });
+
+  // Two fingers pinch the pages, not the whole app. While pinching the pages are just stretched
+  // (cheap), then re-drawn at the new size when the fingers lift.
+  var pinch = null;
+  function fingerGap(touches) {
+    var dx = touches[0].clientX - touches[1].clientX;
+    var dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  scroller.addEventListener("touchstart", function (event) {
+    if (event.touches.length !== 2 || penDown) return;
+    var x = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    var y = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+    var box = pagesBox.getBoundingClientRect();
+    pinch = { gap: fingerGap(event.touches) || 1, x: x, y: y, ratio: 1 };
+    pagesBox.style.transformOrigin = (x - box.left) + "px " + (y - box.top) + "px";
+  }, { passive: true });
+  scroller.addEventListener("touchmove", function (event) {
+    if (!pinch || event.touches.length !== 2) return;
+    event.preventDefault();
+    var target = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, state.zoom * fingerGap(event.touches) / pinch.gap));
+    pinch.ratio = target / state.zoom;
+    pagesBox.style.transform = "scale(" + pinch.ratio + ")";
+  }, { passive: false });
+  function endPinch(event) {
+    if (!pinch || event.touches.length >= 2) return;
+    var done = pinch;
+    pinch = null;
+    pagesBox.style.transform = "";
+    if (Math.abs(done.ratio - 1) > 0.01) setZoom(state.zoom * done.ratio, done.x, done.y);
+  }
+  scroller.addEventListener("touchend", endPinch);
+  scroller.addEventListener("touchcancel", endPinch);
+  // Safari's own pinch would zoom the toolbar and header too.
+  document.addEventListener("gesturestart", function (event) { event.preventDefault(); });
+
   var resizeTimer = null;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
@@ -521,6 +598,9 @@ export const NOTEBOOK_JS = String.raw`
       blobs.forEach(function (blob, i) { form.append("page", blob, "page-" + (i + 1) + ".png"); });
       form.append("strokes", JSON.stringify({ v: 1, width: PAGE_W, height: PAGE_H, pages: indexes.map(function (index) { return state.pages[index]; }) }));
       form.append("date", state.date);
+      if (noteId) form.append("note", noteId);
+      // Done tapped again: the server can throw the earlier reading away.
+      if (currentDraft) form.append("replaces", currentDraft.draftId);
       return fetch("/admin/clients/" + encodeURIComponent(clientId) + "/ink", { method: "POST", body: form, credentials: "same-origin" })
         .then(function (response) {
           return response.json().catch(function () { return {}; }).then(function (body) { return { response: response, body: body }; });
@@ -639,14 +719,33 @@ export const NOTEBOOK_JS = String.raw`
       startOver.textContent = "Tap again to clear it";
       return;
     }
-    state.pages = [[]];
     state.undo = [];
     state.redo = [];
+    banner.hidden = true;
+    if (noteId) {
+      // Changing a saved note: back to the note as it was saved.
+      clearLocal().then(loadSaved).then(function (pages) {
+        state.pages = pages || [[]];
+        state.date = /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday();
+        buildPages();
+        updateUndoButtons();
+        setStatus("", "");
+      });
+      return;
+    }
+    state.pages = [[]];
     state.date = localToday();
     buildPages();
-    banner.hidden = true;
     changed();
   });
+
+  /** A saved note's strokes, one list per page, or null if they can't be read. */
+  function loadSaved() {
+    return fetch("/admin/notes/" + encodeURIComponent(noteId) + "/ink", { credentials: "same-origin" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (ink) { return ink && Array.isArray(ink.pages) && ink.pages.length ? ink.pages : null; })
+      .catch(function () { return null; });
+  }
 
   function begin(saved) {
     if (saved && Array.isArray(saved.pages) && saved.pages.some(function (strokes) { return strokes.length; })) {
@@ -656,12 +755,21 @@ export const NOTEBOOK_JS = String.raw`
       document.getElementById("nb-restored-when").textContent = when.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
       banner.hidden = false;
       setStatus("Saved on this iPad", "good");
+      if (noteId) startOver.textContent = "Undo my changes";
     }
     buildPages();
     updateUndoButtons();
   }
 
-  loadLocal().then(begin);
+  loadLocal().then(function (saved) {
+    if (saved || !noteId) return begin(saved);
+    // Opening a saved note: its strokes come from the dashboard.
+    return loadSaved().then(function (pages) {
+      if (!pages) setStatus("Couldn't open the handwriting. Check the connection and reopen.", "warn");
+      state.pages = pages || [[]];
+      begin(null);
+    });
+  });
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(function () { pageViews.forEach(function (_, index) { renderPage(index); }); });
   }

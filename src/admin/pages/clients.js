@@ -5,7 +5,38 @@ function formatDate(iso) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function clientsPage({ clients }) {
+/** Today's appointments from Square, with a Write a note button for each client. Hidden when there's no Square. */
+function todayCard(today) {
+  if (!today) return "";
+  const heading = new Date(`${today.day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+  let body;
+  if (today.failed) {
+    body = html`<div class="today-empty">Couldn't read today's bookings from Square just now.</div>`;
+  } else if (!today.rows.length) {
+    body = html`<div class="today-empty">Nothing booked today.</div>`;
+  } else {
+    body = html`<ul class="today-list">
+      ${today.rows.map((row) => html`
+        <li class="today-row">
+          <span class="today-time">${row.time}</span>
+          <span class="today-who">
+            ${row.clientId ? html`<a href="/admin/clients/${row.clientId}">${row.name}</a>` : html`<span>${row.name}</span>`}
+            <span class="today-service">${row.services.length ? row.services.join(", ") : ""}${row.clientId ? "" : `${row.services.length ? " · " : ""}First visit: shows up after her visit and a sync`}</span>
+          </span>
+          ${row.clientId ? html`<a class="btn btn-primary today-write" href="/admin/clients/${row.clientId}/write">Write a note</a>` : ""}
+        </li>
+      `)}
+    </ul>`;
+  }
+  return html`
+    <section class="card today-card" aria-labelledby="today-heading">
+      <div class="section-label" id="today-heading">Today · ${heading}</div>
+      ${body}
+    </section>
+  `;
+}
+
+export function clientsPage({ clients, today = null }) {
   return html`
     <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 16px;">
       <div style="flex: 1; min-width: 200px;">
@@ -16,6 +47,8 @@ export function clientsPage({ clients }) {
       <button type="button" class="btn btn-primary" id="sync-btn">Sync from Square</button>
     </div>
     <div id="sync-status" style="font-size: 13px; color: var(--ink-soft);"></div>
+
+    ${todayCard(today)}
 
     <div class="card" style="padding: 0; overflow: hidden;">
       <table class="data">

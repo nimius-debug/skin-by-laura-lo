@@ -24,6 +24,8 @@ const ICONS = {
   undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   finger: '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/>',
+  minus: '<path d="M5 12h14"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
   page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 9v6M9 12h6"/>',
 };
 
@@ -58,9 +60,13 @@ button { font: inherit; color: inherit; }
 .nb-swatch { width: 24px; height: 24px; border-radius: 50%; display: block; }
 .nb-tool[aria-pressed="true"] .nb-swatch { box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px currentColor; }
 .nb-sep { width: 1px; height: 28px; background: var(--line); margin: 0 6px; }
-.nb-scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; }
-.nb-pages { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 18px 16px 24px; }
-.nb-page canvas { display: block; border-radius: 4px; box-shadow: 0 2px 14px rgba(42,36,31,.12); touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.nb-scroll { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; display: flex; flex-direction: column; }
+.nb-pages { display: flex; flex-direction: column; gap: 24px; padding: 18px 16px 24px; width: max-content; min-width: 100%; box-sizing: border-box; transform-origin: 0 0; }
+.nb-page { margin: 0 auto; }
+/* Fingers scroll the page natively; the script stops the Pencil (and a resting palm) from scrolling. */
+.nb-page canvas { display: block; border-radius: 4px; box-shadow: 0 2px 14px rgba(42,36,31,.12); touch-action: pan-x pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.nb-zoom-level { width: auto; min-width: 56px; padding: 0 6px; font-size: 14px; font-weight: 600; }
+.nb-tools, .nb-banner, .nb-foot { position: sticky; left: 0; }
 .nb-foot { display: flex; justify-content: center; padding: 0 16px calc(120px + env(safe-area-inset-bottom)); }
 .nb-banner { margin: 12px auto 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 16px; font-size: 14px; max-width: calc(100% - 24px); }
 .nb-last { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 4; width: min(280px, calc(100% - 32px));
@@ -111,22 +117,23 @@ function lastVisitBody(lastNote) {
  * The whole page. lastNote is { dateLabel, text } from her latest note, shown in a corner while
  * writing, or null when she has none.
  */
-export function notebookPage({ client, lastNote = null }) {
+export function notebookPage({ client, lastNote = null, editing = null }) {
+  const title = editing ? "Edit note" : "New note";
   return toString(html`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 ${raw(APP_HEAD)}
 <meta name="robots" content="noindex, nofollow" />
-<title>New note · ${client.name} · Admin</title>
+<title>${title} · ${client.name} · Admin</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Work+Sans:wght@400;500;600&display=swap" />
 <style>${raw(NOTEBOOK_STYLES)}</style>
 </head>
 <body>
-<div class="nb" id="notebook" data-client-id="${client.id}" data-client-name="${client.name}">
+<div class="nb" id="notebook" data-client-id="${client.id}" data-client-name="${client.name}" data-note-id="${editing?.id || ""}" data-note-date="${editing?.note_date || ""}">
   <header class="nb-top">
     <a class="nb-back" href="/admin/clients/${client.id}">${icon(ICONS.back)}${client.name}</a>
-    <div class="nb-title"><strong>New note</strong><span>Write with Apple Pencil</span></div>
+    <div class="nb-title"><strong>${title}</strong><span>${editing ? "Change it with Apple Pencil" : "Write with Apple Pencil"}</span></div>
     <div class="nb-actions">
       <span class="nb-status" id="nb-status" role="status" aria-live="polite"></span>
       <button type="button" class="nb-btn nb-btn-primary" id="nb-done">Done</button>
@@ -144,6 +151,10 @@ ${raw(APP_HEAD)}
       <button type="button" class="nb-tool" id="nb-undo" aria-label="Undo" disabled>${icon(ICONS.undo)}</button>
       <button type="button" class="nb-tool" id="nb-redo" aria-label="Redo" disabled>${icon(ICONS.redo)}</button>
       <button type="button" class="nb-tool" id="nb-finger" aria-pressed="false" aria-label="Draw with finger">${icon(ICONS.finger)}</button>
+      <span class="nb-sep" aria-hidden="true"></span>
+      <button type="button" class="nb-tool" id="nb-zoom-out" aria-label="Zoom out" disabled>${icon(ICONS.minus)}</button>
+      <button type="button" class="nb-tool nb-zoom-level" id="nb-zoom-reset" aria-label="Back to 100%">100%</button>
+      <button type="button" class="nb-tool" id="nb-zoom-in" aria-label="Zoom in">${icon(ICONS.plus)}</button>
     </div>
 
     <div class="nb-banner" id="nb-restored" hidden>
@@ -189,4 +200,28 @@ ${raw(APP_HEAD)}
 <script src="/admin/assets/notebook.js?v=${NOTEBOOK_VERSION}" defer></script>
 </body>
 </html>`);
+}
+
+/** The dashboard's edit form for an iPad note: its date and four sections, plus a way back to the handwriting. */
+export function noteEditPage({ client, note, fields }) {
+  return html`
+    <div class="card" style="max-width: 720px; display: flex; flex-direction: column; gap: 16px;">
+      <h1 class="page-title" style="font-size: 24px;">Edit note</h1>
+      <form method="post" action="/admin/notes/${note.id}/edit" style="display: flex; flex-direction: column; gap: 14px;">
+        <label class="field">Date
+          <input type="date" name="date" value="${note.note_date || ""}" style="max-width: 220px;" />
+        </label>
+        ${NOTE_FIELDS.map((name) => html`
+          <label class="field">${name}
+            <textarea name="${name}" rows="4">${fields[name] || ""}</textarea>
+          </label>
+        `)}
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
+          ${note.ink_key ? html`<a href="/admin/clients/${client.id}/write?note=${note.id}" style="margin-right: auto; font-size: 14px;">Edit the handwriting on the iPad</a>` : ""}
+          <a href="/admin/clients/${client.id}" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  `;
 }

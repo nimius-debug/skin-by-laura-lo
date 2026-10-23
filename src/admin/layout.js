@@ -63,6 +63,17 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .profile-head { display: flex; flex-direction: column; gap: 4px; }
 .profile-head .page-title { font-size: 30px; }
 .synced { font-size: 13px; color: var(--good); font-weight: 600; }
+.today-card { display: flex; flex-direction: column; gap: 10px; }
+.today-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.today-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-top: 1px solid #F0E8DC; }
+.today-row:first-child { border-top: 0; }
+.today-time { width: 72px; flex-shrink: 0; font-weight: 600; font-size: 14px; }
+.today-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.today-who a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.today-service { font-size: 13px; color: var(--ink-soft); }
+.today-write { flex-shrink: 0; text-decoration: none; min-height: 44px; }
+.today-empty { font-size: 14px; color: var(--ink-soft); }
+.note-actions { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .write-note-btn { align-self: flex-start; margin-top: 8px; text-decoration: none; }
 .section-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
 .note-card { display: flex; flex-direction: column; gap: 10px; }
