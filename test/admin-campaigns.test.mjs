@@ -1,11 +1,11 @@
 import { createD1, schemaMigrations } from "./helpers/d1-sqlite.mjs";
-import { renderEmail } from "../src/admin/campaigns/email-template.js";
+import { contentProducts, renderEmail } from "../src/admin/campaigns/email-template.js";
 import { buildProfile, pickCandidates, scoreProfile } from "../src/admin/campaigns/matching.js";
 import * as store from "../src/admin/campaigns/store.js";
 import { buildMessage, planSends, sendQueued, unsubscribeUrl, verifyUnsubscribe } from "../src/admin/campaigns/sending.js";
 import { localTime, maybeRemind, reminderDue } from "../src/admin/campaigns/schedule.js";
-import { handleCampaignRoute, handleUnsubscribe, weekSummary } from "../src/admin/campaigns/routes.js";
-import { draftCampaign, productCard, redraftPersonal } from "../src/admin/campaigns/drafting.js";
+import { applyEdits, handleCampaignRoute, handleUnsubscribe, weekSummary } from "../src/admin/campaigns/routes.js";
+import { draftCampaign, namedInTopic, productCard, redraftPersonal, sharedProductCards } from "../src/admin/campaigns/drafting.js";
 import { addSubscription, listSubscriptions, notifyPhones } from "../src/admin/campaigns/push.js";
 import { costHistory, costOf, estimateCampaign, estimateInputs, formatCost } from "../src/admin/campaigns/cost.js";
 import { voiceHints } from "../src/admin/campaigns/voice.js";
@@ -75,11 +75,50 @@ const content = {
 
 // --- product cards ------------------------------------------------------------
 {
-  const products = [{ name: "Mixi Mandelic Acid 5%", slug: "mixi-mandelic-acid-5", image: "https://img/x.png" }];
-  check("a product picked by name links to its shop page", productCard({ name: "mixi mandelic acid 5%", products, siteUrl: SITE, label: "Worth a look" }),
-    { label: "Worth a look", name: "Mixi Mandelic Acid 5%", goodFor: productCard({ name: "Mixi Mandelic Acid 5%", products, siteUrl: SITE, label: "" }).goodFor, note: "", url: `${SITE}/product/mixi-mandelic-acid-5`, image: "https://img/x.png" });
-  check("a product no longer in the shop shows by name without a link", productCard({ name: "Old Serum", products, siteUrl: SITE, label: "x" }).url, "");
+  const products = [
+    { name: "Mixi Mandelic Acid 5%", slug: "mixi-mandelic-acid-5", image: "https://img/x.png", priceCents: 3200 },
+    { name: "Daily SPF 50", slug: "daily-spf-50", image: "", priceCents: 4450 },
+    { name: "Vitamin C Serum", slug: "vitamin-c-serum", image: "https://img/c.png", priceCents: 5800 },
+  ];
+  check("a product picked by name links to its shop page, with its photo and price", productCard({ name: "mixi mandelic acid 5%", products, siteUrl: SITE, label: "Worth a look" }),
+    { label: "Worth a look", name: "Mixi Mandelic Acid 5%", goodFor: productCard({ name: "Mixi Mandelic Acid 5%", products, siteUrl: SITE, label: "" }).goodFor, note: "", url: `${SITE}/product/mixi-mandelic-acid-5`, image: "https://img/x.png", price: "$32.00" });
+  check("a product no longer in the shop shows by name without a link or price", [productCard({ name: "Old Serum", products, siteUrl: SITE, label: "x" }).url, productCard({ name: "Old Serum", products, siteUrl: SITE, label: "x" }).price], ["", ""]);
   check("no product name means no card", productCard({ name: "", products, siteUrl: SITE, label: "x" }), null);
+
+  check("products typed out in the topic are found in the order Laura wrote them",
+    namedInTopic("Wear your daily spf 50, and the Mixi Mandelic Acid 5% at night.", products), ["Daily SPF 50", "Mixi Mandelic Acid 5%"]);
+  const cards = sharedProductCards({
+    picks: [{ name: "Vitamin C Serum", note: "My morning glow step" }, { name: "Daily SPF 50", note: "" }],
+    skip: false, topic: "Talk about the vitamin c and Daily SPF 50 and Mixi Mandelic Acid 5%", products, siteUrl: SITE,
+  });
+  check("every product Laura mentions gets a card: the AI's picks first, then any it missed, without repeats",
+    cards.map((card) => [card.name, card.note, card.price]), [["Vitamin C Serum", "My morning glow step", "$58.00"], ["Daily SPF 50", "", "$44.50"], ["Mixi Mandelic Acid 5%", "", "$32.00"]]);
+  check("when Laura says no products, there are none, even ones she named",
+    sharedProductCards({ picks: [], skip: true, topic: "Daily SPF 50, but no products this time", products, siteUrl: SITE }), []);
+  const many = Array.from({ length: 9 }, (_, index) => ({ name: `P${index}`, note: "" }));
+  check("an email has at most six product cards", sharedProductCards({ picks: many, skip: false, topic: "", products, siteUrl: SITE }).length, 6);
+  check("campaigns saved with one product card still show it", [contentProducts({ product: { name: "A" } }), contentProducts({ products: [], product: { name: "A" } })], [[{ name: "A" }], []]);
+
+  const email = renderEmail({ content: { ...content, product: undefined }, products: cards, goal: "shop", siteUrl: SITE, unsubscribeUrl: "u" });
+  check("each product shows as a card with its name, price, note and shop link",
+    [email.html.includes("From the shop"), ...cards.map((card) => email.html.includes(card.name) && email.html.includes(card.price)), email.html.includes("My morning glow step"), email.html.includes(`href="${SITE}/product/daily-spf-50"`), email.html.includes('src="https://img/c.png"')],
+    [true, true, true, true, true, true, true]);
+  check("the plain-text copy lists the products with prices and links",
+    [email.text.includes("Vitamin C Serum ($58.00)"), email.text.includes(`${SITE}/product/vitamin-c-serum`)], [true, true]);
+  check("an email without products has no shop section", renderEmail({ content, goal: "shop", siteUrl: SITE, unsubscribeUrl: "u" }).html.includes("From the shop"), false);
+
+  const campaign = { goal: "shop", content: { ...content, product: undefined, products: cards } };
+  const personalVersion = { isShared: false, personal: { personalNote: "Hi", product: { ...cards[1], label: "From your routine", note: "Bought in May." } } };
+  const personalEmail = buildMessage({ campaign, version: personalVersion, send: { first_name: "Maya" }, siteUrl: SITE, unsubscribe: "u" });
+  check("a personal version shows the client's own product first, then the shared ones, without repeating it",
+    [personalEmail.text.indexOf("From your routine: Daily SPF 50") < personalEmail.text.indexOf("Vitamin C Serum"), personalEmail.text.split("Daily SPF 50").length - 1], [true, 1]);
+
+  const form = (fields) => { const data = new FormData(); for (const [key, value] of fields) data.append(key, value); return data; };
+  const shared = { isShared: true };
+  const edited = applyEdits(campaign, shared, form([["subject", "S"], ["headline", "H"], ["productsShown", "1"], ["product", "Daily SPF 50"], ["product", "Mixi Mandelic Acid 5%"], ["product", "Not In The Shop"], ["product", ""]]), { shop: products, siteUrl: SITE });
+  check("in the editor, an unticked product is taken out, one added from the shop gets a card, and unknown names are ignored",
+    edited.campaign.content.products.map((card) => [card.name, card.price]), [["Daily SPF 50", "$44.50"], ["Mixi Mandelic Acid 5%", "$32.00"]]);
+  check("a form without the product picker leaves the products as they were", applyEdits(campaign, shared, form([["subject", "S"]])).campaign.content.products.length, 3);
 }
 
 // --- who gets which version ----------------------------------------------------
@@ -287,6 +326,19 @@ async function freshEnv(extra = {}) {
     [mayaEditor.includes("data-edit=&quot;personalNote&quot;"), mayaEditor.includes("data-edit=&quot;productNote&quot;"), mayaEditor.includes("data-edit=&quot;personalPs&quot;"), mayaEditor.includes("data-edit=&quot;paragraphs&quot;")], [true, true, true, false]);
   check("the editor's hidden fields start with the saved words, so saving without the script changes nothing",
     editor.includes('name="paragraphs" value="First &lt;b&gt;paragraph&lt;/b&gt;.\n\nSecond\nline."'), true);
+  check("the shared editor keeps the email's products for Save, with a Remove button on each card in the email",
+    [editor.includes('name="product" value="Mixi Mandelic Acid 5%"'), editor.includes("data-remove-product"), editor.includes("data-product=&quot;Mixi Mandelic Acid 5%&quot;"), page.includes("data-remove-product")], [true, true, true, false]);
+  check("a personal version's products can't be removed there; they come from the shared email", mayaEditor.includes("data-remove-product"), false);
+  check("the products heading can be typed over in the email", editor.includes("data-edit=&quot;shopTitle&quot;"), true);
+  check("the shared email has a search box under the products to add one, and sent or personal emails don't",
+    [editor.includes("data-product-query"), editor.includes('data-shop="[]"'), mayaEditor.includes("data-product-query"), page.includes("data-product-query")], [true, true, false, false]);
+  {
+    const renamed = applyEdits(await store.getCampaign(env, campaignId), shared, new URLSearchParams({ subject: "S", headline: "H", shopTitle: "Laura's picks" })).campaign;
+    const mail = buildMessage({ campaign: renamed, version: shared, send: { first_name: "" }, siteUrl: SITE, unsubscribe: "u" });
+    check("Laura's own products heading is saved and sent; the usual one isn't stored",
+      [renamed.content.shopTitle, mail.html.includes(">Laura&#39;s picks</div>"), mail.text.includes("Laura's picks\nWorth a look: Mixi"),
+        applyEdits(renamed, shared, new URLSearchParams({ shopTitle: "From the shop" })).campaign.content.shopTitle], ["Laura's picks", true, true, ""]);
+  }
   const preview = await route(`/admin/campaigns/${campaignId}/versions/${shared.id}/preview`, {
     method: "POST", body: new URLSearchParams({ subject: "Live", headline: "Live headline", paragraphs: "Fresh words — here.", ps: "See you soon ✨" }),
   });
@@ -312,7 +364,7 @@ async function freshEnv(extra = {}) {
   await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.\n\nTwo.", tips: "A\nB", ps: "Book soon", goal: "shop" });
   const saved = await store.getCampaign(env, campaignId);
   check("editing the shared email splits paragraphs on blank lines and tips on lines",
-    [saved.content.subject, saved.content.paragraphs, saved.content.tips, saved.content.product.name], ["New subject", ["One.", "Two."], ["A", "B"], "Mixi Mandelic Acid 5%"]);
+    [saved.content.subject, saved.content.paragraphs, saved.content.tips, contentProducts(saved.content)[0].name], ["New subject", ["One.", "Two."], ["A", "B"], "Mixi Mandelic Acid 5%"]);
   check("the shared P.S. and the button are saved", [saved.content.ps, saved.goal], ["Book soon", "shop"]);
   check("Laura's usual words aren't stored, so they follow the button choice", [saved.content.greeting, saved.content.buttonLabel, saved.content.buttonUrl, saved.content.signoff, saved.content.signName], ["", "", "", "", ""]);
   await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.", goal: "book", greeting: "Hey", fallbackName: "friend", buttonLabel: "Grab a spot", buttonUrl: "calendly.com/laura", signoff: "Talk soon,", signName: "Laura ✨", preheader: "Quick one" });
@@ -323,6 +375,8 @@ async function freshEnv(extra = {}) {
   check("her own greeting, button words, sign-off and preview line are saved and sent",
     [worded.content.preheader, wordedEmail.html.includes("Hey Ana,"), wordedEmail.html.includes(">Grab a spot</a>"), wordedEmail.text.includes("Talk soon,\nLaura ✨"), wordedEmail.html.includes("data-edit")],
     ["Quick one", true, true, true, false]);
+  await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", productsShown: "1" });
+  check("unticking every product saves the email without products", contentProducts((await store.getCampaign(env, campaignId)).content), []);
 
   const approved = await (await route(`/admin/campaigns/${campaignId}`)).text();
   check("once the shared email is approved, the send bar names the audience", approved.includes("Goes to about 113 clients"), true);
@@ -360,7 +414,7 @@ async function freshEnv(extra = {}) {
         { ref: "c1", related: true, reason: "Notes: PIH after breakouts", personalNote: "Keep up the mandelic.", productName: "", productNote: "" },
         { ref: "c2", related: false, reason: "", personalNote: "", productName: "", productNote: "" },
       ] }
-      : { subject: "S", preheader: "P", eyebrow: "E", headline: "H", paragraphs: ["One."], tipsTitle: "", tips: [], productName: "", matchTerms: ["PIH", "dark spots", "mandelic"] };
+      : { subject: "S", preheader: "P", eyebrow: "E", headline: "H", paragraphs: ["One."], tipsTitle: "", tips: [], skipProducts: false, products: [{ name: "Mixi Mandelic Acid 5%", note: "Gentle start" }], matchTerms: ["PIH", "dark spots", "mandelic"] };
     return new Response(JSON.stringify({ stop_reason: "end_turn", usage: { input_tokens: 100, output_tokens: 50 }, content: [{ type: "text", text: JSON.stringify(reply) }] }), { status: 200 });
   };
   try {
@@ -373,11 +427,33 @@ async function freshEnv(extra = {}) {
     check("every call asks for JSON matching a schema", requests.every((request) => request.output_config.format.type === "json_schema"), true);
     check("every call is written from Laura's email voice guide", requests.every((request) => request.system.includes("playful big sister")), true);
     check("token use is recorded on the campaign", (await store.getCampaign(env, campaignId)).usage.calls, 2);
+    check("the products the AI found in the topic are saved as cards", (await store.getCampaign(env, campaignId)).content.products.map((card) => [card.name, card.note]), [["Mixi Mandelic Acid 5%", "Gentle start"]]);
+    check("the prompt asks for every product Laura mentions, unless she says not to", [requests[0].messages[0].content.includes("every product from the list that Laura names"), requests[0].messages[0].content.includes("skipProducts")], [true, true]);
 
     const maya = versions[1];
     await redraftPersonal(env, { campaign: await store.getCampaign(env, campaignId), version: maya, feedback: "Shorter." });
     check("a redraft sends Laura's feedback and keeps the version in review",
       [requests.at(-1).messages[0].content.includes("Shorter."), (await store.getVersion(env, maya.id)).status], [true, "review"]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+// --- adding a product in the editor ------------------------------------------------------
+{
+  const env = await freshEnv({ SQUARE_ACCESS_TOKEN: "sq-test", SQUARE_LOCATION_ID: "L1" });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => Response.json(String(url).includes("/catalog/search") ? {
+    objects: [{ id: "I1", type: "ITEM", item_data: { name: "Daily SPF 50", product_type: "REGULAR", ecom_visibility: "VISIBLE", categories: [{ id: "C1" }], image_ids: ["M1"],
+      variations: [{ id: "V1", item_variation_data: { pricing_type: "FIXED_PRICING", price_money: { amount: 4450, currency: "USD" } } }] } }],
+    related_objects: [{ id: "C1", type: "CATEGORY", category_data: { name: "Sun care" } }, { id: "M1", type: "IMAGE", image_data: { url: "https://img/spf.png" } }],
+  } : {});
+  try {
+    const route = (path) => { const url = new URL(`https://x.test${path}`); return handleCampaignRoute(new Request(url), env, url, url.pathname.split("/").filter(Boolean), "GET"); };
+    const added = await (await route("/admin/campaigns/product-card?name=Daily%20SPF%2050")).json();
+    check("a product added in the editor comes back as its card, with photo, price and a Remove button",
+      [added.name, added.html.includes("$44.50"), added.html.includes('src="https://img/spf.png"'), added.html.includes("data-remove-product")], ["Daily SPF 50", true, true, true]);
+    check("a name that isn't in the shop is refused", (await route("/admin/campaigns/product-card?name=Nope")).status, 404);
   } finally {
     globalThis.fetch = realFetch;
   }

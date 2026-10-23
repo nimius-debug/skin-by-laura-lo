@@ -39,6 +39,36 @@ export function plain(value) {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)");
 }
 
+/** The shared email's product cards, including campaigns saved with a single card before there could be several. */
+export function contentProducts(content) {
+  if (Array.isArray(content?.products)) return content.products;
+  return content?.product ? [content.product] : [];
+}
+
+/**
+ * One product card, as a row of the email's product list. In the editor a shared
+ * card gets a Remove button and a personal card's note can be typed into.
+ */
+export function productCardHtml(product, { removable = false, noteEdit = "" } = {}) {
+  return `
+              <tr${removable ? ` data-product="${escapeHtml(product.name)}"` : ""}><td style="padding:0 0 12px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${COLORS.line};border-radius:14px;">
+                  <tr>
+                    ${product.image ? `<td width="88" valign="top" style="padding:14px 0 14px 14px;"><img src="${escapeHtml(product.image)}" width="72" height="72" alt="${escapeHtml(product.name)}" style="display:block;width:72px;height:72px;border-radius:10px;object-fit:cover;border:0;"></td>` : ""}
+                    <td valign="top" style="padding:14px 16px;">
+                      ${product.label ? `<div style="font-family:${SANS};font-size:11.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.accentText};padding-bottom:4px;">${escapeHtml(product.label)}</div>` : ""}
+                      <div style="font-family:${SANS};font-size:16px;line-height:1.35;font-weight:bold;color:${COLORS.ink};">${escapeHtml(product.name)}</div>
+                      ${product.price ? `<div style="font-family:${SANS};font-size:15px;font-weight:bold;color:${COLORS.accentText};padding-top:2px;">${escapeHtml(product.price)}</div>` : ""}
+                      ${product.goodFor ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;">Good for: ${escapeHtml(product.goodFor)}</div>` : ""}
+                      ${product.note || noteEdit ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;"${noteEdit}>${rich(product.note || "")}</div>` : ""}
+                      ${product.url ? `<div style="padding-top:8px;"><a href="${escapeHtml(product.url)}" style="font-family:${SANS};font-size:14px;font-weight:bold;color:${COLORS.accentText};">See it in the shop</a></div>` : ""}
+                      ${removable ? `<div style="padding-top:10px;"><button type="button" data-remove-product style="font-family:${SANS};font-size:13px;font-weight:bold;color:${COLORS.muted};background:none;border:1px solid ${COLORS.line};border-radius:8px;padding:6px 10px;cursor:pointer;">Remove from email</button></div>` : ""}
+                    </td>
+                  </tr>
+                </table>
+              </td></tr>`;
+}
+
 const CALLS_TO_ACTION = {
   book: { label: "Book a facial", path: "/booking" },
   shop: { label: "Visit the shop", path: "/shop" },
@@ -62,15 +92,16 @@ export function defaultButtonLabel(goal) {
  *   content.greeting, .fallbackName, .buttonLabel, .buttonUrl, .signoff, .signName:
  *             Laura's own wording for "Hi", "there" (when there's no first name),
  *             the button and where it goes, "See you soon," and "Laura" (defaults when empty)
+ *   content.shopTitle: her own heading for the products, instead of "From the shop"
  *   personal: { personalNote, ps } for a personal version, or null for the shared one
- *   product:  { label, name, goodFor, note, url, image } or null
+ *   products: the product cards, [{ label, name, price, goodFor, note, url, image }]
  *   editable: "shared" or "personal" for the admin editor only (never sent). It
  *             marks the parts of that version Laura can type into with
  *             data-edit, and shows empty ones so she can fill them in. The shared
  *             editor also shows the subject and preview line above the email.
  * Returns { subject, html, text }.
  */
-export function renderEmail({ content, personal = null, product = null, firstName = "", goal = "book", siteUrl, unsubscribeUrl, editable = null }) {
+export function renderEmail({ content, personal = null, products = [], firstName = "", goal = "book", siteUrl, unsubscribeUrl, editable = null }) {
   const fallbackName = content.fallbackName?.trim() || "there";
   const greetingName = firstName.trim() || fallbackName;
   const cta = CALLS_TO_ACTION[goal] ? { ...CALLS_TO_ACTION[goal], url: `${siteUrl}${CALLS_TO_ACTION[goal].path}` } : null;
@@ -79,6 +110,7 @@ export function renderEmail({ content, personal = null, product = null, firstNam
   const greeting = content.greeting?.trim() || "Hi";
   const signoff = content.signoff?.trim() || "See you soon,";
   const signName = content.signName?.trim() || "Laura";
+  const shopTitle = content.shopTitle?.trim() || "From the shop";
   const paragraphs = (content.paragraphs || []).filter(Boolean);
   const tips = (content.tips || []).filter(Boolean);
   const note = personal?.personalNote?.trim() || "";
@@ -119,20 +151,21 @@ export function renderEmail({ content, personal = null, product = null, firstNam
             </table>
           </td></tr>` : "";
 
-  const productBlock = product ? `
-          <tr><td style="padding:8px 0 22px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${COLORS.line};border-radius:14px;">
-              <tr>
-                ${product.image ? `<td width="112" valign="top" style="padding:16px 0 16px 16px;"><img src="${escapeHtml(product.image)}" width="96" height="96" alt="${escapeHtml(product.name)}" style="display:block;width:96px;height:96px;border-radius:10px;object-fit:cover;border:0;"></td>` : ""}
-                <td valign="top" style="padding:16px;">
-                  <div style="font-family:${SANS};font-size:11.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.accentText};">${escapeHtml(product.label || "Worth a look")}</div>
-                  <div style="font-family:${SANS};font-size:16px;font-weight:bold;color:${COLORS.ink};padding:4px 0;">${escapeHtml(product.name)}</div>
-                  ${product.goodFor ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};">Good for: ${escapeHtml(product.goodFor)}</div>` : ""}
-                  ${product.note || editPersonal ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;"${edit(editPersonal, "productNote", "Add a line about this product")}>${rich(product.note || "")}</div>` : ""}
-                  ${product.url ? `<div style="padding-top:8px;"><a href="${escapeHtml(product.url)}" style="font-family:${SANS};font-size:14px;font-weight:bold;color:${COLORS.accentText};">See it in the shop</a></div>` : ""}
-                </td>
-              </tr>
+  // While editing the shared email the section is always there, ending in a
+  // search box for adding a product from the shop (client.js wires it up). The
+  // heading hides while there are no products, as the sent email has none.
+  const productsBlock = products.length || editShared ? `
+          <tr${editShared ? " data-products" : ""}><td style="padding:8px 0 10px;">
+            <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:12px;${editShared && !products.length ? "display:none;" : ""}"${editShared ? " data-products-title" : ""}${edit(editShared, "shopTitle", "From the shop")}>${escapeHtml(shopTitle)}</div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" data-product-list>${products.map((product) => productCardHtml(product, {
+              removable: editShared,
+              noteEdit: editPersonal && product === personal?.product ? edit(true, "productNote", "Add a line about this product") : "",
+            })).join("")}
             </table>
+            ${editShared ? `<div data-product-search style="position:relative;padding:2px 0 12px;">
+              <input type="search" data-product-query placeholder="+ Add a product: type its name" autocomplete="off" aria-label="Add a product from the shop" style="box-sizing:border-box;width:100%;font-family:${SANS};font-size:16px;color:${COLORS.ink};padding:12px 14px;border:1.5px dashed ${COLORS.accent};border-radius:12px;background:${COLORS.tint};">
+              <div data-product-matches role="listbox" style="display:none;margin-top:6px;border:1px solid ${COLORS.line};border-radius:12px;background:#FFFFFF;overflow:hidden;"></div>
+            </div>` : ""}
           </td></tr>` : "";
 
   const psRow = (ps, editing, name, placeholder) => (String(ps || "").trim() || editing
@@ -177,7 +210,7 @@ ${editShared ? inboxHeader(content) : ""}<div style="display:none;max-height:0;o
           ${noteBlock}
           <tr><td${edit(editShared, "paragraphs", "Write the email here")}>${(paragraphs.length || !editShared ? paragraphs : [""]).map((text) => p(rich(text))).join("")}</td></tr>
           ${tipsBlock}
-          ${productBlock}
+          ${productsBlock}
           ${ctaBlock}
           <tr><td style="padding:0 0 22px;font-family:${SANS};font-size:16px;line-height:1.6;color:${COLORS.ink};">${words(editShared, "signoff", "See you soon,", signoff)}<br><span style="font-family:${SERIF};font-size:20px;font-weight:bold;"${edit(editShared, "signName", "Laura")}>${escapeHtml(signName)}</span></td></tr>
           ${psRow(content.ps, editShared, "ps", "Add a P.S. for everyone (optional)")}
@@ -203,7 +236,13 @@ ${editShared ? inboxHeader(content) : ""}<div style="display:none;max-height:0;o
     ...(note ? [`A note just for you: ${plain(note)}`, ""] : []),
     ...paragraphs.flatMap((paragraph) => [plain(paragraph), ""]),
     ...(tips.length ? [content.tipsTitle || "What helps", ...tips.map((tip, index) => `${index + 1}. ${plain(tip)}`), ""] : []),
-    ...(product ? [`${product.label || "Worth a look"}: ${product.name}`, ...(product.goodFor ? [`Good for: ${product.goodFor}`] : []), ...(product.note ? [plain(product.note)] : []), ...(product.url ? [product.url] : []), ""] : []),
+    ...(products.length ? [shopTitle, ...products.flatMap((product) => [
+      `${product.label ? `${product.label}: ` : ""}${product.name}${product.price ? ` (${product.price})` : ""}`,
+      ...(product.goodFor ? [`Good for: ${product.goodFor}`] : []),
+      ...(product.note ? [plain(product.note)] : []),
+      ...(product.url ? [product.url] : []),
+      "",
+    ])] : []),
     ...(cta ? [`${cta.label}: ${cta.url}`, ""] : []),
     signoff,
     signName,

@@ -1,5 +1,8 @@
 import { html, toString } from "../../html.js";
 import { costOf, estimateCampaign, estimateRedraft, formatCost, modelName } from "../campaigns/cost.js";
+import { MAX_EMAIL_PRODUCTS } from "../campaigns/drafting.js";
+import { contentProducts } from "../campaigns/email-template.js";
+import { formatMoney } from "../../config.js";
 
 // The email campaign screens: the Campaigns home, writing a new email, and
 // reviewing each version before it is sent. On a phone the review screen
@@ -174,6 +177,7 @@ export function newCampaignPage({ topic = "", goal = "book", missing, error, est
         <div class="section-label">What happens next</div>
         <ol class="camp-how">
           <li>The AI writes one email for everyone, in your voice and at a 5th-grade reading level.</li>
+          <li>Products you mention are added as cards with their photo, price and a shop link. Say "no products" to leave them out.</li>
           <li>It looks through every client's notes (from the Excel sheet and Square) and what they bought, and when.</li>
           <li>Clients it relates to get a short personal note added. Allergy and sensitivity flags keep that advice gentle.</li>
           <li>You read each version, then approve, edit or reject it. Nothing sends until you press Send.</li>
@@ -196,19 +200,39 @@ function kept(name, value) {
   return html`<input type="hidden" name="${name}" value="${value || ""}" data-field="${name}" />`;
 }
 
+/**
+ * The shared email's products, for the editor: hidden fields holding the
+ * saved order (so a save without the script changes nothing). In the email,
+ * each card has a Remove button and a search box adds one from the shop.
+ */
+function productFields(campaign) {
+  return html`<input type="hidden" name="productsShown" value="1" />
+    <span data-product-fields>${contentProducts(campaign.content).map((card) => html`<input type="hidden" name="product" value="${card.name}" />`)}</span>`;
+}
+
+/** The shop's products for the search box in the email: name, price and photo. */
+function shopForSearch(shop) {
+  return JSON.stringify(shop.map((product) => ({
+    name: product.name,
+    price: Number.isFinite(product.priceCents) ? formatMoney(product.priceCents) : "",
+    image: product.image || "",
+  })));
+}
+
 // The editor: the email in the preview below is editable as it stands (see
 // client.js), subject and preview line included, and saves itself as Laura
 // types. This bar holds formatting, the button choice and the saved state.
-function editForm({ campaign, version }) {
+function editForm({ campaign, version, shop = [] }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
   const shared = version.isShared;
   const content = campaign.content;
-  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview">
+  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview" data-product-card-url="/admin/campaigns/product-card" data-shop="${shared ? shopForSearch(shop) : "[]"}" data-max-products="${MAX_EMAIL_PRODUCTS}">
     <input type="hidden" name="action" value="save" />
     ${shared ? html`
       ${kept("subject", content.subject)}${kept("preheader", content.preheader)}${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
       ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}
-      ${kept("greeting", content.greeting)}${kept("fallbackName", content.fallbackName)}${kept("buttonLabel", content.buttonLabel)}${kept("buttonUrl", content.buttonUrl)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}`
+      ${kept("greeting", content.greeting)}${kept("fallbackName", content.fallbackName)}${kept("buttonLabel", content.buttonLabel)}${kept("buttonUrl", content.buttonUrl)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}${kept("shopTitle", content.shopTitle)}
+      ${productFields(campaign)}`
     : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
     <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
       <button type="button" class="camp-tool" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
@@ -220,15 +244,15 @@ function editForm({ campaign, version }) {
       <span class="camp-saved" data-save-state aria-live="polite">Changes save as you type</span>
     </div>
     <div class="camp-muted">${shared
-      ? "Click anything in the email below and type, the subject too. Enter starts a new paragraph or tip."
+      ? "Click anything in the email below and type, the subject too. Enter starts a new paragraph or tip. To add a product, type its name in the box under the products and pick it."
       : html`Click the note, the product line or the P.S. below and type. The rest is the email everyone gets: edit "Everyone else" to change it for everybody.`}</div>
   </form>`;
 }
 
-function versionActions({ campaign, version, editing, costInputs }) {
+function versionActions({ campaign, version, editing, costInputs, shop }) {
   if (campaign.status !== "review") return "";
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  const editor = editing ? editForm({ campaign, version }) : "";
+  const editor = editing ? editForm({ campaign, version, shop }) : "";
   if (version.status === "rejected") {
     return html`${editor}<form method="post" action="${action}" class="camp-redraft" data-busy-form>
       <label class="field" for="feedback">What should change?</label>
@@ -303,7 +327,7 @@ function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, c
   </div>`;
 }
 
-export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, hints = [], notice, error, canTest }) {
+export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, shop = [], hints = [], notice, error, canTest }) {
   const toReview = versions.filter((version) => version.status === "review").length;
   const personalCount = versions.length - 1;
   const title = topicLabel(campaign);
@@ -346,7 +370,7 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
             <div class="camp-hints-title">Laura's voice check</div>
             <ul>${hints.map((hint) => html`<li>${hint}</li>`)}</ul>
           </div>
-          ${versionActions({ campaign, version: selected, editing, costInputs })}
+          ${versionActions({ campaign, version: selected, editing, costInputs, shop })}
         </div>
         <div class="camp-preview">
           <iframe title="Email preview" class="camp-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${previewHtml}" loading="eager"></iframe>

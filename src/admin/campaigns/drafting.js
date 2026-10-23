@@ -2,10 +2,11 @@
 // versions for clients whose notes or purchases relate. Also the redrafts she
 // asks for from the review screen.
 
-import { settings } from "../../config.js";
+import { formatMoney, settings } from "../../config.js";
 import { getCatalog, isConfigured } from "../../square.js";
 import { shortGoodFor } from "../../product-insights.js";
 import { campaignModel, draftPersonalNotes, draftSharedEmail } from "./ai.js";
+import { contentProducts } from "./email-template.js";
 import { estimateInputs, PERSONAL_BATCH } from "./cost.js";
 import { loadProfiles, pickCandidates, profileForPrompt, promptSafeName } from "./matching.js";
 import * as store from "./store.js";
@@ -13,7 +14,11 @@ import * as store from "./store.js";
 // AI calls running at once. Workers allows six open connections per request.
 const PARALLEL_CALLS = 4;
 
-async function shopProducts(env) {
+// Product cards in one email, at most.
+export const MAX_EMAIL_PRODUCTS = 6;
+
+/** The shop's products, or none if Square isn't set up or doesn't answer. */
+export async function shopProducts(env) {
   if (!isConfigured(env)) return [];
   try {
     return await getCatalog(env, settings(env));
@@ -40,8 +45,36 @@ export function productCard({ name, products, siteUrl, label, note = "" }) {
     note,
     url: product ? `${siteUrl}/product/${product.slug}` : "",
     image: product?.image || "",
+    price: Number.isFinite(product?.priceCents) ? formatMoney(product.priceCents) : "",
   };
 }
+
+/** Shop products whose full name appears in Laura's topic, in the order she wrote them. */
+export function namedInTopic(topic, products) {
+  const text = String(topic || "").toLowerCase();
+  return products
+    .map((product) => ({ product, at: text.indexOf(product.name.toLowerCase()) }))
+    .filter((entry) => entry.at >= 0)
+    .sort((a, b) => a.at - b.at)
+    .map((entry) => entry.product.name);
+}
+
+/**
+ * The shared email's product cards: the products the AI found in Laura's topic,
+ * plus any she typed out by full name that it missed. None if she said not to.
+ */
+export function sharedProductCards({ picks, skip, topic, products, siteUrl }) {
+  if (skip) return [];
+  const notes = new Map(picks.map((pick) => [pick.name.toLowerCase(), pick.note]));
+  const names = [...picks.map((pick) => pick.name), ...namedInTopic(topic, products)];
+  const cards = [];
+  for (const name of names) {
+    const card = productCard({ name, products, siteUrl, label: "", note: notes.get(name.toLowerCase()) || "" });
+    if (card && !cards.some((entry) => entry.name === card.name)) cards.push(card);
+  }
+  return cards.slice(0, MAX_EMAIL_PRODUCTS);
+}
+
 
 function personalFrom(draft, profile, { products, siteUrl }) {
   const boughtIt = profile.purchases.some((purchase) => purchase.name.toLowerCase() === draft.productName.toLowerCase());
@@ -102,11 +135,11 @@ export async function draftCampaign(env, { topic, goal }) {
   const products = await shopProducts(env);
   const productNames = products.map((product) => product.name);
 
-  const { matchTerms, ...shared } = await draftSharedEmail(env, { topic, goal, productNames, usage });
+  const { matchTerms, products: picks, skipProducts, ...shared } = await draftSharedEmail(env, { topic, goal, productNames, usage });
   const content = {
     ...shared,
     matchTerms,
-    product: productCard({ name: shared.productName, products, siteUrl, label: "Worth a look" }),
+    products: sharedProductCards({ picks, skip: skipProducts, topic, products, siteUrl }),
   };
 
   const profiles = await loadProfiles(env);
@@ -136,18 +169,22 @@ function addUsage(total, extra) {
 export async function redraftShared(env, { campaign, version, feedback }) {
   const usage = {};
   const products = await shopProducts(env);
-  const { matchTerms, ...shared } = await draftSharedEmail(env, {
+  const { matchTerms, products: picks, skipProducts, ...shared } = await draftSharedEmail(env, {
     topic: campaign.topic,
     goal: campaign.goal,
     productNames: products.map((product) => product.name),
-    previous: { ...campaign.content, product: undefined, matchTerms: undefined },
+    previous: {
+      ...campaign.content, product: undefined, matchTerms: undefined,
+      products: contentProducts(campaign.content).map((card) => ({ name: card.name, note: card.note || "" })),
+    },
     feedback,
     usage,
   });
   const content = {
     ...shared,
     matchTerms: campaign.content.matchTerms || matchTerms,
-    product: productCard({ name: shared.productName, products, siteUrl: settings(env).siteUrl, label: "Worth a look" }),
+    // The topic isn't searched again: Laura may have taken a product out since.
+    products: sharedProductCards({ picks, skip: skipProducts, topic: "", products, siteUrl: settings(env).siteUrl }),
   };
   await store.updateCampaign(env, campaign.id, { content, usage: addUsage(campaign.usage, usage) });
   await store.updateVersion(env, version.id, { status: "review", feedback });
