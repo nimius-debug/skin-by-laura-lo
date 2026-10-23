@@ -195,73 +195,62 @@ function versionName(version) {
   return version.isShared ? "Everyone else" : version.client_name || "Client";
 }
 
-const FORMAT_HINT = "Use **double stars** around words to make them bold. Web addresses become links.";
+/** A hidden field that already holds the saved value, so a save without the script changes nothing. */
+function kept(name, value) {
+  return html`<input type="hidden" name="${name}" value="${value || ""}" data-field="${name}" />`;
+}
 
-function productRow({ name, image, price }) {
-  return html`<label class="camp-product">
-    <input type="checkbox" name="product" value="${name}" checked />
-    ${image ? html`<img src="${image}" alt="" width="40" height="40" loading="lazy" />` : html`<span class="camp-product-img" aria-hidden="true"></span>`}
-    <span class="camp-product-name">${name}</span>
-    ${price ? html`<span class="camp-product-price">${price}</span>` : ""}
+/**
+ * The shared email's products, for the editor: hidden fields holding the
+ * saved order (so a save without the script changes nothing) and a toolbar
+ * menu to add one from the shop. Each card in the email has its own Remove button.
+ */
+function productFields(campaign) {
+  return html`<input type="hidden" name="productsShown" value="1" />
+    <span data-product-fields>${contentProducts(campaign.content).map((card) => html`<input type="hidden" name="product" value="${card.name}" />`)}</span>`;
+}
+
+function addProductMenu({ campaign, shop }) {
+  if (!shop.length) return "";
+  const inEmail = new Set(contentProducts(campaign.content).map((card) => card.name));
+  return html`<label class="camp-tool-select">Add product
+    <select data-product-add data-max="${MAX_EMAIL_PRODUCTS}" aria-label="Add a product from the shop">
+      <option value="">Choose…</option>
+      ${shop.map((product) => html`<option value="${product.name}"${inEmail.has(product.name) ? html` hidden disabled` : ""}>${product.name}${Number.isFinite(product.priceCents) ? ` · ${formatMoney(product.priceCents)}` : ""}</option>`)}
+    </select>
   </label>`;
 }
 
-/** The shared email's product cards: untick one to take it out, or add one from the shop. */
-function productPicker({ campaign, shop }) {
-  const cards = contentProducts(campaign.content);
-  const inEmail = new Set(cards.map((card) => card.name));
-  const others = shop.filter((product) => !inEmail.has(product.name));
-  return html`<fieldset class="camp-products" data-product-picker data-max="${MAX_EMAIL_PRODUCTS}">
-    <legend>Products in this email</legend>
-    <input type="hidden" name="productsShown" value="1" />
-    <div class="camp-product-list" data-product-list>
-      ${cards.map((card) => productRow(card))}
-    </div>
-    <p class="camp-muted" data-product-empty${cards.length ? html` hidden` : ""}>No products in this email.</p>
-    ${others.length ? html`<label class="field">Add a product
-      <select name="product" data-product-add>
-        <option value="">Choose from the shop…</option>
-        ${others.map((product) => html`<option value="${product.name}" data-image="${product.image || ""}" data-price="${Number.isFinite(product.priceCents) ? formatMoney(product.priceCents) : ""}">${product.name}</option>`)}
-      </select>
-    </label>` : ""}
-    <div class="camp-muted">Each product shows as a card with its photo, price and a link to the shop. Untick one to take it out. Up to ${MAX_EMAIL_PRODUCTS}.</div>
-  </fieldset>`;
-}
-
+// The editor: the email itself becomes editable in the preview below (see
+// client.js), and this bar holds what isn't in the email body: the subject,
+// the inbox preview line, the button, products, formatting and Save.
 function editForm({ campaign, version, shop = [] }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  const buttons = html`<div class="camp-actions">
-      <button type="submit" class="btn btn-primary">Save changes</button>
-      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
-    </div>
-    <div class="camp-muted">The preview updates as you type. Nothing changes until you save.</div>`;
-  if (version.isShared) {
-    const content = campaign.content;
-    return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
-      <input type="hidden" name="action" value="save" />
+  const shared = version.isShared;
+  const content = campaign.content;
+  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview" data-product-card-url="/admin/campaigns/product-card">
+    <input type="hidden" name="action" value="save" />
+    ${shared ? html`
       <label class="field">Subject line<input type="text" name="subject" value="${content.subject}" maxlength="120" required /></label>
       <label class="field">Preview line (shown after the subject in the inbox)<input type="text" name="preheader" value="${content.preheader}" maxlength="160" /></label>
-      <label class="field">Small label above the headline<input type="text" name="eyebrow" value="${content.eyebrow}" maxlength="60" /></label>
-      <label class="field">Headline<input type="text" name="headline" value="${content.headline}" maxlength="140" required /></label>
-      <label class="field">Paragraphs (leave a blank line between them, and add as many as you like)<textarea name="paragraphs" rows="10">${(content.paragraphs || []).join("\n\n")}</textarea></label>
-      <div class="camp-muted">${FORMAT_HINT}</div>
-      <label class="field">Tips title<input type="text" name="tipsTitle" value="${content.tipsTitle}" maxlength="80" /></label>
-      <label class="field">Tips (one per line, leave empty for none)<textarea name="tips" rows="4">${(content.tips || []).join("\n")}</textarea></label>
-      ${productPicker({ campaign, shop })}
-      <label class="field">P.S. (optional, after your name)<textarea name="ps" rows="2" maxlength="600" placeholder="For example: I have two openings left this Saturday ✨">${content.ps || ""}</textarea></label>
-      <label class="field">Button at the end
+      ${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
+      ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}
+      ${productFields(campaign)}`
+    : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
+    <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
+      <button type="button" class="camp-tool" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
+      <button type="button" class="camp-tool" data-format="link" title="Add a link">Link</button>
+      ${shared ? html`<label class="camp-tool-select">Button
         <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
-      </label>
-      ${buttons}
-    </form>`;
-  }
-  return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
-    <input type="hidden" name="action" value="save" />
-    <label class="field">Personal note<textarea name="personalNote" rows="5" required>${version.personal.personalNote || ""}</textarea></label>
-    ${version.personal.product ? html`<label class="field">Line about ${version.personal.product.name}<textarea name="productNote" rows="2">${version.personal.product.note || ""}</textarea></label>` : ""}
-    <label class="field">P.S. just for ${versionName(version)} (optional)<textarea name="ps" rows="2" maxlength="600">${version.personal.ps || ""}</textarea></label>
-    <div class="camp-muted">${FORMAT_HINT} The rest of the email is the shared one, products included. Edit "Everyone else" to change it for everybody.</div>
-    ${buttons}
+      </label>` : ""}
+      ${shared ? addProductMenu({ campaign, shop }) : ""}
+      <span class="camp-toolbar-gap"></span>
+      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
+      <button type="submit" class="btn btn-primary">Save changes</button>
+    </div>
+    <div class="camp-muted">${shared
+      ? "Click anywhere in the email below and type. Enter starts a new paragraph or tip. Add products from the bar, and take one out with its Remove button."
+      : html`Click the note, the product line or the P.S. below and type. The rest is the email everyone gets: edit "Everyone else" to change it for everybody.`}</div>
   </form>`;
 }
 

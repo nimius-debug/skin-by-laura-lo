@@ -7,7 +7,7 @@ import { costHistory } from "./cost.js";
 import {
   costEstimateInputs, draftCampaign, MAX_EMAIL_PRODUCTS, productCard, redraftPersonal, redraftShared, shopProducts,
 } from "./drafting.js";
-import { contentProducts } from "./email-template.js";
+import { contentProducts, productCardHtml } from "./email-template.js";
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
 import {
@@ -128,11 +128,13 @@ async function handleTranscribe(request, env) {
   }
 }
 
-function previewFor(env, campaign, version) {
+/** The email as the preview shows it. With `editing`, the version's own parts are marked for the editor. */
+function previewFor(env, campaign, version, { editing = false } = {}) {
   const firstName = version.isShared ? "" : String(version.client_name || "").trim().split(/\s+/)[0];
   return buildMessage({
     campaign, version, send: { first_name: firstName },
     siteUrl: settings(env).siteUrl, unsubscribe: `${settings(env).siteUrl}/email/unsubscribe`,
+    editable: editing ? (version.isShared ? "shared" : "personal") : null,
   }).html;
 }
 
@@ -158,7 +160,7 @@ async function reviewPage(env, url, campaignId) {
     back: { href: "/admin/campaigns", label: "Campaigns" },
     body: campaignReviewPage({
       campaign, versions, selected, view,
-      previewHtml: previewFor(env, campaign, selected),
+      previewHtml: previewFor(env, campaign, selected, { editing }),
       counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing, shop,
       hints: voiceHints(versionText(campaign, selected)),
       canTest: sendingConfigured(env) && Boolean(env.REMINDER_EMAIL),
@@ -274,6 +276,15 @@ async function handleVersionAction(request, env, campaignId, versionId) {
   return redirect(back);
 }
 
+/** The editor adds a product to the email: its card, as the email shows it. */
+async function handleProductCard(env, url) {
+  const name = String(url.searchParams.get("name") || "");
+  const shop = await shopProducts(env);
+  if (!shop.some((product) => product.name === name)) return jsonResponse({ message: "That product isn't in the shop." }, 404);
+  const card = productCard({ name, products: shop, siteUrl: settings(env).siteUrl, label: "" });
+  return jsonResponse({ name: card.name, html: productCardHtml(card, { removable: true }) });
+}
+
 async function handleSend(env, campaignId) {
   const campaign = await store.getCampaign(env, campaignId);
   if (!campaign) return notFound();
@@ -350,6 +361,7 @@ export async function handleCampaignRoute(request, env, url, segments, method) {
     }));
   }
   if (first === "transcribe" && method === "POST") return handleTranscribe(request, env);
+  if (first === "product-card" && method === "GET") return handleProductCard(env, url);
   if (first === "settings" && method === "POST") return handleSettings(request, env);
   if (first === "push-key" && method === "GET") return jsonResponse({ publicKey: await pushPublicKey(env) });
   if (first === "push" && method === "POST") return handlePushSubscribe(request, env);

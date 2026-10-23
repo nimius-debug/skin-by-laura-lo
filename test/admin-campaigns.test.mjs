@@ -49,6 +49,10 @@ const content = {
   check("the shared P.S. and the personal P.S. both show after Laura's name",
     [extras.html.includes("Two spots left Saturday"), extras.html.includes("Bring your SPF"), extras.text.includes("P.S. Two spots left Saturday")], [true, true, true]);
   check("the plain-text copy drops the ** marks", extras.text.includes("This is SO important."), true);
+  const named = renderEmail({ content: { ...content, paragraphs: ["Read [my routine](https://skinbylauralo.com/shop) tonight."] }, goal: "news", siteUrl: SITE, unsubscribeUrl: "u" });
+  check("a named link shows its words in the email and the address in the plain copy",
+    [named.html.includes('href="https://skinbylauralo.com/shop"') && named.html.includes(">my routine</a>"), named.text.includes("Read my routine (https://skinbylauralo.com/shop) tonight.")], [true, true]);
+  check("an email that is sent is never editable", extras.html.includes("data-edit") || extras.html.includes("contenteditable"), false);
 }
 
 // --- matching -----------------------------------------------------------------
@@ -312,8 +316,18 @@ async function freshEnv(extra = {}) {
   check("before sending, the page says what the AI has cost so far", page.includes("AI cost so far: $0.05 (3 AI calls, Claude Sonnet 5.5)."), true);
 
   const editor = await (await route(`/admin/campaigns/${campaignId}?v=${shared.id}&view=preview&edit=1`)).text();
-  check("the editor has a live preview, a P.S. and a choice of button", [editor.includes("data-live-preview"), editor.includes('name="ps"'), editor.includes('name="goal"')], [true, true, true]);
-  check("the editor lists the email's products, ticked, to take out or add to", [editor.includes("Products in this email"), editor.includes('name="product" value="Mixi Mandelic Acid 5%" checked')], [true, true]);
+  check("Edit makes the email itself editable, with a P.S. and a choice of button",
+    [editor.includes("data-inline-editor"), editor.includes("data-edit=&quot;paragraphs&quot;"), editor.includes("data-edit=&quot;ps&quot;"), editor.includes('name="goal"')], [true, true, true, true]);
+  check("only the version being edited is marked, and the normal preview has no edit marks",
+    [editor.includes("data-edit=&quot;personalNote&quot;"), page.includes("data-edit")], [false, false]);
+  const mayaEditor = await (await route(`/admin/campaigns/${campaignId}?v=${maya.id}&view=preview&edit=1`)).text();
+  check("a personal version's editor marks its note, product line and P.S., not the shared words",
+    [mayaEditor.includes("data-edit=&quot;personalNote&quot;"), mayaEditor.includes("data-edit=&quot;productNote&quot;"), mayaEditor.includes("data-edit=&quot;personalPs&quot;"), mayaEditor.includes("data-edit=&quot;paragraphs&quot;")], [true, true, true, false]);
+  check("the editor's hidden fields start with the saved words, so saving without the script changes nothing",
+    editor.includes('name="paragraphs" value="First &lt;b&gt;paragraph&lt;/b&gt;.\n\nSecond\nline."'), true);
+  check("the shared editor keeps the email's products for Save, with a Remove button on each card in the email",
+    [editor.includes('name="product" value="Mixi Mandelic Acid 5%"'), editor.includes("data-remove-product"), editor.includes("data-product=&quot;Mixi Mandelic Acid 5%&quot;"), page.includes("data-remove-product")], [true, true, true, false]);
+  check("a personal version's products can't be removed there; they come from the shared email", mayaEditor.includes("data-remove-product"), false);
   const preview = await route(`/admin/campaigns/${campaignId}/versions/${shared.id}/preview`, {
     method: "POST", body: new URLSearchParams({ subject: "Live", headline: "Live headline", paragraphs: "Fresh words — here.", ps: "See you soon ✨" }),
   });
@@ -398,6 +412,26 @@ async function freshEnv(extra = {}) {
     await redraftPersonal(env, { campaign: await store.getCampaign(env, campaignId), version: maya, feedback: "Shorter." });
     check("a redraft sends Laura's feedback and keeps the version in review",
       [requests.at(-1).messages[0].content.includes("Shorter."), (await store.getVersion(env, maya.id)).status], [true, "review"]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+// --- adding a product in the editor ------------------------------------------------------
+{
+  const env = await freshEnv({ SQUARE_ACCESS_TOKEN: "sq-test", SQUARE_LOCATION_ID: "L1" });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => Response.json(String(url).includes("/catalog/search") ? {
+    objects: [{ id: "I1", type: "ITEM", item_data: { name: "Daily SPF 50", product_type: "REGULAR", ecom_visibility: "VISIBLE", categories: [{ id: "C1" }], image_ids: ["M1"],
+      variations: [{ id: "V1", item_variation_data: { pricing_type: "FIXED_PRICING", price_money: { amount: 4450, currency: "USD" } } }] } }],
+    related_objects: [{ id: "C1", type: "CATEGORY", category_data: { name: "Sun care" } }, { id: "M1", type: "IMAGE", image_data: { url: "https://img/spf.png" } }],
+  } : {});
+  try {
+    const route = (path) => { const url = new URL(`https://x.test${path}`); return handleCampaignRoute(new Request(url), env, url, url.pathname.split("/").filter(Boolean), "GET"); };
+    const added = await (await route("/admin/campaigns/product-card?name=Daily%20SPF%2050")).json();
+    check("a product added in the editor comes back as its card, with photo, price and a Remove button",
+      [added.name, added.html.includes("$44.50"), added.html.includes('src="https://img/spf.png"'), added.html.includes("data-remove-product")], ["Daily SPF 50", true, true, true]);
+    check("a name that isn't in the shop is refused", (await route("/admin/campaigns/product-card?name=Nope")).status, 404);
   } finally {
     globalThis.fetch = realFetch;
   }

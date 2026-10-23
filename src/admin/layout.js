@@ -275,17 +275,13 @@ const CAMPAIGN_STYLES = `
 .camp-edit select { font: inherit; font-size: 15px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .camp-cost { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .camp-cost p { margin: 0; font-size: 14px; line-height: 1.5; }
-.camp-products { margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 10px; }
-.camp-products legend { padding: 0 0 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
-.camp-product-list { display: flex; flex-direction: column; gap: 8px; }
-.camp-product-list:empty { display: none; }
-.camp-product { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; }
-.camp-product:has(input:not(:checked)) { opacity: 0.55; }
-.camp-product input { accent-color: var(--accent); margin: 0; width: 20px; height: 20px; flex: none; }
-.camp-product img, .camp-product-img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--accent-soft); }
-.camp-product-name { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
-.camp-product-price { font-size: 14px; color: var(--ink-soft); white-space: nowrap; }
-.camp-products [hidden] { display: none; }
+.camp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--ground); }
+.camp-tool { min-width: 44px; min-height: 40px; padding: 0 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.camp-tool:hover { border-color: #B8714F; }
+.camp-tool-select { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: #4A4038; }
+.camp-tool-select select { min-height: 40px; padding: 0 10px; }
+.camp-toolbar-gap { flex: 1 1 auto; }
+.camp-tool-select select[data-product-add] { max-width: 220px; }
 .camp-hints { background: #FFF7E8; border: 1px solid #F0D9A8; border-radius: 12px; padding: 10px 14px; font-size: 13.5px; line-height: 1.5; }
 .camp-hints[hidden] { display: none; }
 .camp-hints-title { font-weight: 700; margin-bottom: 2px; }
