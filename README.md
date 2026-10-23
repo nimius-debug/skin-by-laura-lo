@@ -243,6 +243,31 @@ is signed with the password, so changing `ADMIN_PASSWORD` signs everyone out.
 PDF/image note uploads are switched off (`UPLOADS_ENABLED` in
 `src/admin/routes.js`) while notes come from the Excel sheet.
 
+### iPad notes
+
+Laura can write a client's note by hand on the iPad, the way she did in Noteful, and it lands in
+the dashboard by itself. On a client's page, **Write a note** opens a full-screen lined page with
+the four sheet sections printed on it (Treatment type, Notes / remarks, Purchase history, Possible
+treatments). The Apple Pencil writes (pen, highlighter, eraser, four inks, undo); a finger only
+scrolls, so a resting palm leaves no marks. **Done** sends the pages to Claude, which reads them
+into the four sections; she checks or fixes them, then **Save to dashboard**. The note is saved
+"From iPad" with its sections (so the insight, safety check and email matching read it) and the
+page as she wrote it behind "View handwriting". If the reading fails, she can still type the key
+points, or save the handwriting with nothing typed.
+
+While she writes, every stroke is kept on the iPad (IndexedDB), so a dropped connection or a
+closed app loses nothing; reopening the client picks the note back up. That copy is deleted once
+the note is saved. It is the only client data the app keeps on a device.
+
+**Putting it on the iPad:** in Safari open skinbylauralo.com/ipad (it leads to /admin), log in
+with "Keep me signed in", then Share, Add to Home Screen. It opens full screen from the icon, with
+its own launch screen, and updates itself on every deploy. Migration `0008_ipad_notes.sql` must
+run before deploying:
+
+```bash
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0008_ipad_notes.sql
+```
+
 ### Client forms
 
 Intake forms clients fill out before a visit, under **Forms** in the site

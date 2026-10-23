@@ -63,6 +63,7 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .profile-head { display: flex; flex-direction: column; gap: 4px; }
 .profile-head .page-title { font-size: 30px; }
 .synced { font-size: 13px; color: var(--good); font-weight: 600; }
+.write-note-btn { align-self: flex-start; margin-top: 8px; text-decoration: none; }
 .section-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
 .note-card { display: flex; flex-direction: column; gap: 10px; }
 .note-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

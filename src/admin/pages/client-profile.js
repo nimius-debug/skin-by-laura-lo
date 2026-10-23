@@ -1,11 +1,9 @@
 import { html } from "../../html.js";
-import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
+import { NOTE_FIELDS, noteFields } from "../note-fields.js";
 import { productInsightFor, shortGoodFor } from "../../product-insights.js";
 import { formatMoney, timeAgo, daysSince } from "../format.js";
 import { STEPS, stepInfo } from "../routine-steps.js";
 
-// The sheet's own column names, in the order Laura reads them.
-const SHEET_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Possible treatments"];
 
 function formatDate(iso) {
   if (!iso) return null;
@@ -14,6 +12,7 @@ function formatDate(iso) {
 
 function sourceLabel(note) {
   if (note.source === "form") return "From an intake form";
+  if (note.source === "ipad") return "From iPad";
   return note.source === "square" ? "From Square" : "From the Excel sheet";
 }
 
@@ -150,9 +149,9 @@ function flagsCard(flags) {
 }
 
 function sheetBody(note) {
-  const fields = SHEET_NOTE_FIELDS[note.id];
+  const fields = noteFields(note);
   if (!fields) return null;
-  const present = SHEET_FIELDS.filter((name) => fields[name]);
+  const present = NOTE_FIELDS.filter((name) => fields[name]);
   if (!present.length) return null;
   return html`
     <div class="sheet-fields">
@@ -168,9 +167,9 @@ function sheetBody(note) {
 
 function noteCard(note) {
   const dateLabel = formatDate(note.note_date);
-  // Noteful notes show the sheet's own cells, line breaks intact. Square notes
-  // show the seller note exactly as Square has it.
-  const body = note.source === "square" || note.source === "form" ? null : sheetBody(note);
+  // Sheet and iPad notes show their four sections, line breaks intact. Square
+  // notes show the seller note exactly as Square has it.
+  const body = sheetBody(note);
   return html`
     <div class="card note-card" data-note-id="${note.id}">
       <div class="note-head">
@@ -186,7 +185,7 @@ function noteCard(note) {
 
       ${note.confidence === "low" ? html`<div class="flag-warn"><span>⚠</span><span>Hard to read — check the original</span></div>` : ""}
 
-      ${note.pdf_key ? html`<div class="note-foot"><a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">View original</a></div>` : ""}
+      ${note.pdf_key ? html`<div class="note-foot"><a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">${note.source === "ipad" ? "View handwriting" : "View original"}</a></div>` : ""}
       ${note.source_submission_id ? html`<div class="note-foot"><a href="/admin/forms/submissions/${note.source_submission_id}">See the full form</a></div>` : ""}
     </div>
   `;
@@ -248,6 +247,7 @@ export function clientProfilePage({ client, notes, routine, history = [], servic
     <div class="profile-head">
       <h1 class="page-title">${client.name}</h1>
       <div class="synced">Synced from Square ✓</div>
+      <a href="/admin/clients/${client.id}/write" class="btn btn-primary write-note-btn">Write a note</a>
     </div>
 
     <div class="two-col">

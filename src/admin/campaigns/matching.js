@@ -3,7 +3,7 @@
 // hit are sent to the AI, which decides whether they really relate and writes
 // their personal note. There is no cap: every client with a hit is checked.
 
-import { SHEET_NOTE_FIELDS } from "../data/sheet-notes.js";
+import { noteFields, fieldsAsText } from "../note-fields.js";
 import { findFlags } from "../safety.js";
 import { productInsightFor } from "../../product-insights.js";
 
@@ -13,8 +13,8 @@ export function firstNameOf(name) {
 
 /** Everything written in a note: the sheet's cells for Noteful notes, the seller note for Square. */
 function noteText(note) {
-  const fields = note.source === "square" ? null : SHEET_NOTE_FIELDS[note.id];
-  if (fields) return Object.entries(fields).map(([label, value]) => `${label}: ${value.replace(/\s*\n\s*/g, " / ")}`).join(" | ");
+  const fields = noteFields(note);
+  if (fields) return fieldsAsText(fields);
   return note.summary || note.extracted_text || "";
 }
 
@@ -88,7 +88,7 @@ export async function loadProfiles(env) {
   const db = env.CLIENT_NOTES_DB;
   const [{ results: clients }, { results: notes }, purchasesResult] = await Promise.all([
     db.prepare("SELECT id, name, square_customer_id FROM clients").all(),
-    db.prepare("SELECT id, client_id, note_date, source, summary, extracted_text FROM notes ORDER BY (note_date IS NULL), note_date DESC").all(),
+    db.prepare("SELECT id, client_id, note_date, source, summary, extracted_text, fields_json FROM notes ORDER BY (note_date IS NULL), note_date DESC").all(),
     db.prepare(
       `SELECT o.client_id, o.ordered_at, l.name FROM client_order_lines l JOIN client_orders o ON o.order_id = l.order_id
        ORDER BY o.ordered_at DESC`,
