@@ -449,7 +449,7 @@ export const ADMIN_CLIENT_JS = String.raw`
   // fields (**bold**, [named links](https://...), blank lines between
   // paragraphs) and saved, which is what the server stores and renders.
   var EDIT_BLOCK = /^(P|DIV|LI|OL|UL|H[1-6]|TABLE|TBODY|TR|TD)$/;
-  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, buttonLabel: true, signoff: true, signName: true };
+  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, buttonLabel: true, signoff: true, signName: true, shopTitle: true };
   var FIELD_FOR = { personalPs: "ps" };
 
   function editedText(node) {

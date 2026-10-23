@@ -329,6 +329,14 @@ async function freshEnv(extra = {}) {
   check("the shared editor keeps the email's products for Save, with a Remove button on each card in the email",
     [editor.includes('name="product" value="Mixi Mandelic Acid 5%"'), editor.includes("data-remove-product"), editor.includes("data-product=&quot;Mixi Mandelic Acid 5%&quot;"), page.includes("data-remove-product")], [true, true, true, false]);
   check("a personal version's products can't be removed there; they come from the shared email", mayaEditor.includes("data-remove-product"), false);
+  check("the products heading can be typed over in the email", editor.includes("data-edit=&quot;shopTitle&quot;"), true);
+  {
+    const renamed = applyEdits(await store.getCampaign(env, campaignId), shared, new URLSearchParams({ subject: "S", headline: "H", shopTitle: "Laura's picks" })).campaign;
+    const mail = buildMessage({ campaign: renamed, version: shared, send: { first_name: "" }, siteUrl: SITE, unsubscribe: "u" });
+    check("Laura's own products heading is saved and sent; the usual one isn't stored",
+      [renamed.content.shopTitle, mail.html.includes(">Laura&#39;s picks</div>"), mail.text.includes("Laura's picks\nWorth a look: Mixi"),
+        applyEdits(renamed, shared, new URLSearchParams({ shopTitle: "From the shop" })).campaign.content.shopTitle], ["Laura's picks", true, true, ""]);
+  }
   const preview = await route(`/admin/campaigns/${campaignId}/versions/${shared.id}/preview`, {
     method: "POST", body: new URLSearchParams({ subject: "Live", headline: "Live headline", paragraphs: "Fresh words — here.", ps: "See you soon ✨" }),
   });

@@ -222,6 +222,7 @@ export function applyEdits(campaign, version, form, { shop = [], siteUrl = "" } 
       buttonLabel: own("buttonLabel", 40, defaultButtonLabel(goal)),
       signoff: own("signoff", 60, "See you soon,"),
       signName: own("signName", 40, "Laura"),
+      shopTitle: own("shopTitle", 60, "From the shop"),
     };
     if (form.has("productsShown")) {
       content.products = pickedProducts(form, contentProducts(campaign.content), { shop, siteUrl });

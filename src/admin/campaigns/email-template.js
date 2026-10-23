@@ -86,6 +86,7 @@ export function defaultButtonLabel(goal) {
  *   content.ps: an optional P.S. everyone gets
  *   content.greeting, .buttonLabel, .signoff, .signName: Laura's own wording
  *             for "Hi", the button, "See you soon," and "Laura" (defaults when empty)
+ *   content.shopTitle: her own heading for the products, instead of "From the shop"
  *   personal: { personalNote, ps } for a personal version, or null for the shared one
  *   products: the product cards, [{ label, name, price, goodFor, note, url, image }]
  *   editable: "shared" or "personal" for the admin editor only (never sent). It
@@ -101,6 +102,7 @@ export function renderEmail({ content, personal = null, products = [], firstName
   const greeting = content.greeting?.trim() || "Hi";
   const signoff = content.signoff?.trim() || "See you soon,";
   const signName = content.signName?.trim() || "Laura";
+  const shopTitle = content.shopTitle?.trim() || "From the shop";
   const paragraphs = (content.paragraphs || []).filter(Boolean);
   const tips = (content.tips || []).filter(Boolean);
   const note = personal?.personalNote?.trim() || "";
@@ -145,7 +147,7 @@ export function renderEmail({ content, personal = null, products = [], firstName
   // empty), with a place for the editor to add products from the shop.
   const productsBlock = products.length || editShared ? `
           <tr${editShared ? ` data-products${products.length ? "" : ` style="display:none"`}` : ""}><td style="padding:8px 0 10px;">
-            <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:12px;">From the shop</div>
+            <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:12px;"${edit(editShared, "shopTitle", "From the shop")}>${escapeHtml(shopTitle)}</div>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" data-product-list>${products.map((product) => productCardHtml(product, {
               removable: editShared,
               noteEdit: editPersonal && product === personal?.product ? edit(true, "productNote", "Add a line about this product") : "",
@@ -217,7 +219,7 @@ ${editShared ? inboxHeader(content) : ""}<div style="display:none;max-height:0;o
     ...(note ? [`A note just for you: ${plain(note)}`, ""] : []),
     ...paragraphs.flatMap((paragraph) => [plain(paragraph), ""]),
     ...(tips.length ? [content.tipsTitle || "What helps", ...tips.map((tip, index) => `${index + 1}. ${plain(tip)}`), ""] : []),
-    ...(products.length ? ["From the shop", ...products.flatMap((product) => [
+    ...(products.length ? [shopTitle, ...products.flatMap((product) => [
       `${product.label ? `${product.label}: ` : ""}${product.name}${product.price ? ` (${product.price})` : ""}`,
       ...(product.goodFor ? [`Good for: ${product.goodFor}`] : []),
       ...(product.note ? [plain(product.note)] : []),
