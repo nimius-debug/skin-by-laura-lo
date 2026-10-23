@@ -77,7 +77,7 @@ function remindersCard(on) {
     <section class="card reminders-card" aria-label="Reminders">
       <form method="post" action="/admin/reminders" class="camp-switches" data-autosubmit>
         <label class="camp-switch">
-          <span><span class="camp-switch-label">Remind me about missing notes</span><span class="camp-switch-hint">A notification a day after a service visit that has no note yet</span></span>
+          <span><span class="camp-switch-label">Remind me about missing notes</span><span class="camp-switch-hint">Every day at 10 am, one notification with every client still missing a note 24 hours after their visit</span></span>
           <input type="checkbox" name="note_reminders" value="on"${on ? html` checked` : ""} role="switch" />
         </label>
         <noscript><button type="submit" class="btn btn-secondary">Save</button></noscript>

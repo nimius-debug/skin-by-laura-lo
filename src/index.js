@@ -443,8 +443,8 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
   },
 
   // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails
-  // within the daily limit, the Tuesday/Thursday reminders, and a notification
-  // for any visit still without a note a day later. Also clears note drafts
+  // within the daily limit, the Tuesday/Thursday reminders, and the 10 am
+  // notification listing clients whose visit still has no note. Also clears note drafts
   // nobody saved.
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(runScheduled(env, new Date(controller.scheduledTime)));
