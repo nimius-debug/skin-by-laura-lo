@@ -13,6 +13,7 @@ function formatDate(iso) {
 }
 
 function sourceLabel(note) {
+  if (note.source === "form") return "From an intake form";
   return note.source === "square" ? "From Square" : "From the Excel sheet";
 }
 
@@ -169,7 +170,7 @@ function noteCard(note) {
   const dateLabel = formatDate(note.note_date);
   // Noteful notes show the sheet's own cells, line breaks intact. Square notes
   // show the seller note exactly as Square has it.
-  const body = note.source === "square" ? null : sheetBody(note);
+  const body = note.source === "square" || note.source === "form" ? null : sheetBody(note);
   return html`
     <div class="card note-card" data-note-id="${note.id}">
       <div class="note-head">
@@ -186,6 +187,7 @@ function noteCard(note) {
       ${note.confidence === "low" ? html`<div class="flag-warn"><span>⚠</span><span>Hard to read — check the original</span></div>` : ""}
 
       ${note.pdf_key ? html`<div class="note-foot"><a href="/admin/notes/${note.id}/original" target="_blank" rel="noopener">View original</a></div>` : ""}
+      ${note.source_submission_id ? html`<div class="note-foot"><a href="/admin/forms/submissions/${note.source_submission_id}">See the full form</a></div>` : ""}
     </div>
   `;
 }
@@ -237,7 +239,7 @@ function insightCard(client, saved) {
   `;
 }
 
-export function clientProfilePage({ client, notes, routine, history = [], services = [], spend = null, flags = [], sourceFiles = [], savedSummary = null, purchases = null, now = Date.now() }) {
+export function clientProfilePage({ client, notes, routine, history = [], services = [], spend = null, flags = [], sourceFiles = [], savedSummary = null, purchases = null, formsCard = "", now = Date.now() }) {
   return html`
     <a href="/admin" class="back-link">← All clients</a>
 
@@ -258,6 +260,7 @@ export function clientProfilePage({ client, notes, routine, history = [], servic
       </div>
 
       <div class="side">
+        ${formsCard}
         ${routineCard(routine, now)}
         ${spendCard(client, spend, purchases, now)}
 

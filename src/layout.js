@@ -2,10 +2,11 @@ import { html, toString, raw } from "./html.js";
 import {
   BOOKING_URL, EGIFT_URL, INSTAGRAM_URL, SUPPORT_EMAIL, STUDIO,
 } from "./config.js";
+import { FORMS } from "./forms/definitions.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20260917-result-viewer";
+const ASSET_VERSION = "20261023-client-forms";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -37,6 +38,13 @@ function header(cfg, current) {
         <a href="/treatments"${mark("/treatments")}>Treatments</a>
         <a href="/shop"${mark("/shop")}>Shop</a>
         <a href="/gallery"${mark("/gallery")}>Gallery</a>
+        <details class="nav-menu${current === "/forms" ? " is-current" : ""}">
+          <summary>Forms</summary>
+          <div class="nav-submenu">
+            ${FORMS.map((form) => html`<a href="/forms/${form.slug}">${form.navLabel}</a>`)}
+            <a class="nav-submenu-all" href="/forms">All forms</a>
+          </div>
+        </details>
         <a href="${EGIFT_URL}">eGift</a>
         <a class="nav-book" href="${BOOKING_URL}">Book now <span aria-hidden="true">&#8599;</span></a>
         <a class="cart-link" href="/cart">Bag <span data-cart-count>0</span></a>

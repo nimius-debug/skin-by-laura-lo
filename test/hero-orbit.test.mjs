@@ -50,8 +50,8 @@ for (const result of CLIENT_RESULTS.images) {
 }
 
 const document = page({ body: "", cfg: { shippingEnabled: false, pickupEnabled: false } });
-assert.match(document, /styles\.css\?v=20260917-result-viewer/, "the shared CSS bypasses stale caches");
-assert.match(document, /cart\.js\?v=20260917-result-viewer/, "the client script bypasses stale caches");
+assert.match(document, /styles\.css\?v=20261023-client-forms/, "the shared CSS bypasses stale caches");
+assert.match(document, /cart\.js\?v=20261023-client-forms/, "the client script bypasses stale caches");
 
 console.log("PASS  composite client results approach, recede, and swap behind Laura");
 

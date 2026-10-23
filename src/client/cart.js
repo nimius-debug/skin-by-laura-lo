@@ -89,6 +89,14 @@ export const CLIENT_JS = String.raw`
         button.setAttribute("aria-expanded", "false");
       }
     });
+    // The Forms menu closes when she clicks or tabs away from it, or presses Escape.
+    var menus = nav.querySelectorAll(".nav-menu");
+    function closeMenus(except) {
+      Array.prototype.forEach.call(menus, function (menu) { if (menu !== except) menu.open = false; });
+    }
+    document.addEventListener("click", function (event) { closeMenus(event.target.closest && event.target.closest(".nav-menu")); });
+    document.addEventListener("focusin", function (event) { closeMenus(event.target.closest && event.target.closest(".nav-menu")); });
+    document.addEventListener("keydown", function (event) { if (event.key === "Escape") closeMenus(null); });
   }
 
   var toastTimer = null;

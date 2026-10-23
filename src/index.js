@@ -2,7 +2,13 @@ import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO } from "./
 import { getCatalog, indexVariations, isConfigured, createPaymentLink } from "./square.js";
 import { page, htmlResponse, jsonResponse } from "./layout.js";
 import { STYLES } from "./styles.js";
+import { FORM_STYLES } from "./form-styles.js";
 import { CLIENT_JS } from "./client/cart.js";
+import { FORMS_JS } from "./client/forms.js";
+import { formPage, formThanksPage, formsIndexPage } from "./pages/forms.js";
+import { formBySlug } from "./forms/definitions.js";
+import { readSubmission } from "./forms/engine.js";
+import { saveSubmission } from "./admin/forms.js";
 import { homePage } from "./pages/home.js";
 import { shopPage } from "./pages/shop.js";
 import { productPage } from "./pages/product.js";
@@ -181,6 +187,42 @@ async function handleCheckout(request, env, cfg, url) {
   }
 }
 
+// A client form is a few KB; anything far bigger isn't one.
+const MAX_FORM_BYTES = 64 * 1024;
+// Sent faster than a person could read the first step: almost certainly a bot.
+const MIN_FORM_MS = 4000;
+
+async function handleFormSubmission(request, env, cfg, slug) {
+  const form = formBySlug(slug);
+  if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+  if (Number(request.headers.get("content-length") || 0) > MAX_FORM_BYTES) {
+    return new Response("That form is too large to send.", { status: 413 });
+  }
+  const data = await request.formData().catch(() => null);
+  if (!data) return new Response("We couldn't read that form. Please go back and try again.", { status: 400 });
+
+  const thanks = `/forms/${form.slug}/thanks`;
+  // The hidden "website" box and the start time catch most bots. They get the
+  // thank-you page, so there is nothing to learn from, but nothing is saved.
+  const started = Number(data.get("started"));
+  if (String(data.get("website") || "") || (started && Date.now() - started < MIN_FORM_MS)) {
+    return redirect(thanks, 303);
+  }
+
+  const { answers, errors } = readSubmission(form, data);
+  if (Object.keys(errors).length) {
+    return htmlResponse(page({ title: form.title, body: formPage({ form, answers, errors }), cfg, current: "/forms" }), { status: 422 });
+  }
+  if (!env.CLIENT_NOTES_DB) {
+    console.error("A client form arrived but CLIENT_NOTES_DB isn't bound.");
+    return new Response("Forms can't be received right now. Please try again later, or email Laura.", { status: 503 });
+  }
+  await saveSubmission(env, form, answers);
+  // Only her first name goes in the address, for the thank-you line.
+  const firstName = (answers.full_name || "").split(/\s+/)[0];
+  return redirect(`${thanks}?name=${encodeURIComponent(firstName)}`, 303);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -224,8 +266,9 @@ export default {
     }
 
     // ------------------------------------------------------------- assets
-    if (path === "/assets/styles.css") return asset(STYLES, "text/css; charset=utf-8");
+    if (path === "/assets/styles.css") return asset(STYLES + FORM_STYLES, "text/css; charset=utf-8");
     if (path === "/assets/cart.js") return asset(CLIENT_JS, "text/javascript; charset=utf-8");
+    if (path === "/assets/forms.js") return asset(FORMS_JS, "text/javascript; charset=utf-8");
     if (path === "/favicon.svg") return asset(FAVICON, "image/svg+xml");
     if (path === "/robots.txt") {
       return asset(`User-agent: *\nAllow: /\nSitemap: ${cfg.siteUrl}/sitemap.xml\n`, "text/plain; charset=utf-8");
@@ -238,6 +281,12 @@ export default {
     if (path === "/api/checkout") {
       if (request.method !== "POST") return jsonResponse({ message: "Method not allowed" }, 405);
       return handleCheckout(request, env, cfg, url);
+    }
+
+    // -------------------------------------------------------- client forms
+    const formMatch = path.match(/^\/forms\/([a-z0-9-]+)(\/thanks)?$/);
+    if (formMatch && request.method === "POST" && !formMatch[2]) {
+      return handleFormSubmission(request, env, cfg, formMatch[1]);
     }
 
     // ------------------------------------------------------------ legacy
@@ -322,6 +371,25 @@ export default {
       return htmlResponse(page({
         title: "Thank you", body: thankYouPage(), cfg, canonical,
         description: "Your order is confirmed.",
+      }));
+    }
+
+    if (path === "/forms") {
+      return htmlResponse(page({
+        title: "Client forms", body: formsIndexPage(), cfg, current: "/forms", canonical,
+        description: "Intake forms to fill out before your appointment with Laura Lo.",
+      }));
+    }
+
+    if (formMatch) {
+      const form = formBySlug(formMatch[1]);
+      if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+      if (formMatch[2]) {
+        const firstName = (url.searchParams.get("name") || "").split(/\s+/)[0].slice(0, 40);
+        return htmlResponse(page({ title: "Thank you", body: formThanksPage({ form, firstName }), cfg, current: "/forms", canonical }));
+      }
+      return htmlResponse(page({
+        title: form.title, body: formPage({ form }), cfg, current: "/forms", canonical, description: form.description,
       }));
     }
 

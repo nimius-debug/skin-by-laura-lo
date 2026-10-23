@@ -40,7 +40,7 @@ export function reminderDue({ local, lastReminderDate, enabled }) {
 
 async function recentNoteSnippets(env) {
   const { results } = await env.CLIENT_NOTES_DB.prepare(
-    "SELECT summary FROM notes WHERE summary IS NOT NULL AND summary != '' ORDER BY (note_date IS NULL), note_date DESC LIMIT 40",
+    "SELECT summary FROM notes WHERE summary IS NOT NULL AND summary != '' AND source != 'form' ORDER BY (note_date IS NULL), note_date DESC LIMIT 40",
   ).all();
   return results.map((row) => row.summary.replace(/\s+/g, " ").slice(0, 160));
 }
