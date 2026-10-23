@@ -151,16 +151,21 @@ export function renderEmail({ content, personal = null, products = [], firstName
             </table>
           </td></tr>` : "";
 
-  // While editing the shared email the section is always there (hidden when
-  // empty), with a place for the editor to add products from the shop.
+  // While editing the shared email the section is always there, ending in a
+  // search box for adding a product from the shop (client.js wires it up). The
+  // heading hides while there are no products, as the sent email has none.
   const productsBlock = products.length || editShared ? `
-          <tr${editShared ? ` data-products${products.length ? "" : ` style="display:none"`}` : ""}><td style="padding:8px 0 10px;">
-            <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:12px;"${edit(editShared, "shopTitle", "From the shop")}>${escapeHtml(shopTitle)}</div>
+          <tr${editShared ? " data-products" : ""}><td style="padding:8px 0 10px;">
+            <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:12px;${editShared && !products.length ? "display:none;" : ""}"${editShared ? " data-products-title" : ""}${edit(editShared, "shopTitle", "From the shop")}>${escapeHtml(shopTitle)}</div>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" data-product-list>${products.map((product) => productCardHtml(product, {
               removable: editShared,
               noteEdit: editPersonal && product === personal?.product ? edit(true, "productNote", "Add a line about this product") : "",
             })).join("")}
             </table>
+            ${editShared ? `<div data-product-search style="position:relative;padding:2px 0 12px;">
+              <input type="search" data-product-query placeholder="+ Add a product: type its name" autocomplete="off" aria-label="Add a product from the shop" style="box-sizing:border-box;width:100%;font-family:${SANS};font-size:16px;color:${COLORS.ink};padding:12px 14px;border:1.5px dashed ${COLORS.accent};border-radius:12px;background:${COLORS.tint};">
+              <div data-product-matches role="listbox" style="display:none;margin-top:6px;border:1px solid ${COLORS.line};border-radius:12px;background:#FFFFFF;overflow:hidden;"></div>
+            </div>` : ""}
           </td></tr>` : "";
 
   const psRow = (ps, editing, name, placeholder) => (String(ps || "").trim() || editing

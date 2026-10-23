@@ -202,33 +202,31 @@ function kept(name, value) {
 
 /**
  * The shared email's products, for the editor: hidden fields holding the
- * saved order (so a save without the script changes nothing) and a toolbar
- * menu to add one from the shop. Each card in the email has its own Remove button.
+ * saved order (so a save without the script changes nothing). In the email,
+ * each card has a Remove button and a search box adds one from the shop.
  */
 function productFields(campaign) {
   return html`<input type="hidden" name="productsShown" value="1" />
     <span data-product-fields>${contentProducts(campaign.content).map((card) => html`<input type="hidden" name="product" value="${card.name}" />`)}</span>`;
 }
 
-function addProductMenu({ campaign, shop }) {
-  if (!shop.length) return "";
-  const inEmail = new Set(contentProducts(campaign.content).map((card) => card.name));
-  return html`<label class="camp-tool-select">Add product
-    <select data-product-add data-max="${MAX_EMAIL_PRODUCTS}" aria-label="Add a product from the shop">
-      <option value="">Choose…</option>
-      ${shop.map((product) => html`<option value="${product.name}"${inEmail.has(product.name) ? html` hidden disabled` : ""}>${product.name}${Number.isFinite(product.priceCents) ? ` · ${formatMoney(product.priceCents)}` : ""}</option>`)}
-    </select>
-  </label>`;
+/** The shop's products for the search box in the email: name, price and photo. */
+function shopForSearch(shop) {
+  return JSON.stringify(shop.map((product) => ({
+    name: product.name,
+    price: Number.isFinite(product.priceCents) ? formatMoney(product.priceCents) : "",
+    image: product.image || "",
+  })));
 }
 
 // The editor: the email in the preview below is editable as it stands (see
 // client.js), subject and preview line included, and saves itself as Laura
-// types. This bar holds formatting, the button choice, products and the saved state.
+// types. This bar holds formatting, the button choice and the saved state.
 function editForm({ campaign, version, shop = [] }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
   const shared = version.isShared;
   const content = campaign.content;
-  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview" data-product-card-url="/admin/campaigns/product-card">
+  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview" data-product-card-url="/admin/campaigns/product-card" data-shop="${shared ? shopForSearch(shop) : "[]"}" data-max-products="${MAX_EMAIL_PRODUCTS}">
     <input type="hidden" name="action" value="save" />
     ${shared ? html`
       ${kept("subject", content.subject)}${kept("preheader", content.preheader)}${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
@@ -242,12 +240,11 @@ function editForm({ campaign, version, shop = [] }) {
       ${shared ? html`<label class="camp-tool-select">Button
         <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
       </label>` : ""}
-      ${shared ? addProductMenu({ campaign, shop }) : ""}
       <span class="camp-toolbar-gap"></span>
       <span class="camp-saved" data-save-state aria-live="polite">Changes save as you type</span>
     </div>
     <div class="camp-muted">${shared
-      ? "Click anything in the email below and type, the subject too. Enter starts a new paragraph or tip. Add products from the bar, and take one out with its Remove button."
+      ? "Click anything in the email below and type, the subject too. Enter starts a new paragraph or tip. To add a product, type its name in the box under the products and pick it."
       : html`Click the note, the product line or the P.S. below and type. The rest is the email everyone gets: edit "Everyone else" to change it for everybody.`}</div>
   </form>`;
 }

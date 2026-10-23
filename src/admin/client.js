@@ -697,53 +697,81 @@ export const ADMIN_CLIENT_JS = String.raw`
   }
 
   // Products in the shared email, edited in the email itself: each card has a
-  // Remove button, and the bar's menu adds a card from the shop. The hidden
-  // product fields follow the cards, in order, for Save.
+  // Remove button, and the search box under the cards adds one from the shop
+  // as Laura types its name. The hidden product fields follow the cards, in
+  // order, and each change counts as an edit, so it autosaves.
   function wireProductEditing() {
     var form = document.querySelector("form[data-inline-editor]");
     var frame = document.querySelector("iframe.camp-frame");
     var fields = form && form.querySelector("[data-product-fields]");
     if (!form || !frame || !fields) return;
-    var menu = form.querySelector("[data-product-add]");
-    var max = menu ? Number(menu.getAttribute("data-max")) || 6 : 6;
-    var wired = false;
+    var shop = [];
+    try { shop = JSON.parse(form.getAttribute("data-shop") || "[]"); } catch (error) { shop = []; }
+    var max = Number(form.getAttribute("data-max-products")) || 6;
+    var wired = null;
 
     function doc() { return frame.contentDocument; }
     function cards() { return doc() ? Array.prototype.slice.call(doc().querySelectorAll("[data-product]")) : []; }
+    function names() { return cards().map(function (card) { return card.getAttribute("data-product"); }); }
     function fit() {
       var d = doc();
       if (d && d.documentElement) frame.style.height = Math.max(400, d.documentElement.scrollHeight) + "px";
     }
+    function placeholder() {
+      var query = doc() && doc().querySelector("[data-product-query]");
+      if (!query) return;
+      var full = names().length >= max;
+      query.disabled = full;
+      query.placeholder = full ? "This email has the most products it can hold (" + max + ")" : "+ Add a product: type its name";
+    }
     function sync() {
       fields.textContent = "";
-      cards().forEach(function (card) {
+      names().forEach(function (name) {
         var input = document.createElement("input");
         input.type = "hidden";
         input.name = "product";
-        input.value = card.getAttribute("data-product");
+        input.value = name;
         fields.appendChild(input);
       });
-      var section = doc() && doc().querySelector("[data-products]");
-      if (section) section.style.display = cards().length ? "" : "none";
-      if (menu) {
-        var names = cards().map(function (card) { return card.getAttribute("data-product"); });
-        Array.prototype.forEach.call(menu.options, function (option) {
-          if (!option.value) return;
-          var used = names.indexOf(option.value) >= 0;
-          option.hidden = used;
-          option.disabled = used;
-        });
-        menu.disabled = names.length >= max;
-      }
+      var title = doc() && doc().querySelector("[data-products-title]");
+      if (title) title.style.display = cards().length ? "" : "none";
+      placeholder();
       fit();
-      // Counts as an unsaved change, so leaving the page asks first.
       form.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    // Every word typed has to appear in the name, so "vit c" finds "Vitamin C Serum".
+    function matches(text) {
+      var words = text.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.length) return [];
+      var used = names();
+      return shop.filter(function (product) {
+        var name = product.name.toLowerCase();
+        return used.indexOf(product.name) < 0 && words.every(function (word) { return name.indexOf(word) >= 0; });
+      }).slice(0, 8);
+    }
+
+    function addProduct(name) {
+      var list = doc() && doc().querySelector("[data-product-list]");
+      if (!list || names().indexOf(name) >= 0 || names().length >= max) return;
+      fetch(form.getAttribute("data-product-card-url") + "?name=" + encodeURIComponent(name), { headers: { accept: "application/json" } })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+          if (!data || !doc() || names().indexOf(data.name) >= 0) return;
+          var holder = doc().createElement("tbody");
+          holder.innerHTML = data.html;
+          var row = holder.querySelector("tr");
+          if (!row) return;
+          list.appendChild(row);
+          sync();
+        })
+        .catch(function () { /* nothing added; she can try again */ });
     }
 
     function setup() {
       var d = doc();
-      if (wired || !d || !d.body || !d.querySelector("[data-products]")) return;
-      wired = true;
+      if (!d || !d.body || wired === d || !d.querySelector("[data-products]")) return;
+      wired = d;
       d.addEventListener("click", function (event) {
         var button = event.target.closest && event.target.closest("[data-remove-product]");
         if (!button) return;
@@ -751,31 +779,67 @@ export const ADMIN_CLIENT_JS = String.raw`
         button.closest("[data-product]").remove();
         sync();
       });
+
+      var query = d.querySelector("[data-product-query]");
+      var box = d.querySelector("[data-product-matches]");
+      if (!query || !box) return;
+      var found = [];
+      var active = 0;
+      function close() { box.style.display = "none"; box.textContent = ""; found = []; fit(); }
+      function choose(index) {
+        var product = found[index];
+        if (!product) return;
+        query.value = "";
+        close();
+        addProduct(product.name);
+      }
+      function show() {
+        found = matches(query.value);
+        box.textContent = "";
+        if (!query.value.trim()) { close(); return; }
+        if (!found.length) {
+          var none = d.createElement("div");
+          none.textContent = "No product in the shop matches “" + query.value.trim() + "”";
+          none.setAttribute("style", "padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6E6358;");
+          box.appendChild(none);
+        }
+        found.forEach(function (product, index) {
+          var option = d.createElement("div");
+          option.setAttribute("role", "option");
+          option.setAttribute("style", "display:flex;align-items:center;gap:10px;padding:10px 14px;min-height:44px;cursor:pointer;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#2A241F;border-top:" + (index ? "1px solid #E7DCCB" : "0") + ";background:" + (index === active ? "#F8EFE7" : "#FFFFFF") + ";");
+          var thumb = d.createElement(product.image ? "img" : "span");
+          thumb.setAttribute("style", "width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none;background:#F8EFE7;");
+          if (product.image) { thumb.src = product.image; thumb.alt = ""; }
+          option.appendChild(thumb);
+          var name = d.createElement("span");
+          name.textContent = product.name;
+          name.setAttribute("style", "flex:1;font-weight:bold;");
+          option.appendChild(name);
+          if (product.price) {
+            var price = d.createElement("span");
+            price.textContent = product.price;
+            price.setAttribute("style", "color:#96583C;font-weight:bold;white-space:nowrap;");
+            option.appendChild(price);
+          }
+          // mousedown, so the pick happens before the box loses focus.
+          option.addEventListener("mousedown", function (event) { event.preventDefault(); choose(index); });
+          box.appendChild(option);
+        });
+        box.style.display = "block";
+        fit();
+      }
+      query.addEventListener("input", function () { active = 0; show(); });
+      query.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowDown" && found.length) { event.preventDefault(); active = (active + 1) % found.length; show(); }
+        else if (event.key === "ArrowUp" && found.length) { event.preventDefault(); active = (active - 1 + found.length) % found.length; show(); }
+        else if (event.key === "Enter") { event.preventDefault(); choose(active); }
+        else if (event.key === "Escape") { query.value = ""; close(); }
+      });
+      query.addEventListener("blur", function () { setTimeout(close, 150); });
+      placeholder();
     }
     frame.addEventListener("load", setup);
     setup();
-
-    if (menu) {
-      menu.addEventListener("change", function () {
-        var name = menu.value;
-        menu.value = "";
-        var list = doc() && doc().querySelector("[data-product-list]");
-        if (!name || !list) return;
-        fetch(form.getAttribute("data-product-card-url") + "?name=" + encodeURIComponent(name), { headers: { accept: "application/json" } })
-          .then(function (response) { return response.ok ? response.json() : null; })
-          .then(function (data) {
-            if (!data || !doc()) return;
-            var holder = doc().createElement("tbody");
-            holder.innerHTML = data.html;
-            var row = holder.querySelector("tr");
-            if (!row) return;
-            list.appendChild(row);
-            sync();
-            row.scrollIntoView({ block: "nearest" });
-          })
-          .catch(function () { /* the menu stays as it was */ });
-      });
-    }
   }
 
   // The new-email page's cost estimate, redone as the topic grows. Same math as cost.js estimateCampaign.

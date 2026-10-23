@@ -281,7 +281,6 @@ const CAMPAIGN_STYLES = `
 .camp-tool-select { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: #4A4038; }
 .camp-tool-select select { min-height: 40px; padding: 0 10px; }
 .camp-toolbar-gap { flex: 1 1 auto; }
-.camp-tool-select select[data-product-add] { max-width: 220px; }
 .camp-saved { font-size: 13px; color: #6E6358; }
 .camp-saved.is-error { color: #A33A2B; font-weight: 600; }
 .camp-hints { background: #FFF7E8; border: 1px solid #F0D9A8; border-radius: 12px; padding: 10px 14px; font-size: 13.5px; line-height: 1.5; }

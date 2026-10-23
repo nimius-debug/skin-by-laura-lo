@@ -330,6 +330,8 @@ async function freshEnv(extra = {}) {
     [editor.includes('name="product" value="Mixi Mandelic Acid 5%"'), editor.includes("data-remove-product"), editor.includes("data-product=&quot;Mixi Mandelic Acid 5%&quot;"), page.includes("data-remove-product")], [true, true, true, false]);
   check("a personal version's products can't be removed there; they come from the shared email", mayaEditor.includes("data-remove-product"), false);
   check("the products heading can be typed over in the email", editor.includes("data-edit=&quot;shopTitle&quot;"), true);
+  check("the shared email has a search box under the products to add one, and sent or personal emails don't",
+    [editor.includes("data-product-query"), editor.includes('data-shop="[]"'), mayaEditor.includes("data-product-query"), page.includes("data-product-query")], [true, true, false, false]);
   {
     const renamed = applyEdits(await store.getCampaign(env, campaignId), shared, new URLSearchParams({ subject: "S", headline: "H", shopTitle: "Laura's picks" })).campaign;
     const mail = buildMessage({ campaign: renamed, version: shared, send: { first_name: "" }, siteUrl: SITE, unsubscribe: "u" });
