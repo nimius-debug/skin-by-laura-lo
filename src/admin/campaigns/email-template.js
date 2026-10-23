@@ -75,20 +75,32 @@ const CALLS_TO_ACTION = {
   news: null,
 };
 
+/** The button's words when Laura hasn't written her own: "Book a facial", "Visit the shop", or "" for no button. */
+export function defaultButtonLabel(goal) {
+  return CALLS_TO_ACTION[goal]?.label || "";
+}
+
 /**
  * One finished email.
  *   content:  the shared email { subject, preheader, eyebrow, headline, paragraphs[], tips[] }
  *   content.ps: an optional P.S. everyone gets
+ *   content.greeting, .buttonLabel, .signoff, .signName: Laura's own wording
+ *             for "Hi", the button, "See you soon," and "Laura" (defaults when empty)
  *   personal: { personalNote, ps } for a personal version, or null for the shared one
  *   products: the product cards, [{ label, name, price, goodFor, note, url, image }]
  *   editable: "shared" or "personal" for the admin editor only (never sent). It
  *             marks the parts of that version Laura can type into with
- *             data-edit, and shows empty ones so she can fill them in.
+ *             data-edit, and shows empty ones so she can fill them in. The shared
+ *             editor also shows the subject and preview line above the email.
  * Returns { subject, html, text }.
  */
 export function renderEmail({ content, personal = null, products = [], firstName = "", goal = "book", siteUrl, unsubscribeUrl, editable = null }) {
   const greetingName = firstName.trim() || "there";
   const cta = CALLS_TO_ACTION[goal] ? { ...CALLS_TO_ACTION[goal], url: `${siteUrl}${CALLS_TO_ACTION[goal].path}` } : null;
+  if (cta && content.buttonLabel?.trim()) cta.label = content.buttonLabel.trim();
+  const greeting = content.greeting?.trim() || "Hi";
+  const signoff = content.signoff?.trim() || "See you soon,";
+  const signName = content.signName?.trim() || "Laura";
   const paragraphs = (content.paragraphs || []).filter(Boolean);
   const tips = (content.tips || []).filter(Boolean);
   const note = personal?.personalNote?.trim() || "";
@@ -97,6 +109,8 @@ export function renderEmail({ content, personal = null, products = [], firstName
   const editPersonal = editable === "personal";
   // Marks a part as editable in the admin editor; empty everywhere else.
   const edit = (on, name, placeholder) => (on ? ` data-edit="${name}" data-placeholder="${escapeHtml(placeholder)}"` : "");
+  // A few words inside a line: wrapped only when they're editable.
+  const words = (on, name, placeholder, value) => (on ? `<span${edit(true, name, placeholder)}>${escapeHtml(value)}</span>` : escapeHtml(value));
 
   const p = (html) => `<p style="margin:0 0 18px;font-family:${SANS};font-size:16px;line-height:1.65;color:${COLORS.ink};">${html}</p>`;
 
@@ -147,7 +161,7 @@ export function renderEmail({ content, personal = null, products = [], firstName
   // button"), so the editor can switch it without reloading.
   const ctaBlock = cta || editShared ? `
           <tr${editShared ? ` data-cta${cta ? "" : ` style="display:none"`}` : ""}><td style="padding:6px 0 24px;">
-            <a href="${escapeHtml(cta?.url || "")}" style="display:inline-block;background:${COLORS.accent};color:#FFF8F2;font-family:${SANS};font-size:16px;font-weight:bold;text-decoration:none;padding:14px 26px;border-radius:12px;">${escapeHtml(cta?.label || "")}</a>
+            <a href="${escapeHtml(cta?.url || "")}" style="display:inline-block;background:${COLORS.accent};color:#FFF8F2;font-family:${SANS};font-size:16px;font-weight:bold;text-decoration:none;padding:14px 26px;border-radius:12px;"${edit(editShared, "buttonLabel", "Button text")}>${escapeHtml(cta?.label || "")}</a>
           </td></tr>` : "";
 
   const html = `<!doctype html>
@@ -159,7 +173,7 @@ export function renderEmail({ content, personal = null, products = [], firstName
 <title>${escapeHtml(content.subject)}</title>
 </head>
 <body style="margin:0;padding:0;background:${COLORS.ground};">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(content.preheader || "")}</div>
+${editShared ? inboxHeader(content) : ""}<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(content.preheader || "")}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.ground};">
   <tr><td align="center" style="padding:28px 12px 36px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
@@ -173,13 +187,13 @@ export function renderEmail({ content, personal = null, products = [], firstName
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           ${content.eyebrow || editShared ? `<tr><td style="padding:0 0 12px;font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.accentText};"${edit(editShared, "eyebrow", "Small label (optional)")}>${escapeHtml(content.eyebrow || "")}</td></tr>` : ""}
           <tr><td style="padding:0 0 20px;font-family:${SERIF};font-size:30px;line-height:1.2;font-weight:bold;color:${COLORS.ink};"${edit(editShared, "headline", "Headline")}>${escapeHtml(content.headline)}</td></tr>
-          <tr><td>${p(`Hi ${escapeHtml(greetingName)},`)}</td></tr>
+          <tr><td>${p(`${words(editShared, "greeting", "Hi", greeting)} ${escapeHtml(greetingName)},`)}</td></tr>
           ${noteBlock}
           <tr><td${edit(editShared, "paragraphs", "Write the email here")}>${(paragraphs.length || !editShared ? paragraphs : [""]).map((text) => p(rich(text))).join("")}</td></tr>
           ${tipsBlock}
           ${productsBlock}
           ${ctaBlock}
-          <tr><td style="padding:0 0 22px;font-family:${SANS};font-size:16px;line-height:1.6;color:${COLORS.ink};">See you soon,<br><span style="font-family:${SERIF};font-size:20px;font-weight:bold;">Laura</span></td></tr>
+          <tr><td style="padding:0 0 22px;font-family:${SANS};font-size:16px;line-height:1.6;color:${COLORS.ink};">${words(editShared, "signoff", "See you soon,", signoff)}<br><span style="font-family:${SERIF};font-size:20px;font-weight:bold;"${edit(editShared, "signName", "Laura")}>${escapeHtml(signName)}</span></td></tr>
           ${psRow(content.ps, editShared, "ps", "Add a P.S. for everyone (optional)")}
           ${psRow(personal?.ps, editPersonal, "personalPs", "Add a P.S. just for this client (optional)")}
         </table>
@@ -198,7 +212,7 @@ export function renderEmail({ content, personal = null, products = [], firstName
   const text = [
     content.headline,
     "",
-    `Hi ${greetingName},`,
+    `${greeting} ${greetingName},`,
     "",
     ...(note ? [`A note just for you: ${plain(note)}`, ""] : []),
     ...paragraphs.flatMap((paragraph) => [plain(paragraph), ""]),
@@ -211,8 +225,8 @@ export function renderEmail({ content, personal = null, products = [], firstName
       "",
     ])] : []),
     ...(cta ? [`${cta.label}: ${cta.url}`, ""] : []),
-    "See you soon,",
-    "Laura",
+    signoff,
+    signName,
     "",
     ...postscripts.flatMap((ps) => [`P.S. ${plain(ps)}`, ""]),
     `Skin by Laura Lo · ${BUSINESS_ADDRESS}`,
@@ -220,4 +234,21 @@ export function renderEmail({ content, personal = null, products = [], firstName
   ].join("\n");
 
   return { subject: content.subject, html, text };
+}
+
+// The editor only: the subject and inbox preview line, shown above the email
+// the way an inbox would, so they're edited in place like the rest.
+function inboxHeader(content) {
+  const row = (label, name, value, placeholder, size) => `<tr>
+      <td width="92" valign="top" style="padding:4px 0;font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.muted};">${label}</td>
+      <td style="padding:4px 0;font-family:${SANS};font-size:${size};color:${COLORS.ink};"><span data-edit="${name}" data-placeholder="${escapeHtml(placeholder)}">${escapeHtml(value || "")}</span></td>
+    </tr>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-bottom:1px solid ${COLORS.line};">
+  <tr><td align="center" style="padding:14px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
+      ${row("Subject", "subject", content.subject, "Subject line", "16px;font-weight:bold")}
+      ${row("Preview", "preheader", content.preheader, "Preview line (shown after the subject in the inbox)", "14px")}
+    </table>
+  </td></tr>
+</table>`;
 }

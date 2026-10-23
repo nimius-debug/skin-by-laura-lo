@@ -315,12 +315,13 @@ async function freshEnv(extra = {}) {
   check("sending waits for the shared version to be approved", page.includes("Approve the email everyone else gets before sending."), true);
   check("before sending, the page says what the AI has cost so far", page.includes("AI cost so far: $0.05 (3 AI calls, Claude Sonnet 5.5)."), true);
 
-  const editor = await (await route(`/admin/campaigns/${campaignId}?v=${shared.id}&view=preview&edit=1`)).text();
-  check("Edit makes the email itself editable, with a P.S. and a choice of button",
-    [editor.includes("data-inline-editor"), editor.includes("data-edit=&quot;paragraphs&quot;"), editor.includes("data-edit=&quot;ps&quot;"), editor.includes('name="goal"')], [true, true, true, true]);
-  check("only the version being edited is marked, and the normal preview has no edit marks",
-    [editor.includes("data-edit=&quot;personalNote&quot;"), page.includes("data-edit")], [false, false]);
-  const mayaEditor = await (await route(`/admin/campaigns/${campaignId}?v=${maya.id}&view=preview&edit=1`)).text();
+  const editor = await (await route(`/admin/campaigns/${campaignId}?v=${shared.id}&view=preview`)).text();
+  check("the email in review is editable as it is, with a P.S. and a choice of button, and no Edit step",
+    [editor.includes("data-inline-editor"), editor.includes("data-edit=&quot;paragraphs&quot;"), editor.includes("data-edit=&quot;ps&quot;"), editor.includes('name="goal"'), editor.includes("edit=1")], [true, true, true, true, false]);
+  check("the subject, preview line, greeting, button and sign-off are editable in the email too",
+    ["subject", "preheader", "greeting", "buttonLabel", "signoff", "signName"].map((name) => editor.includes(`data-edit=&quot;${name}&quot;`)), [true, true, true, true, true, true]);
+  check("the shared editor doesn't mark a personal note, and saves as Laura types", [editor.includes("data-edit=&quot;personalNote&quot;"), editor.includes("data-save-state"), editor.includes("Save changes")], [false, true, false]);
+  const mayaEditor = await (await route(`/admin/campaigns/${campaignId}?v=${maya.id}&view=preview`)).text();
   check("a personal version's editor marks its note, product line and P.S., not the shared words",
     [mayaEditor.includes("data-edit=&quot;personalNote&quot;"), mayaEditor.includes("data-edit=&quot;productNote&quot;"), mayaEditor.includes("data-edit=&quot;personalPs&quot;"), mayaEditor.includes("data-edit=&quot;paragraphs&quot;")], [true, true, true, false]);
   check("the editor's hidden fields start with the saved words, so saving without the script changes nothing",
@@ -342,7 +343,12 @@ async function freshEnv(extra = {}) {
   check("approve and reject change each version", (await store.listVersions(env, campaignId)).map((version) => version.status), ["approved", "rejected"]);
   await post(maya.id, { action: "save", personalNote: "Your <own> words.", productNote: "Use at night." });
   const edited = await store.getVersion(env, maya.id);
-  check("an edit is saved and goes back to review", [edited.personal.personalNote, edited.personal.product.note, edited.status], ["Your <own> words.", "Use at night.", "review"]);
+  check("an edit is saved and keeps the version's status", [edited.personal.personalNote, edited.personal.product.note, edited.status], ["Your <own> words.", "Use at night.", "rejected"]);
+  const autosave = await route(`/admin/campaigns/${campaignId}/versions/${maya.id}`, {
+    method: "POST", headers: { accept: "application/json" }, body: new URLSearchParams({ action: "save", personalNote: "Typed just now.", productNote: "Use at night." }),
+  });
+  const autosaved = await autosave.json();
+  check("saving as Laura types answers in JSON", [autosave.status, autosaved.ok, typeof autosaved.savedAt, (await store.getVersion(env, maya.id)).personal.personalNote], [200, true, "string", "Typed just now."]);
   await post(maya.id, { action: "save", personalNote: "Your <own> words.", productNote: "Use at night.", ps: "Just for you" });
   check("a personal version can have its own P.S.", (await store.getVersion(env, maya.id)).personal.ps, "Just for you");
   await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.\n\nTwo.", tips: "A\nB", ps: "Book soon", goal: "shop" });
@@ -350,12 +356,16 @@ async function freshEnv(extra = {}) {
   check("editing the shared email splits paragraphs on blank lines and tips on lines",
     [saved.content.subject, saved.content.paragraphs, saved.content.tips, contentProducts(saved.content)[0].name], ["New subject", ["One.", "Two."], ["A", "B"], "Mixi Mandelic Acid 5%"]);
   check("the shared P.S. and the button are saved", [saved.content.ps, saved.goal], ["Book soon", "shop"]);
+  check("Laura's usual words aren't stored, so they follow the button choice", [saved.content.greeting, saved.content.buttonLabel, saved.content.signoff, saved.content.signName], ["", "", "", ""]);
+  await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.", goal: "book", greeting: "Hey", buttonLabel: "Grab a spot", signoff: "Talk soon,", signName: "Laura ✨", preheader: "Quick one" });
+  const worded = await store.getCampaign(env, campaignId);
+  const wordedEmail = buildMessage({ campaign: worded, version: (await store.listVersions(env, campaignId))[0], send: { first_name: "Ana" }, siteUrl: "https://x.test", unsubscribe: "https://x.test/u" });
+  check("her own greeting, button words, sign-off and preview line are saved and sent",
+    [worded.content.preheader, wordedEmail.html.includes("Hey Ana,"), wordedEmail.html.includes(">Grab a spot</a>"), wordedEmail.text.includes("Talk soon,\nLaura ✨"), wordedEmail.html.includes("data-edit")],
+    ["Quick one", true, true, true, false]);
   await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", productsShown: "1" });
   check("unticking every product saves the email without products", contentProducts((await store.getCampaign(env, campaignId)).content), []);
 
-  const ready = await (await route(`/admin/campaigns/${campaignId}`)).text();
-  check("after an edit, the shared email needs approving again before it can send", ready.includes("Approve the email everyone else gets before sending."), true);
-  await post(shared.id, { action: "approve" });
   const approved = await (await route(`/admin/campaigns/${campaignId}`)).text();
   check("once the shared email is approved, the send bar names the audience", approved.includes("Goes to about 113 clients"), true);
 

@@ -4,10 +4,10 @@ import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
+import { contentProducts, defaultButtonLabel, productCardHtml } from "./email-template.js";
 import {
   costEstimateInputs, draftCampaign, MAX_EMAIL_PRODUCTS, productCard, redraftPersonal, redraftShared, shopProducts,
 } from "./drafting.js";
-import { contentProducts, productCardHtml } from "./email-template.js";
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
 import {
@@ -145,7 +145,8 @@ async function reviewPage(env, url, campaignId) {
   const requested = url.searchParams.get("v");
   const selected = versions.find((version) => version.id === requested) || versions[0];
   const view = url.searchParams.get("view") === "preview" || (requested && url.searchParams.get("view") !== "list") ? "preview" : "list";
-  const editing = url.searchParams.get("edit") === "1" && campaign.status === "review";
+  // While a campaign is in review, the email itself is the editor.
+  const editing = campaign.status === "review";
   const [counts, estimate, costInputs, shop] = await Promise.all([
     store.sendCounts(env, campaignId),
     campaign.status === "review" ? recipientEstimate(env) : null,
@@ -201,7 +202,12 @@ function pickedProducts(form, current, { shop, siteUrl }) {
  */
 export function applyEdits(campaign, version, form, { shop = [], siteUrl = "" } = {}) {
   if (version.isShared) {
-    const goal = String(form.get("goal") || "");
+    const goal = GOALS.has(String(form.get("goal"))) ? String(form.get("goal")) : campaign.goal;
+    // Laura's own wording, kept only where it differs from the usual words.
+    const own = (name, max, usual) => {
+      const value = form.has(name) ? field(form, name, max) : String(campaign.content[name] || "");
+      return value && value !== usual ? value : "";
+    };
     const content = {
       ...campaign.content,
       subject: field(form, "subject", 120) || campaign.content.subject,
@@ -212,12 +218,16 @@ export function applyEdits(campaign, version, form, { shop = [], siteUrl = "" } 
       tipsTitle: field(form, "tipsTitle", 80),
       tips: lines(form.get("tips")).slice(0, 8),
       ps: field(form, "ps", 600),
+      greeting: own("greeting", 40, "Hi"),
+      buttonLabel: own("buttonLabel", 40, defaultButtonLabel(goal)),
+      signoff: own("signoff", 60, "See you soon,"),
+      signName: own("signName", 40, "Laura"),
     };
     if (form.has("productsShown")) {
       content.products = pickedProducts(form, contentProducts(campaign.content), { shop, siteUrl });
       delete content.product;
     }
-    return { campaign: { ...campaign, content, goal: GOALS.has(goal) ? goal : campaign.goal }, version };
+    return { campaign: { ...campaign, content, goal }, version };
   }
   const personal = { ...version.personal, personalNote: field(form, "personalNote", 1200), ps: field(form, "ps", 600) };
   if (personal.product) personal.product = { ...personal.product, note: field(form, "productNote", 300) };
@@ -246,7 +256,10 @@ async function handleVersionAction(request, env, campaignId, versionId) {
   const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
   if (!campaign || !version || version.campaign_id !== campaignId) return notFound();
   const back = `/admin/campaigns/${campaignId}?v=${versionId}&view=preview`;
-  if (campaign.status !== "review") return redirect(withMessage(back, { error: "This email is already sending, so it can't be changed." }));
+  // The editor saves as Laura types and wants a JSON answer, not a page.
+  const wantsJson = (request.headers.get("accept") || "").includes("application/json");
+  const fail = (message) => (wantsJson ? jsonResponse({ message }, 409) : redirect(withMessage(back, { error: message })));
+  if (campaign.status !== "review") return fail("This email is already sending, so it can't be changed.");
   const form = await request.formData().catch(() => new FormData());
   const action = String(form.get("action") || "");
 
@@ -259,8 +272,9 @@ async function handleVersionAction(request, env, campaignId, versionId) {
       const edited = applyEdits(campaign, version, form, await editContext(env, version, form));
       if (version.isShared) await store.updateCampaign(env, campaignId, { content: edited.campaign.content, goal: edited.campaign.goal });
       else await store.updateVersion(env, versionId, { personal: edited.version.personal });
-      await store.updateVersion(env, versionId, { status: "review" });
-      return redirect(withMessage(back, { notice: "Saved. Approve it when it reads right." }));
+      // Laura's own edits don't need approving again, so the version keeps its status.
+      if (wantsJson) return jsonResponse({ ok: true, savedAt: new Date().toISOString() });
+      return redirect(withMessage(back, { notice: "Saved." }));
     }
     if (action === "redraft") {
       const feedback = field(form, "feedback", 1000);
@@ -271,7 +285,7 @@ async function handleVersionAction(request, env, campaignId, versionId) {
     }
   } catch (error) {
     console.error("Campaign version action failed:", error.message);
-    return redirect(withMessage(back, { error: `Couldn't do that: ${error.message}` }));
+    return fail(`Couldn't do that: ${error.message}`);
   }
   return redirect(back);
 }

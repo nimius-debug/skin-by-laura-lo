@@ -444,12 +444,12 @@ export const ADMIN_CLIENT_JS = String.raw`
     });
   }
 
-  // The email editor: the preview itself becomes editable. Laura clicks into
-  // the email and types; on Save the words are read back into the form's
+  // The email editor: the preview itself is editable. Laura clicks into the
+  // email and types; shortly after, the words are read back into the form's
   // fields (**bold**, [named links](https://...), blank lines between
-  // paragraphs), which is what the server stores and renders.
+  // paragraphs) and saved, which is what the server stores and renders.
   var EDIT_BLOCK = /^(P|DIV|LI|OL|UL|H[1-6]|TABLE|TBODY|TR|TD)$/;
-  var SINGLE_LINE = { eyebrow: true, headline: true, tipsTitle: true };
+  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, buttonLabel: true, signoff: true, signName: true };
   var FIELD_FOR = { personalPs: "ps" };
 
   function editedText(node) {
@@ -492,10 +492,12 @@ export const ADMIN_CLIENT_JS = String.raw`
     var frame = document.querySelector("iframe.camp-frame");
     if (!form || !frame) return;
     var hints = document.querySelector("[data-voice-hints]");
+    var state = form.querySelector("[data-save-state]");
     var dirty = false;
     var ready = false;
     var timer = null;
     var ticket = 0;
+    var saving = null;
 
     function doc() { return frame.contentDocument; }
     function regions() { return doc() ? Array.prototype.slice.call(doc().querySelectorAll("[data-edit]")) : []; }
@@ -513,11 +515,43 @@ export const ADMIN_CLIENT_JS = String.raw`
       });
     }
 
-    function refreshHints() {
-      if (!hints) return;
+    function showState(text, error) {
+      if (!state) return;
+      state.textContent = text;
+      state.classList.toggle("is-error", Boolean(error));
+    }
+
+    // Saves what's in the email now. Returns a promise that settles when it's saved (or failed).
+    function save() {
+      clearTimeout(timer);
+      if (!dirty) return saving || Promise.resolve();
       collect();
+      dirty = false;
+      showState("Saving…");
+      var body = new FormData(form);
+      var previous = saving || Promise.resolve();
+      var mine = previous.then(function () {
+        return fetch(form.getAttribute("action"), { method: "POST", body: body, headers: { accept: "application/json" } });
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok || !data.ok) throw new Error(data.message || "Couldn't save.");
+          if (!dirty) showState("Saved");
+        });
+      }).catch(function (error) {
+        dirty = true;
+        showState((error && error.message) || "Couldn't save. Check your connection.", true);
+      }).then(function () {
+        if (saving === mine) saving = null;
+      });
+      saving = mine;
+      refreshHints(body);
+      return mine;
+    }
+
+    function refreshHints(body) {
+      if (!hints) return;
       var mine = ++ticket;
-      fetch(form.getAttribute("data-hints-url"), { method: "POST", body: new FormData(form), headers: { accept: "application/json" } })
+      fetch(form.getAttribute("data-hints-url"), { method: "POST", body: body, headers: { accept: "application/json" } })
         .then(function (response) { return response.ok ? response.json() : null; })
         .then(function (data) {
           if (!data || mine !== ticket) return;
@@ -535,9 +569,10 @@ export const ADMIN_CLIENT_JS = String.raw`
 
     function changed() {
       dirty = true;
+      showState("Saving…");
       fit();
       clearTimeout(timer);
-      timer = setTimeout(refreshHints, 700);
+      timer = setTimeout(save, 800);
     }
 
     function setup() {
@@ -548,13 +583,14 @@ export const ADMIN_CLIENT_JS = String.raw`
       style.textContent = "[data-edit]{position:relative;outline:1px dashed rgba(184,113,79,.5);outline-offset:4px;border-radius:3px;cursor:text;min-height:1.2em}"
         + "[data-edit]:hover{outline-color:#B8714F}[data-edit]:focus{outline:2px solid #B8714F}"
         + "[data-edit].is-empty::before{content:attr(data-placeholder);position:absolute;left:0;top:0;color:#A99E92;font-weight:normal;pointer-events:none}"
-        + "span[data-edit]{display:inline-block;min-width:12em}";
+        + "span[data-edit]{display:inline-block;min-width:1.5em}span[data-edit].is-empty{min-width:14em}span[data-edit].is-empty::before{white-space:nowrap}";
       d.head.appendChild(style);
       regions().forEach(function (el) {
         el.setAttribute("contenteditable", "true");
         el.setAttribute("spellcheck", "true");
         markEmpty(el);
         el.addEventListener("input", function () { markEmpty(el); changed(); });
+        el.addEventListener("blur", save);
         el.addEventListener("keydown", function (event) {
           if (event.key === "Enter" && SINGLE_LINE[el.getAttribute("data-edit")]) event.preventDefault();
         });
@@ -617,18 +653,39 @@ export const ADMIN_CLIENT_JS = String.raw`
         var row = doc() && doc().querySelector("[data-cta]");
         if (!row) return;
         row.style.display = BUTTONS[goal.value] ? "" : "none";
-        if (BUTTONS[goal.value]) row.querySelector("a").textContent = BUTTONS[goal.value];
+        if (BUTTONS[goal.value]) {
+          var label = row.querySelector("a");
+          label.textContent = BUTTONS[goal.value];
+          markEmpty(label);
+        }
         fit();
+        changed();
       });
     }
 
-    form.addEventListener("input", function () { dirty = true; });
-    form.addEventListener("submit", function () {
-      collect();
-      dirty = false;
+    // Anything else in the form that changes (like the product picker) saves too.
+    form.addEventListener("input", changed);
+    // Saving happens by itself, so the form never submits.
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      save();
     });
+    // Approve, Reject and the rest wait for the last words to be saved.
+    document.addEventListener("submit", function (event) {
+      var other = event.target;
+      if (other === form || (!dirty && !saving)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var submitter = event.submitter;
+      save().then(function () {
+        if (dirty || saving) return;
+        if (other.requestSubmit) other.requestSubmit(submitter && submitter.form === other ? submitter : undefined);
+        else other.submit();
+      });
+    }, true);
     window.addEventListener("beforeunload", function (event) {
-      if (!dirty) return;
+      if (!dirty && !saving) return;
+      save();
       event.preventDefault();
       event.returnValue = "";
     });
