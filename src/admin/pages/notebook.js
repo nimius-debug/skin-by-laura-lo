@@ -27,6 +27,7 @@ const ICONS = {
   minus: '<path d="M5 12h14"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 9v6M9 12h6"/>',
+  size: '<path d="M4 7h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.2"/><path d="M4 17.5h16" stroke-width="3.6"/>',
 };
 
 export const NOTEBOOK_STYLES = `
@@ -47,7 +48,7 @@ button { font: inherit; color: inherit; }
 .nb-status { font-size: 13px; color: #D9CFC2; text-align: right; }
 .nb-status[data-tone="good"] { color: var(--good); }
 .nb-status[data-tone="warn"] { color: var(--warn); }
-.nb-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 12px; border: 0; font-weight: 600; font-size: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nb-btn { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 12px; border: 0; font-weight: 600; font-size: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .nb-btn:active { opacity: .85; }
 .nb-btn-primary { background: var(--accent); color: #FFF8F2; }
 .nb-btn-quiet { background: #FFFFFF; color: var(--ink); border: 1px solid var(--line); }
@@ -56,6 +57,9 @@ button { font: inherit; color: inherit; }
   background: #FFFFFF; border: 1px solid var(--line); border-radius: 16px; padding: 6px 8px; box-shadow: 0 6px 20px rgba(42,36,31,.12); max-width: calc(100% - 24px); }
 .nb-tool { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 10px; background: transparent; color: #4A4038; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .nb-tool[aria-pressed="true"] { background: #F8EFE7; color: var(--accent-ink); }
+.nb-size-dot { display: block; border-radius: 50%; background: currentColor; width: 9px; height: 9px; }
+.nb-tool[data-size="0"] .nb-size-dot { width: 5px; height: 5px; }
+.nb-tool[data-size="2"] .nb-size-dot { width: 14px; height: 14px; }
 .nb-tool:disabled { opacity: .35; }
 .nb-swatch { width: 24px; height: 24px; border-radius: 50%; display: block; }
 .nb-tool[aria-pressed="true"] .nb-swatch { box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px currentColor; }
@@ -68,11 +72,20 @@ button { font: inherit; color: inherit; }
 .nb-zoom-level { width: auto; min-width: 56px; padding: 0 6px; font-size: 14px; font-weight: 600; }
 .nb-tools, .nb-banner, .nb-foot { position: sticky; left: 0; }
 .nb-foot { display: flex; justify-content: center; padding: 0 16px calc(120px + env(safe-area-inset-bottom)); }
+/* A blank page to tap, the width of the pages above it. */
+.nb-add-tile { width: var(--page-w, 100%); max-width: calc(100vw - 32px); min-height: 120px; border: 2px dashed #CDBFAE; border-radius: 6px; background: rgba(255,253,248,.55); color: var(--ink-soft); font-size: 16px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nb-add-tile:disabled { cursor: default; opacity: .7; border-style: solid; }
+.nb-page-count { position: fixed; left: calc(16px + env(safe-area-inset-left)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 4; background: rgba(42,36,31,.82); color: var(--ground);
+  font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 999px; pointer-events: none; }
+.nb-status a { color: inherit; font-weight: 600; }
 .nb-banner { margin: 12px auto 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 16px; font-size: 14px; max-width: calc(100% - 24px); }
 .nb-last { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 4; width: min(280px, calc(100% - 32px));
   background: #FFFFFF; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 6px 20px rgba(42,36,31,.12); }
 .nb-last-toggle { all: unset; box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
   font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); cursor: pointer; }
+/* Folded, it shrinks to a small tab so it doesn't sit over the page. */
+.nb-last[data-open="false"] { width: auto !important; }
 .nb-last-body { padding: 0 16px 14px; font-size: 13.5px; line-height: 1.45; white-space: pre-line; max-height: 40vh; overflow-y: auto; }
 .nb-overlay { position: fixed; inset: 0; z-index: 10; }
 .nb-overlay[hidden] { display: none; }
@@ -97,8 +110,30 @@ button { font: inherit; color: inherit; }
   .nb-review-body { flex-direction: column; }
   .nb-preview { width: 100%; max-width: none; flex-direction: row; overflow-x: auto; }
   .nb-preview img { width: 60%; flex-shrink: 0; }
+  /* No room in the header: warnings drop below it instead, so they're never missed. */
   .nb-status { display: none; }
+  .nb-status[data-tone="warn"] { display: block; position: fixed; top: calc(72px + env(safe-area-inset-top)); left: 12px; right: 12px; z-index: 6; text-align: center;
+    background: var(--ink); color: var(--warn); padding: 10px 14px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 20px rgba(42,36,31,.25); }
 }
+/* Up to an iPad mini held upright, slightly smaller tools keep them on one row; anything left over scrolls sideways. */
+@media (max-width: 800px) {
+  .nb-tools { flex-shrink: 0; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; margin-left: 12px; margin-right: 12px; }
+  .nb-tools::-webkit-scrollbar { display: none; }
+  .nb-tool { width: 40px; flex-shrink: 0; }
+  .nb-sep { flex-shrink: 0; margin: 0 3px; }
+  .nb-zoom-level { min-width: 52px; }
+}
+/* Split View and Slide Over: a compact header. */
+@media (max-width: 600px) {
+  .nb-top { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; padding-left: calc(8px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
+  .nb-back-label, .nb-title span, .nb-wide { display: none; }
+  .nb-back { min-width: 44px; justify-content: center; }
+  .nb-title { min-width: 0; }
+  .nb-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; }
+  .nb-btn { padding: 0 14px; }
+  .nb-review-body { padding: 16px calc(14px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); gap: 16px; }
+}
+@media (min-width: 601px) { .nb-narrow { display: none; } }
 `;
 
 function lastVisitBody(lastNote) {
@@ -132,7 +167,7 @@ ${raw(APP_HEAD)}
 <body>
 <div class="nb" id="notebook" data-client-id="${client.id}" data-client-name="${client.name}" data-note-id="${editing?.id || ""}" data-note-date="${editing?.note_date || ""}">
   <header class="nb-top">
-    <a class="nb-back" href="/admin/clients/${client.id}">${icon(ICONS.back)}${client.name}</a>
+    <a class="nb-back" href="/admin/clients/${client.id}" aria-label="Back to ${client.name}">${icon(ICONS.back)}<span class="nb-back-label">${client.name}</span></a>
     <div class="nb-title"><strong>${title}</strong><span>${editing ? "Change it with Apple Pencil" : "Write with Apple Pencil"}</span></div>
     <div class="nb-actions">
       <span class="nb-status" id="nb-status" role="status" aria-live="polite"></span>
@@ -147,6 +182,8 @@ ${raw(APP_HEAD)}
       <button type="button" class="nb-tool" data-tool="eraser" aria-pressed="false" aria-label="Eraser">${icon(ICONS.eraser)}</button>
       <span class="nb-sep" aria-hidden="true"></span>
       ${INKS.map((ink, index) => html`<button type="button" class="nb-tool" data-color="${ink.color}" aria-pressed="${index === 0 ? "true" : "false"}" aria-label="Ink: ${ink.name}" style="color: ${ink.color}"><span class="nb-swatch" style="background: ${ink.color}"></span></button>`)}
+      <span class="nb-sep" aria-hidden="true"></span>
+      <button type="button" class="nb-tool" id="nb-size" data-size="1" aria-label="Pen size: Medium"><span class="nb-size-dot" aria-hidden="true"></span></button>
       <span class="nb-sep" aria-hidden="true"></span>
       <button type="button" class="nb-tool" id="nb-undo" aria-label="Undo" disabled>${icon(ICONS.undo)}</button>
       <button type="button" class="nb-tool" id="nb-redo" aria-label="Redo" disabled>${icon(ICONS.redo)}</button>
@@ -164,10 +201,11 @@ ${raw(APP_HEAD)}
 
     <div class="nb-pages" id="nb-pages"></div>
     <div class="nb-foot">
-      <button type="button" class="nb-btn nb-btn-quiet" id="nb-add-page">${icon(ICONS.page)}Add page</button>
+      <button type="button" class="nb-add-tile" id="nb-add-page">${icon(ICONS.plus)}<span id="nb-add-page-label">Add a page</span></button>
     </div>
   </main>
 
+  <div class="nb-page-count" id="nb-page-count" aria-live="polite" hidden></div>
   ${lastVisitBody(lastNote)}
 
   <div class="nb-overlay nb-busy" id="nb-busy" hidden>
@@ -176,9 +214,9 @@ ${raw(APP_HEAD)}
 
   <div class="nb-overlay nb-review" id="nb-review" hidden role="dialog" aria-modal="true" aria-labelledby="nb-review-title">
     <header class="nb-top">
-      <button type="button" class="nb-back" id="nb-keep-writing-top" style="background: none; border: 0; cursor: pointer;">${icon(ICONS.back)}Keep writing</button>
+      <button type="button" class="nb-back" id="nb-keep-writing-top" aria-label="Keep writing" style="background: none; border: 0; cursor: pointer;">${icon(ICONS.back)}<span class="nb-back-label">Keep writing</span></button>
       <div class="nb-title"><strong>Check before saving</strong><span>${client.name}</span></div>
-      <div class="nb-actions"><button type="button" class="nb-btn nb-btn-primary" id="nb-save-top" data-save>Save to dashboard</button></div>
+      <div class="nb-actions"><button type="button" class="nb-btn nb-btn-primary" id="nb-save-top" data-save>Save<span class="nb-wide"> to dashboard</span></button></div>
     </header>
     <div class="nb-review-body">
       <div class="nb-preview" id="nb-preview" aria-label="Your handwriting"></div>

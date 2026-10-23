@@ -46,6 +46,14 @@ function redirect(location, headers = {}) {
   return new Response(null, { status: 303, headers: { location, "cache-control": "no-store", ...headers } });
 }
 
+/** Where to go after logging in: a page of the admin she was on, never somewhere else. */
+export function safeNext(value) {
+  const next = typeof value === "string" ? value : "";
+  if (!next.startsWith("/admin/") || next.startsWith("//") || next.includes("\\") || /[\u0000-\u001f]/.test(next)) return "/admin";
+  if (next.startsWith("/admin/login") || next.startsWith("/admin/logout")) return "/admin";
+  return next;
+}
+
 const tooManyTries = (minutes) => `Too many wrong tries. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 
 async function handleLogin(request, env) {
@@ -60,16 +68,17 @@ async function handleLogin(request, env) {
   const username = String(form?.get("username") || "");
   const password = String(form?.get("password") || "");
   const remember = form?.get("remember") === "on";
+  const next = safeNext(String(form?.get("next") || ""));
   if (!(await credentialsMatch(env, username, password))) {
     const nowLocked = await recordFailure(env, key);
     return adminHtmlResponse(
-      loginPage({ error: nowLocked ? tooManyTries(nowLocked) : "Wrong username or password.", username, remember }),
+      loginPage({ error: nowLocked ? tooManyTries(nowLocked) : "Wrong username or password.", username, remember, next }),
       { status: nowLocked ? 429 : 401 },
     );
   }
   await clearFailures(env, key);
   const token = await createSessionToken(env, Date.now(), { remember });
-  return redirect("/admin", { "set-cookie": sessionCookie(token, { remember }) });
+  return redirect(next, { "set-cookie": sessionCookie(token, { remember }) });
 }
 
 /** The shop catalog, and whether it could be read. Without it, products can't be told apart from services. */
@@ -592,8 +601,9 @@ export async function handleAdminRequest(request, env, url) {
   }
 
   if (url.pathname === "/admin/login" && method === "GET") {
-    if (await isValidSession(env, readSessionCookie(request))) return redirect("/admin");
-    return adminHtmlResponse(loginPage({ configured: adminAuthConfigured(env) }));
+    const next = safeNext(url.searchParams.get("next"));
+    if (await isValidSession(env, readSessionCookie(request))) return redirect(next);
+    return adminHtmlResponse(loginPage({ configured: adminAuthConfigured(env), next }));
   }
 
   if (url.pathname === "/admin/login" && method === "POST") {
@@ -606,7 +616,11 @@ export async function handleAdminRequest(request, env, url) {
 
   const session = await readSession(env, readSessionCookie(request));
   if (!session) {
-    if (method === "GET") return redirect("/admin/login");
+    // Back to this page once she has logged in again.
+    if (method === "GET") {
+      const here = safeNext(url.pathname + url.search);
+      return redirect(here === "/admin" ? "/admin/login" : `/admin/login?next=${encodeURIComponent(here)}`);
+    }
     return jsonResponse({ message: "Please log in to the admin first." }, 401);
   }
 

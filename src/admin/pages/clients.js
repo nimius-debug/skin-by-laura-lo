@@ -5,6 +5,19 @@ function formatDate(iso) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** A client's buttons on the Today list: write today's note, or, once it's saved, see it or write another. */
+function todayActions(row) {
+  if (!row.clientId) return "";
+  const write = `/admin/clients/${row.clientId}/write`;
+  if (!row.todayNote) return html`<a class="btn btn-primary today-write" href="${write}" data-write-client="${row.clientId}">Write a note</a>`;
+  const edit = row.todayNote.source === "ipad" ? `/admin/notes/${row.todayNote.id}/edit` : `/admin/clients/${row.clientId}`;
+  return html`<span class="today-done">
+    <span class="today-saved">✓ Note saved</span>
+    <a class="btn btn-secondary today-write" href="${edit}">${row.todayNote.source === "ipad" ? "Edit" : "View"}</a>
+    <a class="btn btn-secondary today-write" href="${write}" data-write-client="${row.clientId}" aria-label="Write another note for ${row.name}">+ Note</a>
+  </span>`;
+}
+
 /** Today's appointments from Square, with a Write a note button for each client. Hidden when there's no Square. */
 function todayCard(today) {
   if (!today) return "";
@@ -17,13 +30,13 @@ function todayCard(today) {
   } else {
     body = html`<ul class="today-list">
       ${today.rows.map((row) => html`
-        <li class="today-row">
-          <span class="today-time">${row.time}</span>
+        <li class="today-row${row.next ? " is-next" : ""}${row.todayNote ? " has-note" : ""}">
+          <span class="today-time">${row.time}${row.next ? html`<span class="today-next">Next</span>` : ""}</span>
           <span class="today-who">
             ${row.clientId ? html`<a href="/admin/clients/${row.clientId}">${row.name}</a>` : html`<span>${row.name}</span>`}
             <span class="today-service">${row.services.length ? row.services.join(", ") : ""}${row.clientId ? "" : `${row.services.length ? " · " : ""}First visit: shows up after her visit and a sync`}</span>
           </span>
-          ${row.clientId ? html`<a class="btn btn-primary today-write" href="/admin/clients/${row.clientId}/write">Write a note</a>` : ""}
+          ${todayActions(row)}
         </li>
       `)}
     </ul>`;
@@ -47,6 +60,11 @@ export function clientsPage({ clients, today = null }) {
       <button type="button" class="btn btn-primary" id="sync-btn">Sync from Square</button>
     </div>
     <div id="sync-status" style="font-size: 13px; color: var(--ink-soft);"></div>
+
+    <section class="card unsent-card" id="unsent-notes" aria-labelledby="unsent-heading" hidden>
+      <div class="section-label" id="unsent-heading">Unsent notes on this iPad</div>
+      <ul class="unsent-list" id="unsent-list"></ul>
+    </section>
 
     ${todayCard(today)}
 

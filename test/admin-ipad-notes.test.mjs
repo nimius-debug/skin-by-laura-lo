@@ -1,10 +1,10 @@
 // Notes handwritten on the iPad: the writing screen, reading the handwriting, saving to the
 // dashboard, and the note showing up everywhere a sheet note does.
 import { createD1, schemaMigrations } from "./helpers/d1-sqlite.mjs";
-import { handleAdminRequest } from "../src/admin/routes.js";
+import { handleAdminRequest, safeNext } from "../src/admin/routes.js";
 import { createSessionToken, sessionCookie } from "../src/admin/auth.js";
 import { noteFields, cleanFields, fieldsAsText } from "../src/admin/note-fields.js";
-import { planInkReading, summaryPrompt } from "../src/admin/claude.js";
+import { planInkReading, readInkNote, summaryPrompt } from "../src/admin/claude.js";
 import { noteText } from "../src/admin/safety.js";
 import { NOTEBOOK_JS } from "../src/admin/notebook-client.js";
 import { APP_HEAD } from "../src/admin/pwa.js";
@@ -271,6 +271,18 @@ globalThis.fetch = realFetch;
   });
   check("today's bookings come in time order, cancelled ones left out", rows.map((row) => [row.time, row.name, row.clientId, row.services]), [["10:00 AM", "Maya Reyes", "client_maya", ["Acne bootcamp facial"]], ["2:00 PM", "Nora Patel", null, ["Brow lamination"]]]);
 
+  const marked = appointmentRows([
+    { id: "b1", status: "ACCEPTED", start_at: "2026-10-23T14:00:00Z", customer_id: "SQ_MAYA" },
+    { id: "b2", status: "ACCEPTED", start_at: "2026-10-23T18:00:00Z", customer_id: "SQ_NEW" },
+    { id: "b4", status: "ACCEPTED", start_at: "2026-10-23T20:00:00Z", customer_id: "SQ_NEW" },
+  ], {
+    clientsBySquareId: new Map([["SQ_MAYA", { id: "client_maya", name: "Maya Reyes" }]]),
+    todayNotes: new Map([["client_maya", { id: "note_today", source: "ipad" }]]),
+    now: new Date("2026-10-23T16:30:00Z"),
+  });
+  check("a client with today's note is marked, and only the next appointment is highlighted", marked.map((row) => [row.todayNote?.id || null, row.next]), [["note_today", false], [null, true], [null, false]]);
+  check("with every appointment over, none is next", appointmentRows([{ id: "b1", status: "ACCEPTED", start_at: "2026-10-23T14:00:00Z" }], { clientsBySquareId: new Map(), now: new Date("2026-10-23T23:00:00Z") }).map((row) => row.next), [false]);
+
   const squareEnv = { ...env, SQUARE_ACCESS_TOKEN: "t", SQUARE_LOCATION_ID: "L1" };
   globalThis.fetch = async (url) => {
     const path = new URL(String(url)).pathname;
@@ -280,6 +292,11 @@ globalThis.fetch = realFetch;
   };
   const home = await (await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"))).text();
   check("the clients page opens on today's appointments with Write a note", [home.includes("Acne bootcamp facial"), home.includes('href="/admin/clients/client_maya/write"')], [true, true]);
+  check("the clients page has a place for unsent notes on this iPad, hidden until there are some", home.includes('id="unsent-notes" aria-labelledby="unsent-heading" hidden'), true);
+  d1.raw.exec(`INSERT INTO notes (id, client_id, note_date, summary, extracted_text, source) VALUES ('note_today_ipad', 'client_maya', '${salonDay().day}', 'Today', '', 'ipad')`);
+  const homeAfter = await (await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"))).text();
+  check("once today's note is saved, Today says so with Edit and a way to write another", [homeAfter.includes("Note saved"), /href="\/admin\/notes\/[^"]+\/edit"/.test(homeAfter), homeAfter.includes('href="/admin/clients/client_maya/write"')], [true, true, true]);
+  d1.raw.exec(`DELETE FROM notes WHERE id = 'note_today_ipad'`);
   globalThis.fetch = async () => { throw new Error("Square down"); };
   const down = await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"));
   check("when Square is down the clients page still opens and says so", [down.status, (await down.text()).includes("Couldn't read today's bookings")], [200, true]);
@@ -288,6 +305,36 @@ globalThis.fetch = realFetch;
   const slow = await todaysAppointments(squareEnv, { timeoutMs: 100 });
   check("a slow Square gives up on today's list instead of holding the page", [slow.failed, slow.rows, Date.now() - started < 1000], [true, [], true]);
   globalThis.fetch = realFetch;
+}
+
+// --- reading never hangs ------------------------------------------------------------------
+{
+  globalThis.fetch = (url, init) => new Promise((_, reject) => {
+    init.signal.addEventListener("abort", () => reject(new Error("aborted")));
+  });
+  const started = Date.now();
+  const error = await readInkNote(env, [PNG_1X1], { timeoutMs: 50 }).then(() => null, (failure) => failure);
+  check("reading the handwriting gives up instead of waiting forever", [Boolean(error), Date.now() - started < 1000], [true, true]);
+  globalThis.fetch = realFetch;
+}
+
+// --- back to her note after logging in again -------------------------------------------------
+{
+  check("login goes back to an admin page she was on", [safeNext("/admin/clients/client_maya/write?note=n1"), safeNext("/admin/notes/n1/edit")], ["/admin/clients/client_maya/write?note=n1", "/admin/notes/n1/edit"]);
+  check("but never off the admin", ["https://evil.test/admin/", "//evil.test/admin/", "/admin\\evil", "/admin", "/shop", "/admin/login?next=/admin/x", "/admin/x\nSet-Cookie: a", "", null].map(safeNext), Array(9).fill("/admin"));
+  const signedOut = await handleAdminRequest(new Request("https://x.test/admin/clients/client_maya/write?note=n1"), env, new URL("https://x.test/admin/clients/client_maya/write?note=n1"));
+  check("a signed-out page sends her to log in, remembering the page", [signedOut.status, signedOut.headers.get("location")], [303, "/admin/login?next=%2Fadmin%2Fclients%2Fclient_maya%2Fwrite%3Fnote%3Dn1"]);
+  const loginPage = await (await handleAdminRequest(new Request("https://x.test/admin/login?next=%2Fadmin%2Fclients%2Fclient_maya%2Fwrite"), env, new URL("https://x.test/admin/login?next=%2Fadmin%2Fclients%2Fclient_maya%2Fwrite"))).text();
+  check("the login form carries where to go next", loginPage.includes('name="next" value="/admin/clients/client_maya/write"'), true);
+  const loginWith = (next) => {
+    const form = new FormData();
+    form.set("username", "laura");
+    form.set("password", "pw-for-tests");
+    form.set("next", next);
+    return handleAdminRequest(new Request("https://x.test/admin/login", { method: "POST", body: form, headers: { "cf-connecting-ip": "203.0.113.9" } }), env, new URL("https://x.test/admin/login"));
+  };
+  check("logging in returns to her note", (await loginWith("/admin/clients/client_maya/write")).headers.get("location"), "/admin/clients/client_maya/write");
+  check("a bad next is ignored", (await loginWith("//evil.test/")).headers.get("location"), "/admin");
 }
 
 // --- getting it onto the iPad ------------------------------------------------------------

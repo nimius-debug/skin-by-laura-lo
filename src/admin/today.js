@@ -30,12 +30,14 @@ export function salonDay(now = new Date(), timeZone = SALON_TIME_ZONE) {
 const SHOWN_STATUSES = new Set(["ACCEPTED", "PENDING"]);
 
 /**
- * Turn the day's bookings into rows: [{ bookingId, startAt, time, customerId, clientId, name, services }],
- * earliest first. `clientsBySquareId` maps Square customer id to { id, name }; `serviceNames` maps a
- * service variation id to its name; `customerNames` names people who aren't clients yet.
+ * Turn the day's bookings into rows: [{ bookingId, startAt, time, customerId, clientId, name, services,
+ * todayNote, next }], earliest first. `clientsBySquareId` maps Square customer id to { id, name };
+ * `serviceNames` maps a service variation id to its name; `customerNames` names people who aren't
+ * clients yet; `todayNotes` maps a client id to the note she already has dated today ({ id, source }).
+ * `next` marks the first appointment that hasn't started yet at `now`.
  */
-export function appointmentRows(bookings, { clientsBySquareId, serviceNames = new Map(), customerNames = new Map(), timeZone = SALON_TIME_ZONE }) {
-  return bookings
+export function appointmentRows(bookings, { clientsBySquareId, serviceNames = new Map(), customerNames = new Map(), todayNotes = new Map(), now = null, timeZone = SALON_TIME_ZONE }) {
+  const rows = bookings
     .filter((booking) => SHOWN_STATUSES.has(booking.status) && booking.start_at)
     .sort((a, b) => a.start_at.localeCompare(b.start_at))
     .map((booking) => {
@@ -51,8 +53,26 @@ export function appointmentRows(bookings, { clientsBySquareId, serviceNames = ne
         clientId: client?.id || null,
         name: client?.name || customerNames.get(booking.customer_id) || "Someone new",
         services: [...new Set(services)],
+        todayNote: (client && todayNotes.get(client.id)) || null,
+        next: false,
       };
     });
+  if (now) {
+    const upcoming = rows.find((row) => Date.parse(row.startAt) > now.getTime());
+    if (upcoming) upcoming.next = true;
+  }
+  return rows;
+}
+
+/** The note each of these clients already has dated `day`, newest first: Map clientId -> { id, source }. */
+async function notesDatedFor(env, clientIds, day) {
+  const notes = new Map();
+  if (!clientIds.length) return notes;
+  const { results } = await env.CLIENT_NOTES_DB.prepare(
+    `SELECT id, client_id, source FROM notes WHERE note_date = ? AND client_id IN (${clientIds.map(() => "?").join(", ")}) ORDER BY created_at DESC, rowid DESC`,
+  ).bind(day, ...clientIds).all();
+  for (const row of results) if (!notes.has(row.client_id)) notes.set(row.client_id, { id: row.id, source: row.source });
+  return notes;
 }
 
 async function serviceNamesFor(env, variationIds) {
@@ -100,13 +120,13 @@ export async function todaysAppointments(env, { now = new Date(), timeoutMs = SQ
     }, timeoutMs);
   });
   try {
-    return await Promise.race([readAppointments(env, window), timeout]);
+    return await Promise.race([readAppointments(env, window, now), timeout]);
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function readAppointments(env, window) {
+async function readAppointments(env, window, now) {
   try {
     const payload = await squareGet(env, "/v2/bookings", { location_id: env.SQUARE_LOCATION_ID, start_at_min: window.start, start_at_max: window.end, limit: 100 });
     const bookings = (payload.bookings || []).filter((booking) => SHOWN_STATUSES.has(booking.status));
@@ -123,11 +143,16 @@ async function readAppointments(env, window) {
     const variationIds = [...new Set(bookings.flatMap((booking) => (booking.appointment_segments || []).map((segment) => segment.service_variation_id)).filter(Boolean))];
     const unknownIds = customerIds.filter((id) => !clientsBySquareId.has(id));
     // Names are a nicety: a failure here still shows the times.
-    const [serviceNames, customerNames] = await Promise.all([
+    const clientIds = [...clientsBySquareId.values()].map((client) => client.id);
+    const [serviceNames, customerNames, todayNotes] = await Promise.all([
       serviceNamesFor(env, variationIds).catch(() => new Map()),
       customerNamesFor(env, unknownIds).catch(() => new Map()),
+      notesDatedFor(env, clientIds, window.day).catch((error) => {
+        console.error("Reading today's notes failed:", error.message);
+        return new Map();
+      }),
     ]);
-    return { day: window.day, rows: appointmentRows(bookings, { clientsBySquareId, serviceNames, customerNames }), failed: false };
+    return { day: window.day, rows: appointmentRows(bookings, { clientsBySquareId, serviceNames, customerNames, todayNotes, now }), failed: false };
   } catch (error) {
     console.error("Reading today's bookings failed:", error.message);
     return { day: window.day, rows: [], failed: true };
