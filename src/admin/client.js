@@ -444,22 +444,117 @@ export const ADMIN_CLIENT_JS = String.raw`
     });
   }
 
-  // While editing a version, the preview shows the unsaved changes and Laura's voice check.
-  function wireLivePreview() {
-    var form = document.querySelector("form[data-live-preview]");
+  // The email editor: the preview itself is editable. Laura clicks into the
+  // email and types; shortly after, the words are read back into the form's
+  // fields (**bold**, [named links](https://...), blank lines between
+  // paragraphs) and saved, which is what the server stores and renders.
+  var EDIT_BLOCK = /^(P|DIV|LI|OL|UL|H[1-6]|TABLE|TBODY|TR|TD)$/;
+  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, fallbackName: true, buttonLabel: true, buttonUrl: true, signoff: true, signName: true, shopTitle: true };
+  var FIELD_FOR = { personalPs: "ps" };
+
+  function editedText(node) {
+    var out = "";
+    node.childNodes.forEach(function (child) {
+      if (child.nodeType === 3) { out += child.nodeValue.replace(/ /g, " "); return; }
+      if (child.nodeType !== 1) return;
+      var tag = child.tagName;
+      var bold = tag === "STRONG" || tag === "B" || (tag === "SPAN" && /bold|[6-9]00/.test(child.style.fontWeight));
+      if (tag === "BR") out += "\n";
+      else if (bold) {
+        var inner = editedText(child);
+        out += inner.trim() ? (/^\s/.test(inner) ? " " : "") + "**" + inner.trim() + "**" + (/\s$/.test(inner) ? " " : "") : inner;
+      } else if (tag === "A") {
+        var href = child.getAttribute("href") || "";
+        var label = editedText(child).trim();
+        out += !label || label === href ? href : "[" + label + "](" + href + ")";
+      } else if (EDIT_BLOCK.test(tag)) out += "\n\n" + editedText(child) + "\n\n";
+      else out += editedText(child);
+    });
+    return out;
+  }
+
+  function tidyText(text) {
+    return text.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function readEdited(el) {
+    var name = el.getAttribute("data-edit");
+    if (SINGLE_LINE[name]) return el.textContent.replace(/\s+/g, " ").trim();
+    if (name === "tips") {
+      return Array.prototype.map.call(el.querySelectorAll("li"), function (li) { return tidyText(editedText(li)).replace(/\s*\n\s*/g, " "); })
+        .filter(Boolean).join("\n");
+    }
+    return tidyText(editedText(el));
+  }
+
+  function wireInlineEditor() {
+    var form = document.querySelector("form[data-inline-editor]");
     var frame = document.querySelector("iframe.camp-frame");
     if (!form || !frame) return;
     var hints = document.querySelector("[data-voice-hints]");
+    var state = form.querySelector("[data-save-state]");
+    var dirty = false;
+    var ready = false;
     var timer = null;
-    var latest = 0;
-    function refresh() {
-      var ticket = ++latest;
-      fetch(form.getAttribute("data-live-preview"), { method: "POST", body: new FormData(form), headers: { accept: "application/json" } })
+    var ticket = 0;
+    var saving = null;
+
+    function doc() { return frame.contentDocument; }
+    function regions() { return doc() ? Array.prototype.slice.call(doc().querySelectorAll("[data-edit]")) : []; }
+    function fit() {
+      var d = doc();
+      if (d && d.documentElement) frame.style.height = Math.max(400, d.documentElement.scrollHeight) + "px";
+    }
+    function markEmpty(el) { el.classList.toggle("is-empty", !el.textContent.trim()); }
+
+    function collect() {
+      regions().forEach(function (el) {
+        var name = FIELD_FOR[el.getAttribute("data-edit")] || el.getAttribute("data-edit");
+        var input = form.querySelector('[data-field="' + name + '"]');
+        if (input) input.value = readEdited(el);
+      });
+    }
+
+    function showState(text, error) {
+      if (!state) return;
+      state.textContent = text;
+      state.classList.toggle("is-error", Boolean(error));
+    }
+
+    // Saves what's in the email now. Returns a promise that settles when it's saved (or failed).
+    function save() {
+      clearTimeout(timer);
+      if (!dirty) return saving || Promise.resolve();
+      collect();
+      dirty = false;
+      showState("Saving…");
+      var body = new FormData(form);
+      var previous = saving || Promise.resolve();
+      var mine = previous.then(function () {
+        return fetch(form.getAttribute("action"), { method: "POST", body: body, headers: { accept: "application/json" } });
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok || !data.ok) throw new Error(data.message || "Couldn't save.");
+          if (!dirty) showState("Saved");
+        });
+      }).catch(function (error) {
+        dirty = true;
+        showState((error && error.message) || "Couldn't save. Check your connection.", true);
+      }).then(function () {
+        if (saving === mine) saving = null;
+      });
+      saving = mine;
+      refreshHints(body);
+      return mine;
+    }
+
+    function refreshHints(body) {
+      if (!hints) return;
+      var mine = ++ticket;
+      fetch(form.getAttribute("data-hints-url"), { method: "POST", body: body, headers: { accept: "application/json" } })
         .then(function (response) { return response.ok ? response.json() : null; })
         .then(function (data) {
-          if (!data || ticket !== latest) return;
-          frame.srcdoc = data.html;
-          if (!hints) return;
+          if (!data || mine !== ticket) return;
           var list = hints.querySelector("ul");
           list.textContent = "";
           (data.hints || []).forEach(function (hint) {
@@ -469,13 +564,282 @@ export const ADMIN_CLIENT_JS = String.raw`
           });
           hints.hidden = !(data.hints || []).length;
         })
-        .catch(function () { /* keep the last preview */ });
+        .catch(function () { /* keep the last hints */ });
     }
-    form.addEventListener("input", function () {
+
+    function changed() {
+      dirty = true;
+      showState("Saving…");
+      fit();
       clearTimeout(timer);
-      timer = setTimeout(refresh, 500);
+      timer = setTimeout(save, 800);
+    }
+
+    function setup() {
+      var d = doc();
+      if (ready || !d || !d.body || !d.querySelector("[data-edit]")) return;
+      ready = true;
+      var style = d.createElement("style");
+      style.textContent = "[data-edit]{position:relative;outline:1px dashed rgba(184,113,79,.5);outline-offset:4px;border-radius:3px;cursor:text;min-height:1.2em}"
+        + "[data-edit]:hover{outline-color:#B8714F}[data-edit]:focus{outline:2px solid #B8714F}"
+        + "[data-edit].is-empty::before{content:attr(data-placeholder);position:absolute;left:0;top:0;color:#A99E92;font-weight:normal;pointer-events:none}"
+        + "span[data-edit]{display:inline-block;min-width:1.5em}span[data-edit].is-empty{min-width:14em}span[data-edit].is-empty::before{white-space:nowrap}";
+      d.head.appendChild(style);
+      regions().forEach(function (el) {
+        el.setAttribute("contenteditable", "true");
+        el.setAttribute("spellcheck", "true");
+        markEmpty(el);
+        el.addEventListener("input", function () { markEmpty(el); changed(); });
+        el.addEventListener("blur", save);
+        el.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" && SINGLE_LINE[el.getAttribute("data-edit")]) event.preventDefault();
+        });
+      });
+      // Pasted text arrives plain, so it takes on the email's own look.
+      d.addEventListener("paste", function (event) {
+        if (!event.target.closest || !event.target.closest("[data-edit]")) return;
+        event.preventDefault();
+        d.execCommand("insertText", false, (event.clipboardData || window.clipboardData).getData("text/plain"));
+      });
+      // Links don't open while editing; the preview after saving still opens them.
+      d.addEventListener("click", function (event) {
+        if (event.target.closest && event.target.closest("a")) event.preventDefault();
+      });
+      var first = d.querySelector("[data-edit]");
+      if (first && !first.textContent.trim()) first.focus();
+      fit();
+    }
+
+    frame.addEventListener("load", setup);
+    setup();
+
+    form.querySelectorAll("[data-format]").forEach(function (button) {
+      // Keep the selection in the email when a button is pressed.
+      button.addEventListener("mousedown", function (event) { event.preventDefault(); });
+      button.addEventListener("click", function () {
+        var d = doc();
+        var selection = d && d.getSelection();
+        var node = selection && selection.anchorNode;
+        var inside = node && (node.nodeType === 1 ? node : node.parentElement);
+        if (!inside || !inside.closest("[data-edit]")) return;
+        if (button.getAttribute("data-format") === "bold") {
+          d.execCommand("bold");
+        } else {
+          var address = window.prompt("Web address for the link", "https://");
+          if (!address || address === "https://") return;
+          if (!/^https?:\/\//i.test(address)) address = "https://" + address;
+          if (selection.isCollapsed) {
+            var link = d.createElement("a");
+            link.href = address;
+            link.textContent = address;
+            selection.getRangeAt(0).insertNode(link);
+          } else {
+            d.execCommand("createLink", false, address);
+          }
+          // New links look like the email's own links.
+          d.querySelectorAll("[data-edit] a:not([style])").forEach(function (link) {
+            link.setAttribute("style", "color:#96583C;font-weight:bold;");
+          });
+        }
+        changed();
+      });
     });
-    form.addEventListener("change", refresh);
+
+    // The button choice shows in the email right away.
+    var BUTTONS = { book: "Book a facial", shop: "Visit the shop" };
+    var goal = form.querySelector("select[name=goal]");
+    if (goal) {
+      goal.addEventListener("change", function () {
+        var row = doc() && doc().querySelector("[data-cta]");
+        if (!row) return;
+        row.style.display = BUTTONS[goal.value] ? "" : "none";
+        if (BUTTONS[goal.value]) {
+          var label = row.querySelector("a");
+          label.textContent = BUTTONS[goal.value];
+          markEmpty(label);
+          var address = row.querySelector('[data-edit="buttonUrl"]');
+          if (address) {
+            address.textContent = row.getAttribute("data-url-" + goal.value) || "";
+            markEmpty(address);
+          }
+        }
+        fit();
+        changed();
+      });
+    }
+
+    // Anything else in the form that changes (like the product picker) saves too.
+    form.addEventListener("input", changed);
+    // Saving happens by itself, so the form never submits.
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      save();
+    });
+    // Approve, Reject and the rest wait for the last words to be saved.
+    document.addEventListener("submit", function (event) {
+      var other = event.target;
+      if (other === form || (!dirty && !saving)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var submitter = event.submitter;
+      save().then(function () {
+        if (dirty || saving) return;
+        if (other.requestSubmit) other.requestSubmit(submitter && submitter.form === other ? submitter : undefined);
+        else other.submit();
+      });
+    }, true);
+    window.addEventListener("beforeunload", function (event) {
+      if (!dirty && !saving) return;
+      save();
+      event.preventDefault();
+      event.returnValue = "";
+    });
+  }
+
+  // Products in the shared email, edited in the email itself: each card has a
+  // Remove button, and the search box under the cards adds one from the shop
+  // as Laura types its name. The hidden product fields follow the cards, in
+  // order, and each change counts as an edit, so it autosaves.
+  function wireProductEditing() {
+    var form = document.querySelector("form[data-inline-editor]");
+    var frame = document.querySelector("iframe.camp-frame");
+    var fields = form && form.querySelector("[data-product-fields]");
+    if (!form || !frame || !fields) return;
+    var shop = [];
+    try { shop = JSON.parse(form.getAttribute("data-shop") || "[]"); } catch (error) { shop = []; }
+    var max = Number(form.getAttribute("data-max-products")) || 6;
+    var wired = null;
+
+    function doc() { return frame.contentDocument; }
+    function cards() { return doc() ? Array.prototype.slice.call(doc().querySelectorAll("[data-product]")) : []; }
+    function names() { return cards().map(function (card) { return card.getAttribute("data-product"); }); }
+    function fit() {
+      var d = doc();
+      if (d && d.documentElement) frame.style.height = Math.max(400, d.documentElement.scrollHeight) + "px";
+    }
+    function placeholder() {
+      var query = doc() && doc().querySelector("[data-product-query]");
+      if (!query) return;
+      var full = names().length >= max;
+      query.disabled = full;
+      query.placeholder = full ? "This email has the most products it can hold (" + max + ")" : "+ Add a product: type its name";
+    }
+    function sync() {
+      fields.textContent = "";
+      names().forEach(function (name) {
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "product";
+        input.value = name;
+        fields.appendChild(input);
+      });
+      var title = doc() && doc().querySelector("[data-products-title]");
+      if (title) title.style.display = cards().length ? "" : "none";
+      placeholder();
+      fit();
+      form.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    // Every word typed has to appear in the name, so "vit c" finds "Vitamin C Serum".
+    function matches(text) {
+      var words = text.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.length) return [];
+      var used = names();
+      return shop.filter(function (product) {
+        var name = product.name.toLowerCase();
+        return used.indexOf(product.name) < 0 && words.every(function (word) { return name.indexOf(word) >= 0; });
+      }).slice(0, 8);
+    }
+
+    function addProduct(name) {
+      var list = doc() && doc().querySelector("[data-product-list]");
+      if (!list || names().indexOf(name) >= 0 || names().length >= max) return;
+      fetch(form.getAttribute("data-product-card-url") + "?name=" + encodeURIComponent(name), { headers: { accept: "application/json" } })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+          if (!data || !doc() || names().indexOf(data.name) >= 0) return;
+          var holder = doc().createElement("tbody");
+          holder.innerHTML = data.html;
+          var row = holder.querySelector("tr");
+          if (!row) return;
+          list.appendChild(row);
+          sync();
+        })
+        .catch(function () { /* nothing added; she can try again */ });
+    }
+
+    function setup() {
+      var d = doc();
+      if (!d || !d.body || wired === d || !d.querySelector("[data-products]")) return;
+      wired = d;
+      d.addEventListener("click", function (event) {
+        var button = event.target.closest && event.target.closest("[data-remove-product]");
+        if (!button) return;
+        event.preventDefault();
+        button.closest("[data-product]").remove();
+        sync();
+      });
+
+      var query = d.querySelector("[data-product-query]");
+      var box = d.querySelector("[data-product-matches]");
+      if (!query || !box) return;
+      var found = [];
+      var active = 0;
+      function close() { box.style.display = "none"; box.textContent = ""; found = []; fit(); }
+      function choose(index) {
+        var product = found[index];
+        if (!product) return;
+        query.value = "";
+        close();
+        addProduct(product.name);
+      }
+      function show() {
+        found = matches(query.value);
+        box.textContent = "";
+        if (!query.value.trim()) { close(); return; }
+        if (!found.length) {
+          var none = d.createElement("div");
+          none.textContent = "No product in the shop matches “" + query.value.trim() + "”";
+          none.setAttribute("style", "padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6E6358;");
+          box.appendChild(none);
+        }
+        found.forEach(function (product, index) {
+          var option = d.createElement("div");
+          option.setAttribute("role", "option");
+          option.setAttribute("style", "display:flex;align-items:center;gap:10px;padding:10px 14px;min-height:44px;cursor:pointer;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#2A241F;border-top:" + (index ? "1px solid #E7DCCB" : "0") + ";background:" + (index === active ? "#F8EFE7" : "#FFFFFF") + ";");
+          var thumb = d.createElement(product.image ? "img" : "span");
+          thumb.setAttribute("style", "width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none;background:#F8EFE7;");
+          if (product.image) { thumb.src = product.image; thumb.alt = ""; }
+          option.appendChild(thumb);
+          var name = d.createElement("span");
+          name.textContent = product.name;
+          name.setAttribute("style", "flex:1;font-weight:bold;");
+          option.appendChild(name);
+          if (product.price) {
+            var price = d.createElement("span");
+            price.textContent = product.price;
+            price.setAttribute("style", "color:#96583C;font-weight:bold;white-space:nowrap;");
+            option.appendChild(price);
+          }
+          // mousedown, so the pick happens before the box loses focus.
+          option.addEventListener("mousedown", function (event) { event.preventDefault(); choose(index); });
+          box.appendChild(option);
+        });
+        box.style.display = "block";
+        fit();
+      }
+      query.addEventListener("input", function () { active = 0; show(); });
+      query.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowDown" && found.length) { event.preventDefault(); active = (active + 1) % found.length; show(); }
+        else if (event.key === "ArrowUp" && found.length) { event.preventDefault(); active = (active - 1 + found.length) % found.length; show(); }
+        else if (event.key === "Enter") { event.preventDefault(); choose(active); }
+        else if (event.key === "Escape") { query.value = ""; close(); }
+      });
+      query.addEventListener("blur", function () { setTimeout(close, 150); });
+      placeholder();
+    }
+    frame.addEventListener("load", setup);
+    setup();
   }
 
   // The new-email page's cost estimate, redone as the topic grows. Same math as cost.js estimateCampaign.
@@ -709,7 +1073,8 @@ export const ADMIN_CLIENT_JS = String.raw`
     wireUploadPage();
     wireCampaignLists();
     wireDraftForm();
-    wireLivePreview();
+    wireInlineEditor();
+    wireProductEditing();
     wireCostEstimate();
     registerServiceWorker();
     wirePushButton();

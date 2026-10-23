@@ -275,6 +275,14 @@ const CAMPAIGN_STYLES = `
 .camp-edit select { font: inherit; font-size: 15px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .camp-cost { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .camp-cost p { margin: 0; font-size: 14px; line-height: 1.5; }
+.camp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--ground); }
+.camp-tool { min-width: 44px; min-height: 40px; padding: 0 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.camp-tool:hover { border-color: #B8714F; }
+.camp-tool-select { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: #4A4038; }
+.camp-tool-select select { min-height: 40px; padding: 0 10px; }
+.camp-toolbar-gap { flex: 1 1 auto; }
+.camp-saved { font-size: 13px; color: #6E6358; }
+.camp-saved.is-error { color: #A33A2B; font-weight: 600; }
 .camp-hints { background: #FFF7E8; border: 1px solid #F0D9A8; border-radius: 12px; padding: 10px 14px; font-size: 13.5px; line-height: 1.5; }
 .camp-hints[hidden] { display: none; }
 .camp-hints-title { font-weight: 700; margin-bottom: 2px; }

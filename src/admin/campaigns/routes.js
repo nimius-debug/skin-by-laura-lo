@@ -4,7 +4,10 @@ import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
-import { costEstimateInputs, draftCampaign, redraftPersonal, redraftShared } from "./drafting.js";
+import { contentProducts, defaultButtonLabel, defaultButtonUrl, productCardHtml } from "./email-template.js";
+import {
+  costEstimateInputs, draftCampaign, MAX_EMAIL_PRODUCTS, productCard, redraftPersonal, redraftShared, shopProducts,
+} from "./drafting.js";
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
 import {
@@ -125,11 +128,13 @@ async function handleTranscribe(request, env) {
   }
 }
 
-function previewFor(env, campaign, version) {
+/** The email as the preview shows it. With `editing`, the version's own parts are marked for the editor. */
+function previewFor(env, campaign, version, { editing = false } = {}) {
   const firstName = version.isShared ? "" : String(version.client_name || "").trim().split(/\s+/)[0];
   return buildMessage({
     campaign, version, send: { first_name: firstName },
     siteUrl: settings(env).siteUrl, unsubscribe: `${settings(env).siteUrl}/email/unsubscribe`,
+    editable: editing ? (version.isShared ? "shared" : "personal") : null,
   }).html;
 }
 
@@ -140,12 +145,15 @@ async function reviewPage(env, url, campaignId) {
   const requested = url.searchParams.get("v");
   const selected = versions.find((version) => version.id === requested) || versions[0];
   const view = url.searchParams.get("view") === "preview" || (requested && url.searchParams.get("view") !== "list") ? "preview" : "list";
-  const editing = url.searchParams.get("edit") === "1" && campaign.status === "review";
-  const [counts, estimate, costInputs] = await Promise.all([
+  // While a campaign is in review, the email itself is the editor.
+  const editing = campaign.status === "review";
+  const [counts, estimate, costInputs, shop] = await Promise.all([
     store.sendCounts(env, campaignId),
     campaign.status === "review" ? recipientEstimate(env) : null,
     // Only a rejected version shows the redraft button and what it costs.
     campaign.status === "review" && selected.status === "rejected" ? estimateInputsOrNull(env, campaign.goal) : null,
+    // The shared email's editor offers the shop's products to add.
+    editing && selected.isShared ? shopProducts(env) : [],
   ]);
   return adminHtmlResponse(adminPage({
     title: campaign.content.eyebrow || "Review",
@@ -153,8 +161,8 @@ async function reviewPage(env, url, campaignId) {
     back: { href: "/admin/campaigns", label: "Campaigns" },
     body: campaignReviewPage({
       campaign, versions, selected, view,
-      previewHtml: previewFor(env, campaign, selected),
-      counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing,
+      previewHtml: previewFor(env, campaign, selected, { editing }),
+      counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing, shop,
       hints: voiceHints(versionText(campaign, selected)),
       canTest: sendingConfigured(env) && Boolean(env.REMINDER_EMAIL),
       notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
@@ -170,13 +178,49 @@ const field = (form, name, max) => String(form.get(name) || "").trim().slice(0, 
 function versionText(campaign, version) {
   if (!version.isShared) return [version.personal?.personalNote, version.personal?.product?.note, version.personal?.ps];
   const content = campaign.content;
-  return [...(content.paragraphs || []), ...(content.tips || []), content.ps];
+  return [...(content.paragraphs || []), ...(content.tips || []), content.ps, ...contentProducts(content).map((card) => card.note)];
 }
 
-/** The campaign and version as the editor's form would leave them. Pure: nothing is saved. */
-export function applyEdits(campaign, version, form) {
+/** A web address Laura typed for the button, or "" if it isn't one. */
+function buttonAddress(value) {
+  let address = String(value || "").trim();
+  if (!address) return "";
+  if (!/^https?:\/\//i.test(address)) address = `https://${address}`;
+  try {
+    const url = new URL(address);
+    return url.hostname.includes(".") || url.hostname === "localhost" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * The shared email's products as the editor left them: the ones still ticked,
+ * in order, plus any added from the shop. A card already in the email keeps its note.
+ */
+function pickedProducts(form, current, { shop, siteUrl }) {
+  const names = [...new Set(form.getAll("product").map((name) => String(name).trim()).filter(Boolean))];
+  const cards = [];
+  for (const name of names) {
+    const card = current.find((entry) => entry.name === name)
+      || (shop.some((product) => product.name === name) ? productCard({ name, products: shop, siteUrl, label: "" }) : null);
+    if (card) cards.push(card);
+  }
+  return cards.slice(0, MAX_EMAIL_PRODUCTS);
+}
+
+/**
+ * The campaign and version as the editor's form would leave them. Pure: nothing is saved.
+ * `shop` is the shop's products, for products Laura adds to the shared email.
+ */
+export function applyEdits(campaign, version, form, { shop = [], siteUrl = "" } = {}) {
   if (version.isShared) {
-    const goal = String(form.get("goal") || "");
+    const goal = GOALS.has(String(form.get("goal"))) ? String(form.get("goal")) : campaign.goal;
+    // Laura's own wording, kept only where it differs from the usual words.
+    const own = (name, max, usual) => {
+      const value = form.has(name) ? field(form, name, max) : String(campaign.content[name] || "");
+      return value && value !== usual ? value : "";
+    };
     const content = {
       ...campaign.content,
       subject: field(form, "subject", 120) || campaign.content.subject,
@@ -187,12 +231,30 @@ export function applyEdits(campaign, version, form) {
       tipsTitle: field(form, "tipsTitle", 80),
       tips: lines(form.get("tips")).slice(0, 8),
       ps: field(form, "ps", 600),
+      greeting: own("greeting", 40, "Hi"),
+      fallbackName: own("fallbackName", 40, "there"),
+      buttonLabel: own("buttonLabel", 40, defaultButtonLabel(goal)),
+      // The usual page for the button choice isn't stored, so switching the button follows it.
+      buttonUrl: buttonAddress(own("buttonUrl", 500, buttonAddress(defaultButtonUrl(siteUrl, goal)))),
+      signoff: own("signoff", 60, "See you soon,"),
+      signName: own("signName", 40, "Laura"),
+      shopTitle: own("shopTitle", 60, "From the shop"),
     };
-    return { campaign: { ...campaign, content, goal: GOALS.has(goal) ? goal : campaign.goal }, version };
+    if (form.has("productsShown")) {
+      content.products = pickedProducts(form, contentProducts(campaign.content), { shop, siteUrl });
+      delete content.product;
+    }
+    return { campaign: { ...campaign, content, goal }, version };
   }
   const personal = { ...version.personal, personalNote: field(form, "personalNote", 1200), ps: field(form, "ps", 600) };
   if (personal.product) personal.product = { ...personal.product, note: field(form, "productNote", 300) };
   return { campaign, version: { ...version, personal } };
+}
+
+/** What applyEdits needs beyond the form: the shop, read only when the shared email's products were edited. */
+async function editContext(env, version, form) {
+  const shop = version.isShared && form.has("productsShown") ? await shopProducts(env) : [];
+  return { shop, siteUrl: settings(env).siteUrl };
 }
 
 /** The editor's live preview: the email as it would look with the unsaved changes, and the voice hints. */
@@ -200,7 +262,7 @@ async function handlePreview(request, env, campaignId, versionId) {
   const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
   if (!campaign || !version || version.campaign_id !== campaignId) return jsonResponse({ message: "Not found" }, 404);
   const form = await request.formData().catch(() => new FormData());
-  const edited = applyEdits(campaign, version, form);
+  const edited = applyEdits(campaign, version, form, await editContext(env, version, form));
   return jsonResponse({
     html: previewFor(env, edited.campaign, edited.version),
     hints: voiceHints(versionText(edited.campaign, edited.version)),
@@ -211,7 +273,10 @@ async function handleVersionAction(request, env, campaignId, versionId) {
   const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
   if (!campaign || !version || version.campaign_id !== campaignId) return notFound();
   const back = `/admin/campaigns/${campaignId}?v=${versionId}&view=preview`;
-  if (campaign.status !== "review") return redirect(withMessage(back, { error: "This email is already sending, so it can't be changed." }));
+  // The editor saves as Laura types and wants a JSON answer, not a page.
+  const wantsJson = (request.headers.get("accept") || "").includes("application/json");
+  const fail = (message) => (wantsJson ? jsonResponse({ message }, 409) : redirect(withMessage(back, { error: message })));
+  if (campaign.status !== "review") return fail("This email is already sending, so it can't be changed.");
   const form = await request.formData().catch(() => new FormData());
   const action = String(form.get("action") || "");
 
@@ -221,11 +286,12 @@ async function handleVersionAction(request, env, campaignId, versionId) {
       return redirect(back);
     }
     if (action === "save") {
-      const edited = applyEdits(campaign, version, form);
+      const edited = applyEdits(campaign, version, form, await editContext(env, version, form));
       if (version.isShared) await store.updateCampaign(env, campaignId, { content: edited.campaign.content, goal: edited.campaign.goal });
       else await store.updateVersion(env, versionId, { personal: edited.version.personal });
-      await store.updateVersion(env, versionId, { status: "review" });
-      return redirect(withMessage(back, { notice: "Saved. Approve it when it reads right." }));
+      // Laura's own edits don't need approving again, so the version keeps its status.
+      if (wantsJson) return jsonResponse({ ok: true, savedAt: new Date().toISOString() });
+      return redirect(withMessage(back, { notice: "Saved." }));
     }
     if (action === "redraft") {
       const feedback = field(form, "feedback", 1000);
@@ -236,9 +302,18 @@ async function handleVersionAction(request, env, campaignId, versionId) {
     }
   } catch (error) {
     console.error("Campaign version action failed:", error.message);
-    return redirect(withMessage(back, { error: `Couldn't do that: ${error.message}` }));
+    return fail(`Couldn't do that: ${error.message}`);
   }
   return redirect(back);
+}
+
+/** The editor adds a product to the email: its card, as the email shows it. */
+async function handleProductCard(env, url) {
+  const name = String(url.searchParams.get("name") || "");
+  const shop = await shopProducts(env);
+  if (!shop.some((product) => product.name === name)) return jsonResponse({ message: "That product isn't in the shop." }, 404);
+  const card = productCard({ name, products: shop, siteUrl: settings(env).siteUrl, label: "" });
+  return jsonResponse({ name: card.name, html: productCardHtml(card, { removable: true }) });
 }
 
 async function handleSend(env, campaignId) {
@@ -317,6 +392,7 @@ export async function handleCampaignRoute(request, env, url, segments, method) {
     }));
   }
   if (first === "transcribe" && method === "POST") return handleTranscribe(request, env);
+  if (first === "product-card" && method === "GET") return handleProductCard(env, url);
   if (first === "settings" && method === "POST") return handleSettings(request, env);
   if (first === "push-key" && method === "GET") return jsonResponse({ publicKey: await pushPublicKey(env) });
   if (first === "push" && method === "POST") return handlePushSubscribe(request, env);

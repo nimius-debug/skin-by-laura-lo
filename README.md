@@ -263,10 +263,15 @@ out through [Resend](https://resend.com).
    clients flagged as sensitive.
 3. **Review.** Every version (the shared one and each personal one) is
    approved, edited, or rejected and redrafted with Laura's feedback. The
-   editor previews changes as she types, takes **bold** and links, adds a
-   P.S. (for everyone, or just one client), picks the button, and checks the
-   words against her voice guide. On a phone the versions and the preview
-   are two tabs.
+   email in the preview is the editor, with no Edit step: she clicks
+   anything in it and types, including the subject and inbox preview line
+   (shown above the email), the "Hi there", the button's words and where it
+   links, and the "See you soon, Laura" sign-off.
+   Bold and links come from the toolbar, Enter adds a paragraph or tip, and
+   there's a P.S. (for everyone, or just one client) and the button to show.
+   Changes save as she types and keep the version's approval, since they're
+   her own words. They're checked against her voice guide as she goes. On a
+   phone the versions and the preview are two tabs.
 4. **Send.** Everyone in Square with an email address gets it, except
    people who unsubscribed (here or in Square). Clients with an approved
    personal version get that; everyone else gets the shared email.

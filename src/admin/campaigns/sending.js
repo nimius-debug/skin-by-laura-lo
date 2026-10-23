@@ -9,7 +9,7 @@
 
 import { settings, SUPPORT_EMAIL } from "../../config.js";
 import { isConfigured, squareGet } from "../../square.js";
-import { renderEmail } from "./email-template.js";
+import { contentProducts, renderEmail } from "./email-template.js";
 import { firstNameOf } from "./matching.js";
 import * as store from "./store.js";
 
@@ -143,17 +143,20 @@ function utcDayStart(now) {
 }
 
 /** The finished email for one queued send. */
-export function buildMessage({ campaign, version, send, siteUrl, unsubscribe }) {
+export function buildMessage({ campaign, version, send, siteUrl, unsubscribe, editable = null }) {
   const personal = version && !version.isShared ? version.personal : null;
-  const product = personal?.product || campaign.content.product || null;
+  // A client's own product comes first, then the shared email's products.
+  const products = [personal?.product, ...contentProducts(campaign.content)].filter(Boolean)
+    .filter((product, index, all) => all.findIndex((entry) => entry.name === product.name) === index);
   return renderEmail({
     content: campaign.content,
     personal,
-    product,
+    products,
     firstName: send.first_name,
     goal: campaign.goal,
     siteUrl,
     unsubscribeUrl: unsubscribe,
+    editable,
   });
 }
 

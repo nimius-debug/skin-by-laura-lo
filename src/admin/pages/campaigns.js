@@ -1,5 +1,8 @@
 import { html, toString } from "../../html.js";
 import { costOf, estimateCampaign, estimateRedraft, formatCost, modelName } from "../campaigns/cost.js";
+import { MAX_EMAIL_PRODUCTS } from "../campaigns/drafting.js";
+import { contentProducts } from "../campaigns/email-template.js";
+import { formatMoney } from "../../config.js";
 
 // The email campaign screens: the Campaigns home, writing a new email, and
 // reviewing each version before it is sent. On a phone the review screen
@@ -174,6 +177,7 @@ export function newCampaignPage({ topic = "", goal = "book", missing, error, est
         <div class="section-label">What happens next</div>
         <ol class="camp-how">
           <li>The AI writes one email for everyone, in your voice and at a 5th-grade reading level.</li>
+          <li>Products you mention are added as cards with their photo, price and a shop link. Say "no products" to leave them out.</li>
           <li>It looks through every client's notes (from the Excel sheet and Square) and what they bought, and when.</li>
           <li>Clients it relates to get a short personal note added. Allergy and sensitivity flags keep that advice gentle.</li>
           <li>You read each version, then approve, edit or reject it. Nothing sends until you press Send.</li>
@@ -191,50 +195,66 @@ function versionName(version) {
   return version.isShared ? "Everyone else" : version.client_name || "Client";
 }
 
-const FORMAT_HINT = "Use **double stars** around words to make them bold. Web addresses become links.";
+/** A hidden field that already holds the saved value, so a save without the script changes nothing. */
+function kept(name, value) {
+  return html`<input type="hidden" name="${name}" value="${value || ""}" data-field="${name}" />`;
+}
 
-function editForm({ campaign, version }) {
+/**
+ * The shared email's products, for the editor: hidden fields holding the
+ * saved order (so a save without the script changes nothing). In the email,
+ * each card has a Remove button and a search box adds one from the shop.
+ */
+function productFields(campaign) {
+  return html`<input type="hidden" name="productsShown" value="1" />
+    <span data-product-fields>${contentProducts(campaign.content).map((card) => html`<input type="hidden" name="product" value="${card.name}" />`)}</span>`;
+}
+
+/** The shop's products for the search box in the email: name, price and photo. */
+function shopForSearch(shop) {
+  return JSON.stringify(shop.map((product) => ({
+    name: product.name,
+    price: Number.isFinite(product.priceCents) ? formatMoney(product.priceCents) : "",
+    image: product.image || "",
+  })));
+}
+
+// The editor: the email in the preview below is editable as it stands (see
+// client.js), subject and preview line included, and saves itself as Laura
+// types. This bar holds formatting, the button choice and the saved state.
+function editForm({ campaign, version, shop = [] }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  const buttons = html`<div class="camp-actions">
-      <button type="submit" class="btn btn-primary">Save changes</button>
-      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
-    </div>
-    <div class="camp-muted">The preview updates as you type. Nothing changes until you save.</div>`;
-  if (version.isShared) {
-    const content = campaign.content;
-    return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
-      <input type="hidden" name="action" value="save" />
-      <label class="field">Subject line<input type="text" name="subject" value="${content.subject}" maxlength="120" required /></label>
-      <label class="field">Preview line (shown after the subject in the inbox)<input type="text" name="preheader" value="${content.preheader}" maxlength="160" /></label>
-      <label class="field">Small label above the headline<input type="text" name="eyebrow" value="${content.eyebrow}" maxlength="60" /></label>
-      <label class="field">Headline<input type="text" name="headline" value="${content.headline}" maxlength="140" required /></label>
-      <label class="field">Paragraphs (leave a blank line between them, and add as many as you like)<textarea name="paragraphs" rows="10">${(content.paragraphs || []).join("\n\n")}</textarea></label>
-      <div class="camp-muted">${FORMAT_HINT}</div>
-      <label class="field">Tips title<input type="text" name="tipsTitle" value="${content.tipsTitle}" maxlength="80" /></label>
-      <label class="field">Tips (one per line, leave empty for none)<textarea name="tips" rows="4">${(content.tips || []).join("\n")}</textarea></label>
-      <label class="field">P.S. (optional, after your name)<textarea name="ps" rows="2" maxlength="600" placeholder="For example: I have two openings left this Saturday ✨">${content.ps || ""}</textarea></label>
-      <label class="field">Button at the end
-        <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
-      </label>
-      ${buttons}
-    </form>`;
-  }
-  return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
+  const shared = version.isShared;
+  const content = campaign.content;
+  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview" data-product-card-url="/admin/campaigns/product-card" data-shop="${shared ? shopForSearch(shop) : "[]"}" data-max-products="${MAX_EMAIL_PRODUCTS}">
     <input type="hidden" name="action" value="save" />
-    <label class="field">Personal note<textarea name="personalNote" rows="5" required>${version.personal.personalNote || ""}</textarea></label>
-    ${version.personal.product ? html`<label class="field">Line about ${version.personal.product.name}<textarea name="productNote" rows="2">${version.personal.product.note || ""}</textarea></label>` : ""}
-    <label class="field">P.S. just for ${versionName(version)} (optional)<textarea name="ps" rows="2" maxlength="600">${version.personal.ps || ""}</textarea></label>
-    <div class="camp-muted">${FORMAT_HINT} The rest of the email is the shared one. Edit "Everyone else" to change it for everybody.</div>
-    ${buttons}
+    ${shared ? html`
+      ${kept("subject", content.subject)}${kept("preheader", content.preheader)}${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
+      ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}
+      ${kept("greeting", content.greeting)}${kept("fallbackName", content.fallbackName)}${kept("buttonLabel", content.buttonLabel)}${kept("buttonUrl", content.buttonUrl)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}${kept("shopTitle", content.shopTitle)}
+      ${productFields(campaign)}`
+    : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
+    <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
+      <button type="button" class="camp-tool" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
+      <button type="button" class="camp-tool" data-format="link" title="Add a link">Link</button>
+      ${shared ? html`<label class="camp-tool-select">Button
+        <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
+      </label>` : ""}
+      <span class="camp-toolbar-gap"></span>
+      <span class="camp-saved" data-save-state aria-live="polite">Changes save as you type</span>
+    </div>
+    <div class="camp-muted">${shared
+      ? "Click anything in the email below and type, the subject too. Enter starts a new paragraph or tip. To add a product, type its name in the box under the products and pick it."
+      : html`Click the note, the product line or the P.S. below and type. The rest is the email everyone gets: edit "Everyone else" to change it for everybody.`}</div>
   </form>`;
 }
 
-function versionActions({ campaign, version, editing, costInputs }) {
+function versionActions({ campaign, version, editing, costInputs, shop }) {
   if (campaign.status !== "review") return "";
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  if (editing) return editForm({ campaign, version });
+  const editor = editing ? editForm({ campaign, version, shop }) : "";
   if (version.status === "rejected") {
-    return html`<form method="post" action="${action}" class="camp-redraft" data-busy-form>
+    return html`${editor}<form method="post" action="${action}" class="camp-redraft" data-busy-form>
       <label class="field" for="feedback">What should change?</label>
       <textarea id="feedback" name="feedback" rows="3" required maxlength="1000" placeholder="For example: softer, and don't suggest acids.">${version.feedback || ""}</textarea>
       <div class="camp-actions">
@@ -245,13 +265,12 @@ function versionActions({ campaign, version, editing, costInputs }) {
       ${version.isShared ? "" : html`<div class="camp-muted">If you leave it rejected, ${versionName(version)} gets the email everyone else gets.</div>`}
     </form>`;
   }
-  return html`<div class="camp-actions">
+  return html`${editor}<div class="camp-actions">
     <form method="post" action="${action}">
       ${version.status === "approved"
         ? html`<input type="hidden" name="action" value="review" /><button type="submit" class="btn btn-approved" title="Tap to undo">✓ Approved</button>`
         : html`<input type="hidden" name="action" value="approve" /><button type="submit" class="btn btn-approve">Approve</button>`}
     </form>
-    <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview&edit=1">Edit</a>
     <form method="post" action="${action}">
       <input type="hidden" name="action" value="reject" />
       <button type="submit" class="btn btn-secondary btn-reject">Reject</button>
@@ -308,7 +327,7 @@ function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, c
   </div>`;
 }
 
-export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, hints = [], notice, error, canTest }) {
+export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, shop = [], hints = [], notice, error, canTest }) {
   const toReview = versions.filter((version) => version.status === "review").length;
   const personalCount = versions.length - 1;
   const title = topicLabel(campaign);
@@ -351,7 +370,7 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
             <div class="camp-hints-title">Laura's voice check</div>
             <ul>${hints.map((hint) => html`<li>${hint}</li>`)}</ul>
           </div>
-          ${versionActions({ campaign, version: selected, editing, costInputs })}
+          ${versionActions({ campaign, version: selected, editing, costInputs, shop })}
         </div>
         <div class="camp-preview">
           <iframe title="Email preview" class="camp-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${previewHtml}" loading="eager"></iframe>
