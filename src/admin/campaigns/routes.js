@@ -4,7 +4,7 @@ import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
-import { contentProducts, defaultButtonLabel, productCardHtml } from "./email-template.js";
+import { contentProducts, defaultButtonLabel, defaultButtonUrl, productCardHtml } from "./email-template.js";
 import {
   costEstimateInputs, draftCampaign, MAX_EMAIL_PRODUCTS, productCard, redraftPersonal, redraftShared, shopProducts,
 } from "./drafting.js";
@@ -181,6 +181,19 @@ function versionText(campaign, version) {
   return [...(content.paragraphs || []), ...(content.tips || []), content.ps, ...contentProducts(content).map((card) => card.note)];
 }
 
+/** A web address Laura typed for the button, or "" if it isn't one. */
+function buttonAddress(value) {
+  let address = String(value || "").trim();
+  if (!address) return "";
+  if (!/^https?:\/\//i.test(address)) address = `https://${address}`;
+  try {
+    const url = new URL(address);
+    return url.hostname.includes(".") || url.hostname === "localhost" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * The shared email's products as the editor left them: the ones still ticked,
  * in order, plus any added from the shop. A card already in the email keeps its note.
@@ -219,7 +232,10 @@ export function applyEdits(campaign, version, form, { shop = [], siteUrl = "" } 
       tips: lines(form.get("tips")).slice(0, 8),
       ps: field(form, "ps", 600),
       greeting: own("greeting", 40, "Hi"),
+      fallbackName: own("fallbackName", 40, "there"),
       buttonLabel: own("buttonLabel", 40, defaultButtonLabel(goal)),
+      // The usual page for the button choice isn't stored, so switching the button follows it.
+      buttonUrl: buttonAddress(own("buttonUrl", 500, buttonAddress(defaultButtonUrl(siteUrl, goal)))),
       signoff: own("signoff", 60, "See you soon,"),
       signName: own("signName", 40, "Laura"),
       shopTitle: own("shopTitle", 60, "From the shop"),

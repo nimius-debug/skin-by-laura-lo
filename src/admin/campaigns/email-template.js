@@ -75,6 +75,11 @@ const CALLS_TO_ACTION = {
   news: null,
 };
 
+/** Where the button goes when Laura hasn't set her own link, or "" for no button. */
+export function defaultButtonUrl(siteUrl, goal) {
+  return CALLS_TO_ACTION[goal] ? `${siteUrl}${CALLS_TO_ACTION[goal].path}` : "";
+}
+
 /** The button's words when Laura hasn't written her own: "Book a facial", "Visit the shop", or "" for no button. */
 export function defaultButtonLabel(goal) {
   return CALLS_TO_ACTION[goal]?.label || "";
@@ -84,8 +89,9 @@ export function defaultButtonLabel(goal) {
  * One finished email.
  *   content:  the shared email { subject, preheader, eyebrow, headline, paragraphs[], tips[] }
  *   content.ps: an optional P.S. everyone gets
- *   content.greeting, .buttonLabel, .signoff, .signName: Laura's own wording
- *             for "Hi", the button, "See you soon," and "Laura" (defaults when empty)
+ *   content.greeting, .fallbackName, .buttonLabel, .buttonUrl, .signoff, .signName:
+ *             Laura's own wording for "Hi", "there" (when there's no first name),
+ *             the button and where it goes, "See you soon," and "Laura" (defaults when empty)
  *   content.shopTitle: her own heading for the products, instead of "From the shop"
  *   personal: { personalNote, ps } for a personal version, or null for the shared one
  *   products: the product cards, [{ label, name, price, goodFor, note, url, image }]
@@ -96,9 +102,11 @@ export function defaultButtonLabel(goal) {
  * Returns { subject, html, text }.
  */
 export function renderEmail({ content, personal = null, products = [], firstName = "", goal = "book", siteUrl, unsubscribeUrl, editable = null }) {
-  const greetingName = firstName.trim() || "there";
+  const fallbackName = content.fallbackName?.trim() || "there";
+  const greetingName = firstName.trim() || fallbackName;
   const cta = CALLS_TO_ACTION[goal] ? { ...CALLS_TO_ACTION[goal], url: `${siteUrl}${CALLS_TO_ACTION[goal].path}` } : null;
   if (cta && content.buttonLabel?.trim()) cta.label = content.buttonLabel.trim();
+  if (cta && content.buttonUrl?.trim()) cta.url = content.buttonUrl.trim();
   const greeting = content.greeting?.trim() || "Hi";
   const signoff = content.signoff?.trim() || "See you soon,";
   const signName = content.signName?.trim() || "Laura";
@@ -161,9 +169,13 @@ export function renderEmail({ content, personal = null, products = [], firstName
 
   // While editing the shared email the button is always there (hidden for "no
   // button"), so the editor can switch it without reloading.
+  // The editor also shows where the button goes, so the link can be changed;
+  // data-url-* are each choice's usual address, for switching the button.
+  const urls = Object.entries(CALLS_TO_ACTION).filter(([, call]) => call).map(([name, call]) => ` data-url-${name}="${escapeHtml(`${siteUrl}${call.path}`)}"`).join("");
   const ctaBlock = cta || editShared ? `
-          <tr${editShared ? ` data-cta${cta ? "" : ` style="display:none"`}` : ""}><td style="padding:6px 0 24px;">
+          <tr${editShared ? ` data-cta${urls}${cta ? "" : ` style="display:none"`}` : ""}><td style="padding:6px 0 24px;">
             <a href="${escapeHtml(cta?.url || "")}" style="display:inline-block;background:${COLORS.accent};color:#FFF8F2;font-family:${SANS};font-size:16px;font-weight:bold;text-decoration:none;padding:14px 26px;border-radius:12px;"${edit(editShared, "buttonLabel", "Button text")}>${escapeHtml(cta?.label || "")}</a>
+            ${editShared ? `<div style="padding-top:8px;font-family:${SANS};font-size:12.5px;color:${COLORS.muted};">Button goes to: <span${edit(true, "buttonUrl", "https://...")}>${escapeHtml(cta?.url || "")}</span></div>` : ""}
           </td></tr>` : "";
 
   const html = `<!doctype html>
@@ -189,7 +201,7 @@ ${editShared ? inboxHeader(content) : ""}<div style="display:none;max-height:0;o
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           ${content.eyebrow || editShared ? `<tr><td style="padding:0 0 12px;font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.accentText};"${edit(editShared, "eyebrow", "Small label (optional)")}>${escapeHtml(content.eyebrow || "")}</td></tr>` : ""}
           <tr><td style="padding:0 0 20px;font-family:${SERIF};font-size:30px;line-height:1.2;font-weight:bold;color:${COLORS.ink};"${edit(editShared, "headline", "Headline")}>${escapeHtml(content.headline)}</td></tr>
-          <tr><td>${p(`${words(editShared, "greeting", "Hi", greeting)} ${escapeHtml(greetingName)},`)}</td></tr>
+          <tr><td>${p(`${words(editShared, "greeting", "Hi", greeting)} ${firstName.trim() ? escapeHtml(greetingName) : words(editShared, "fallbackName", "there", fallbackName)},`)}</td></tr>
           ${noteBlock}
           <tr><td${edit(editShared, "paragraphs", "Write the email here")}>${(paragraphs.length || !editShared ? paragraphs : [""]).map((text) => p(rich(text))).join("")}</td></tr>
           ${tipsBlock}

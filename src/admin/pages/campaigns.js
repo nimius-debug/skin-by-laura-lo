@@ -233,7 +233,7 @@ function editForm({ campaign, version, shop = [] }) {
     ${shared ? html`
       ${kept("subject", content.subject)}${kept("preheader", content.preheader)}${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
       ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}
-      ${kept("greeting", content.greeting)}${kept("buttonLabel", content.buttonLabel)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}${kept("shopTitle", content.shopTitle)}
+      ${kept("greeting", content.greeting)}${kept("fallbackName", content.fallbackName)}${kept("buttonLabel", content.buttonLabel)}${kept("buttonUrl", content.buttonUrl)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}${kept("shopTitle", content.shopTitle)}
       ${productFields(campaign)}`
     : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
     <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
