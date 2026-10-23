@@ -5,14 +5,14 @@
 // ingredient lists we have on file — products without one are reported as
 // "not screened" rather than assumed safe.
 
-import { SHEET_NOTE_FIELDS } from "./data/sheet-notes.js";
+import { noteFields } from "./note-fields.js";
 
 const NOTES_FIELD = "Notes / remarks";
 
 /** The text of a note worth scanning. For sheet notes that is the Notes / remarks cell only. */
 export function noteText(note) {
   if (note.source === "square") return note.summary || "";
-  const fields = SHEET_NOTE_FIELDS[note.id];
+  const fields = noteFields(note);
   if (fields) return fields[NOTES_FIELD] || "";
   return note.extracted_text || note.summary || "";
 }

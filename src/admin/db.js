@@ -40,7 +40,7 @@ export async function upsertClientFromSquare(env, { squareCustomerId, name }) {
 
 export async function listNotesForClient(env, clientId) {
   const { results } = await env.CLIENT_NOTES_DB.prepare(
-    `SELECT id, note_date, summary, extracted_text, confidence, source, pdf_key, source_submission_id, created_at
+    `SELECT id, note_date, summary, extracted_text, confidence, source, pdf_key, source_submission_id, fields_json, created_at
      FROM notes WHERE client_id = ?
      ORDER BY (note_date IS NULL), note_date DESC, created_at DESC`,
   ).bind(clientId).all();
@@ -251,4 +251,16 @@ export async function commitNoteEntries(env, clientId, entries) {
 
   if (statements.length) await env.CLIENT_NOTES_DB.batch(statements);
   return entries.map((entry) => entry.id);
+}
+
+/**
+ * A note handwritten on the iPad, once Laura has checked what was read. Its page (pdfKey) and
+ * pen strokes (inkKey) must already be at their final R2 keys, named after the note id.
+ */
+export async function commitInkNote(env, clientId, { id, date, summary, text, fields, confidence, pdfKey, inkKey }) {
+  await env.CLIENT_NOTES_DB.prepare(
+    `INSERT INTO notes (id, client_id, note_date, summary, extracted_text, confidence, source, pdf_key, fields_json, ink_key)
+     VALUES (?, ?, ?, ?, ?, ?, 'ipad', ?, ?, ?)`,
+  ).bind(id, clientId, date, summary, text, confidence, pdfKey, JSON.stringify(fields), inkKey).run();
+  return id;
 }

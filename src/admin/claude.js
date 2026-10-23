@@ -10,7 +10,7 @@
 // never silently smoothed over.
 
 import { productInsightFor } from "../product-insights.js";
-import { SHEET_NOTE_FIELDS } from "./data/sheet-notes.js";
+import { NOTE_FIELDS, cleanFields, noteFields, fieldsAsText } from "./note-fields.js";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MODEL = "claude-sonnet-5-5";
@@ -112,6 +112,60 @@ export function planNoteEntries(responseText) {
   }));
 }
 
+const INK_PROMPT = `You are reading a client consultation note a licensed esthetician just handwrote on an iPad with an Apple Pencil. The page has four printed section headings: ${NOTE_FIELDS.join(", ")}. Her handwriting under each heading belongs to that section. Later pages, if any, continue the note.
+
+Rules:
+- Transcribe what she wrote, section by section, keeping her own words, abbreviations and line breaks (one line per written line). Don't add advice or anything she didn't write.
+- Leave a section out if nothing is written under it.
+- Mark words you genuinely can't read as [illegible]. List each spot you weren't sure about in "unclear", as a short question she can answer by looking at her page (for example: "Was it 3x week or 2x week?").
+- "confidence" is "low" if any of it was hard to read, otherwise "high".
+- "summary" is 1-2 plain sentences a skincare professional would find useful before the client's next visit.
+
+Respond with ONLY a JSON object, no other text, in exactly this shape:
+{"fields": {"Treatment type": "...", "Notes / remarks": "..."}, "summary": "...", "confidence": "high", "unclear": ["..."]}`;
+
+/**
+ * Read an iPad note's pages (PNG images, in order) into its four sections. Throws when the
+ * API can't be reached; a reply that isn't the expected JSON comes back as a low-confidence
+ * reading with nothing filled in, so she can still type it and save.
+ */
+export async function readInkNote(env, pages) {
+  if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+
+  const content = [];
+  pages.forEach((page, index) => {
+    content.push({ type: "text", text: `Page ${index + 1}:` });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: bytesToBase64(page) } });
+  });
+  content.push({ type: "text", text: "Now respond with the JSON object described above, and nothing else." });
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": ANTHROPIC_VERSION },
+    body: JSON.stringify({ model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, max_tokens: 2048, system: INK_PROMPT, messages: [{ role: "user", content }] }),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Claude handwriting request failed (${response.status}): ${detail.slice(0, 300)}`);
+  }
+  const payload = await response.json();
+  return planInkReading(payload?.content?.find((block) => block.type === "text")?.text || "");
+}
+
+/** Parse the handwriting reading into { fields, summary, confidence, unclear }, never throwing. */
+export function planInkReading(responseText) {
+  const parsed = tryParseJson(responseText);
+  if (!parsed || typeof parsed !== "object") {
+    return { fields: {}, summary: "", confidence: "low", unclear: ["The handwriting couldn't be read automatically. Please type the key points."] };
+  }
+  return {
+    fields: cleanFields(parsed.fields),
+    summary: typeof parsed.summary === "string" ? parsed.summary.trim().slice(0, 600) : "",
+    confidence: parsed.confidence === "high" ? "high" : "low",
+    unclear: Array.isArray(parsed.unclear) ? parsed.unclear.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim().slice(0, 200)).slice(0, 8) : [],
+  };
+}
+
 function tryParseJson(text) {
   if (typeof text !== "string") return null;
   try {
@@ -139,11 +193,9 @@ function tryParseJson(text) {
  */
 /** A note as the model should read it: the sheet's own cells for Noteful notes, the seller note for Square. */
 function noteForPrompt(note) {
-  const fields = note.source === "square" ? null : SHEET_NOTE_FIELDS[note.id];
+  const fields = noteFields(note);
   if (!fields) return note.summary;
-  return Object.entries(fields)
-    .map(([label, value]) => `${label}: ${value.replace(/\s*\n\s*/g, " / ")}`)
-    .join(" | ");
+  return fieldsAsText(fields);
 }
 
 /** The full prompt for a client's summary. Pure, so the same inputs always give the same text (and the same cache key). */

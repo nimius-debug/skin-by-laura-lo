@@ -5,7 +5,9 @@
 // The manifest, icons, offline page and service worker are public on purpose:
 // the phone fetches them without the login cookie, and they contain nothing
 // but the app's name, colours, icon and code. Client pages are never cached on
-// the phone; the service worker only keeps the app's own files.
+// the phone; the service worker only keeps the app's own files. The one thing
+// kept on the device is a note being written on the iPad, until it is saved
+// to the dashboard (see notebook-client.js).
 
 import { ADMIN_CLIENT_JS } from "./client.js";
 
@@ -34,11 +36,26 @@ export function contentVersion(text) {
 /** The admin script's version: changes whenever the script does, so it can be cached for a year. */
 export const ASSET_VERSION = contentVersion(ADMIN_CLIENT_JS);
 
-// Launch screens shown while the app opens. iOS picks the one matching the phone's screen.
+// Launch screens shown while the app opens. iOS picks the one matching the device's screen.
 const LAUNCH_SCREENS = [
   { width: 402, height: 874, file: "launch-1206x2622.png" }, // iPhone 17 Pro
   { width: 440, height: 956, file: "launch-1320x2868.png" }, // iPhone 17 Pro Max
 ];
+
+// iPads open the app upright or sideways, so each size has both. Sizes in points, at 2x.
+const IPAD_SCREENS = [
+  [744, 1133], // iPad mini
+  [820, 1180], // iPad (10th gen and later), iPad Air 11"
+  [834, 1194], // iPad Pro 11" (earlier models)
+  [834, 1210], // iPad Pro 11" (M4 and later)
+  [1024, 1366], // iPad Air 13", iPad Pro 12.9"
+  [1032, 1376], // iPad Pro 13" (M4 and later)
+];
+
+const ipadLaunchTags = IPAD_SCREENS.flatMap(([width, height]) => [
+  `<link rel="apple-touch-startup-image" media="screen and (device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/admin/assets/launch-${width * 2}x${height * 2}.png" />`,
+  `<link rel="apple-touch-startup-image" media="screen and (device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/admin/assets/launch-${height * 2}x${width * 2}.png" />`,
+]);
 
 /** Tags for the <head> of every admin page, including the login page. */
 export const APP_HEAD = [
@@ -47,6 +64,7 @@ export const APP_HEAD = [
   '<link rel="manifest" href="/admin/manifest.webmanifest" />',
   '<link rel="apple-touch-icon" href="/admin/assets/apple-touch-icon.png" />',
   ...LAUNCH_SCREENS.map((screen) => `<link rel="apple-touch-startup-image" media="screen and (device-width: ${screen.width}px) and (device-height: ${screen.height}px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/admin/assets/${screen.file}" />`),
+  ...ipadLaunchTags,
   '<meta name="apple-mobile-web-app-capable" content="yes" />',
   '<meta name="mobile-web-app-capable" content="yes" />',
   '<meta name="apple-mobile-web-app-title" content="Laura Admin" />',
@@ -80,7 +98,7 @@ button:active { opacity: .85; }
 <body>
 <main>
   <h1>You're offline</h1>
-  <p>Check your connection, then try again. Client notes are never stored on this phone.</p>
+  <p>Check your connection, then try again. A note you were writing is safe on this device until it's saved.</p>
   <button type="button" onclick="location.reload()">Try again</button>
 </main>
 </body>

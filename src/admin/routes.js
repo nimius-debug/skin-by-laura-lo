@@ -16,7 +16,10 @@ import { clientProfilePage } from "./pages/client-profile.js";
 import { uploadPage } from "./pages/upload.js";
 import * as db from "./db.js";
 import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
-import { extractNoteEntries, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
+import { extractNoteEntries, readInkNote, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
+import { cleanFields, fieldsAsText, noteFields, NOTE_FIELDS } from "./note-fields.js";
+import { notebookPage } from "./pages/notebook.js";
+import { NOTEBOOK_JS } from "./notebook-client.js";
 import { purchaseViewFrom } from "./routine.js";
 import { loadClientOrders } from "./purchases.js";
 import { findFlags } from "./safety.js";
@@ -231,6 +234,122 @@ async function handleConfirm(request, env, clientId, draftId) {
   return jsonResponse({ noteIds, redirect: `/admin/clients/${clientId}` });
 }
 
+/* ---------------------------------------------------------- iPad notes */
+
+const MAX_INK_PAGES = 12;
+const MAX_PAGE_BYTES = 6 * 1024 * 1024;
+const MAX_STROKES_BYTES = 8 * 1024 * 1024;
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+const isPng = (bytes) => PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+const isIsoDate = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+function shortDate(iso) {
+  if (!iso) return "Undated";
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+/** Her latest note, as the writing screen shows it in a corner. */
+function lastNoteFor(notes) {
+  const note = notes[0];
+  if (!note) return null;
+  const fields = noteFields(note);
+  const text = fields
+    ? NOTE_FIELDS.filter((name) => fields[name]).map((name) => `${name}: ${fields[name]}`).join("\n")
+    : note.summary;
+  return text ? { dateLabel: shortDate(note.note_date), text } : null;
+}
+
+async function handleWritePage(env, clientId) {
+  const client = await db.getClient(env, clientId);
+  if (!client) return notFound();
+  const notes = await db.listNotesForClient(env, clientId);
+  return adminHtmlResponse(notebookPage({ client, lastNote: lastNoteFor(notes) }));
+}
+
+/**
+ * "Done" on the iPad: keep the pages and pen strokes as a draft, and ask Claude to read the
+ * handwriting into the four sections. A failed reading still returns the draft, so she can type
+ * the key points (or nothing) and save her handwriting anyway.
+ */
+async function handleInkRead(request, env, clientId) {
+  const client = await db.getClient(env, clientId);
+  if (!client) return jsonResponse({ message: "Client not found" }, 404);
+
+  const form = await request.formData().catch(() => null);
+  const files = form ? form.getAll("page").filter((file) => file && typeof file === "object" && file.size > 0) : [];
+  if (!files.length) return jsonResponse({ message: "The note has no pages." }, 400);
+  if (files.length > MAX_INK_PAGES) return jsonResponse({ message: `A note can have up to ${MAX_INK_PAGES} pages.` }, 400);
+  if (files.some((file) => file.size > MAX_PAGE_BYTES)) return jsonResponse({ message: "A page is too large to send." }, 400);
+
+  const pages = [];
+  for (const file of files) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!isPng(bytes)) return jsonResponse({ message: "Pages must be PNG images." }, 400);
+    pages.push(bytes);
+  }
+
+  const strokes = typeof form.get("strokes") === "string" ? form.get("strokes") : "";
+  if (strokes.length > MAX_STROKES_BYTES) return jsonResponse({ message: "The note is too large to send." }, 400);
+  try {
+    if (!Array.isArray(JSON.parse(strokes).pages)) throw new Error("no pages");
+  } catch {
+    return jsonResponse({ message: "The pen strokes didn't arrive. Try Done again." }, 400);
+  }
+
+  const draftId = db.newId("draft");
+  const pdfKey = await storage.putDraftPage(env, draftId, 0, await storage.mergeImagesToPdf(pages.map((bytes) => ({ bytes, mediaType: "image/png" }))), "pdf");
+  const inkKey = `drafts/${draftId}/ink.json`;
+  await env.NOTES_BUCKET.put(inkKey, strokes);
+
+  let reading = { fields: {}, summary: "", confidence: "low", unclear: [] };
+  let readFailed = false;
+  try {
+    reading = await readInkNote(env, pages);
+  } catch (error) {
+    console.error("Reading handwriting failed:", error.message);
+    readFailed = true;
+  }
+
+  await db.saveDraft(env, draftId, clientId, {
+    entries: [{ kind: "ink", pdfKey, inkKey, fields: reading.fields, summary: reading.summary, confidence: reading.confidence }],
+    missingHashes: [],
+  });
+
+  return jsonResponse({
+    draftId,
+    reading,
+    readFailed,
+    message: readFailed ? "The handwriting couldn't be read just now. Type the key points, or save it as it is; your handwriting is kept either way." : undefined,
+  });
+}
+
+/** "Save to dashboard": the checked sections become her note, with the handwriting kept beside it. */
+async function handleInkSave(request, env, clientId, draftId) {
+  const draft = await db.getDraft(env, draftId);
+  const entry = draft?.entries?.[0];
+  if (!draft || draft.client_id !== clientId || entry?.kind !== "ink") return jsonResponse({ message: "This note was already saved, or has expired. Tap Done again." }, 404);
+
+  const body = await request.json().catch(() => null);
+  if (!body) return jsonResponse({ message: "Nothing to save." }, 400);
+  const fields = cleanFields(body.fields);
+  const text = fieldsAsText(fields);
+  // Claude's summary only fits while the sections are as it read them; after her edits, her words are the summary.
+  const unchanged = JSON.stringify(fields) === JSON.stringify(cleanFields(entry.fields));
+  const summary = (unchanged && entry.summary) || text.slice(0, 600) || "Handwritten note. See the handwriting.";
+
+  const id = db.newId("note");
+  const pdfKey = `notes/${clientId}/${id}.pdf`;
+  const inkKey = `ink/${clientId}/${id}.json`;
+  await storage.promoteDraftObject(env, entry.pdfKey, pdfKey);
+  await storage.promoteDraftObject(env, entry.inkKey, inkKey);
+
+  // She has checked every section against her page, so the note is no longer flagged as hard to read.
+  await db.commitInkNote(env, clientId, { id, date: isIsoDate(body.date) ? body.date : null, summary, text, fields, confidence: "high", pdfKey, inkKey });
+  await db.deleteDraft(env, draftId);
+  return jsonResponse({ noteId: id, redirect: `/admin/clients/${clientId}` });
+}
+
 async function handleInsight(env, clientId, { refresh = false } = {}) {
   const client = await db.getClient(env, clientId);
   if (!client) return jsonResponse({ message: "Client not found" }, 404);
@@ -347,6 +466,12 @@ async function handleFormsRoute(request, env, url, segments, method) {
 export async function handleAdminRequest(request, env, url) {
   const segments = url.pathname.split("/").filter(Boolean); // ["admin", ...]
   const method = request.method;
+
+  if (url.pathname === "/admin/assets/notebook.js") {
+    return new Response(NOTEBOOK_JS, {
+      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=31536000, immutable" },
+    });
+  }
 
   if (url.pathname === "/admin/assets/admin.js") {
     return new Response(ADMIN_CLIENT_JS, {
@@ -471,6 +596,17 @@ async function handleSignedIn(request, env, url, segments, method) {
   if (clientMatch && segments[3] === "notes" && segments[5] === "confirm" && method === "POST") {
     if (!UPLOADS_ENABLED) return notFound();
     return handleConfirm(request, env, clientMatch, segments[4]);
+  }
+
+  // The iPad writing screen, and its "Done" and "Save to dashboard".
+  if (clientMatch && segments[3] === "write" && segments.length === 4 && method === "GET") {
+    return handleWritePage(env, clientMatch);
+  }
+  if (clientMatch && segments[3] === "ink" && segments.length === 4 && method === "POST") {
+    return handleInkRead(request, env, clientMatch);
+  }
+  if (clientMatch && segments[3] === "ink" && segments[5] === "save" && segments.length === 6 && method === "POST") {
+    return handleInkSave(request, env, clientMatch, segments[4]);
   }
 
   if (clientMatch && segments[3] === "insight" && method === "POST") {

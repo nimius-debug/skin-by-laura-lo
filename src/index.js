@@ -259,6 +259,10 @@ export default {
     if (path === "/admin" || path.startsWith("/admin/")) {
       return handleAdminRequest(request, env, url);
     }
+    // A short address to type on the iPad when adding the admin to its Home Screen.
+    if (path === "/ipad") {
+      return new Response(null, { status: 302, headers: { location: "/admin", "cache-control": "no-store" } });
+    }
 
     // Unsubscribe links in the client emails. Public: the link itself is signed.
     if (path === "/email/unsubscribe") {
