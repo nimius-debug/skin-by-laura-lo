@@ -16,22 +16,27 @@ export function escapeHtml(value) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-const LINK = /https?:\/\/[^\s<]+[^\s<.,;:!?)'"]/g;
+// A [named link](https://...) or a bare web address. One pattern, so a named
+// link's address is never linked a second time.
+const LINK = /\[([^\]<]+)\]\((https?:\/\/[^\s)<]+)\)|https?:\/\/[^\s<]+[^\s<.,;:!?)'"]/g;
 
 /**
- * Escaped text with Laura's light formatting: line breaks kept, **bold**, and
- * web addresses made clickable. Nothing else becomes markup.
+ * Escaped text with Laura's light formatting: line breaks kept, **bold**,
+ * [named links](https://...) and bare web addresses made clickable. Nothing
+ * else becomes markup.
  */
 function rich(value) {
   return escapeHtml(value)
     .replace(/\r?\n/g, "<br>")
     .replace(/\*\*([^*<]+?)\*\*/g, "<strong>$1</strong>")
-    .replace(LINK, (url) => `<a href="${url}" style="color:${COLORS.accentText};font-weight:bold;">${url}</a>`);
+    .replace(LINK, (match, label, url) => `<a href="${url || match}" style="color:${COLORS.accentText};font-weight:bold;">${label || match}</a>`);
 }
 
-/** The plain-text copy of formatted text: the same words without the ** marks. */
+/** The plain-text copy of formatted text: no ** marks, and named links as "words (address)". */
 export function plain(value) {
-  return String(value ?? "").replace(/\*\*([^*]+?)\*\*/g, "$1");
+  return String(value ?? "")
+    .replace(/\*\*([^*]+?)\*\*/g, "$1")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)");
 }
 
 const CALLS_TO_ACTION = {
@@ -46,29 +51,42 @@ const CALLS_TO_ACTION = {
  *   content.ps: an optional P.S. everyone gets
  *   personal: { personalNote, ps } for a personal version, or null for the shared one
  *   product:  { label, name, goodFor, note, url, image } or null
+ *   editable: "shared" or "personal" for the admin editor only (never sent). It
+ *             marks the parts of that version Laura can type into with
+ *             data-edit, and shows empty ones so she can fill them in.
  * Returns { subject, html, text }.
  */
-export function renderEmail({ content, personal = null, product = null, firstName = "", goal = "book", siteUrl, unsubscribeUrl }) {
+export function renderEmail({ content, personal = null, product = null, firstName = "", goal = "book", siteUrl, unsubscribeUrl, editable = null }) {
   const greetingName = firstName.trim() || "there";
   const cta = CALLS_TO_ACTION[goal] ? { ...CALLS_TO_ACTION[goal], url: `${siteUrl}${CALLS_TO_ACTION[goal].path}` } : null;
   const paragraphs = (content.paragraphs || []).filter(Boolean);
   const tips = (content.tips || []).filter(Boolean);
   const note = personal?.personalNote?.trim() || "";
   const postscripts = [content.ps, personal?.ps].map((ps) => String(ps || "").trim()).filter(Boolean);
+  const editShared = editable === "shared";
+  const editPersonal = editable === "personal";
+  // Marks a part as editable in the admin editor; empty everywhere else.
+  const edit = (on, name, placeholder) => (on ? ` data-edit="${name}" data-placeholder="${escapeHtml(placeholder)}"` : "");
 
   const p = (html) => `<p style="margin:0 0 18px;font-family:${SANS};font-size:16px;line-height:1.65;color:${COLORS.ink};">${html}</p>`;
 
-  const noteBlock = note ? `
+  const noteBlock = note || editPersonal ? `
           <tr><td style="padding:0 0 20px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.tint};border-radius:12px;">
               <tr><td style="padding:18px 20px;">
                 <div style="font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.accentText};padding-bottom:6px;">A note just for you</div>
-                <div style="font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.ink};">${rich(note)}</div>
+                <div style="font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.ink};"${edit(editPersonal, "personalNote", "Write a note just for this client")}>${rich(note)}</div>
               </td></tr>
             </table>
           </td></tr>` : "";
 
-  const tipsBlock = tips.length ? `
+  const tipItem = `font-family:${SANS};font-size:15.5px;line-height:1.55;color:${COLORS.ink};padding:0 0 10px 4px;`;
+  // While editing, the tips are one numbered list, so Enter adds a tip.
+  const tipsBlock = editShared ? `
+          <tr><td style="padding:4px 0 10px;">
+            <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:10px;"${edit(true, "tipsTitle", "Tips title (leave the tips empty for none)")}>${escapeHtml(content.tipsTitle || "")}</div>
+            <ol style="margin:0;padding:0 0 0 24px;"${edit(true, "tips", "Tips, one per line")}>${(tips.length ? tips : [""]).map((tip) => `<li style="${tipItem}">${rich(tip)}</li>`).join("")}</ol>
+          </td></tr>` : tips.length ? `
           <tr><td style="padding:4px 0 10px;">
             <div style="font-family:${SERIF};font-size:20px;font-weight:bold;color:${COLORS.ink};padding-bottom:10px;">${escapeHtml(content.tipsTitle || "What helps")}</div>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -88,16 +106,22 @@ export function renderEmail({ content, personal = null, product = null, firstNam
                   <div style="font-family:${SANS};font-size:11.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:${COLORS.accentText};">${escapeHtml(product.label || "Worth a look")}</div>
                   <div style="font-family:${SANS};font-size:16px;font-weight:bold;color:${COLORS.ink};padding:4px 0;">${escapeHtml(product.name)}</div>
                   ${product.goodFor ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};">Good for: ${escapeHtml(product.goodFor)}</div>` : ""}
-                  ${product.note ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;">${rich(product.note)}</div>` : ""}
+                  ${product.note || editPersonal ? `<div style="font-family:${SANS};font-size:14px;line-height:1.5;color:${COLORS.soft};padding-top:4px;"${edit(editPersonal, "productNote", "Add a line about this product")}>${rich(product.note || "")}</div>` : ""}
                   ${product.url ? `<div style="padding-top:8px;"><a href="${escapeHtml(product.url)}" style="font-family:${SANS};font-size:14px;font-weight:bold;color:${COLORS.accentText};">See it in the shop</a></div>` : ""}
                 </td>
               </tr>
             </table>
           </td></tr>` : "";
 
-  const ctaBlock = cta ? `
-          <tr><td style="padding:6px 0 24px;">
-            <a href="${escapeHtml(cta.url)}" style="display:inline-block;background:${COLORS.accent};color:#FFF8F2;font-family:${SANS};font-size:16px;font-weight:bold;text-decoration:none;padding:14px 26px;border-radius:12px;">${escapeHtml(cta.label)}</a>
+  const psRow = (ps, editing, name, placeholder) => (String(ps || "").trim() || editing
+    ? `<tr><td style="padding:0 0 22px;font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.soft};"><strong>P.S.</strong> <span${edit(editing, name, placeholder)}>${rich(String(ps || "").trim())}</span></td></tr>`
+    : "");
+
+  // While editing the shared email the button is always there (hidden for "no
+  // button"), so the editor can switch it without reloading.
+  const ctaBlock = cta || editShared ? `
+          <tr${editShared ? ` data-cta${cta ? "" : ` style="display:none"`}` : ""}><td style="padding:6px 0 24px;">
+            <a href="${escapeHtml(cta?.url || "")}" style="display:inline-block;background:${COLORS.accent};color:#FFF8F2;font-family:${SANS};font-size:16px;font-weight:bold;text-decoration:none;padding:14px 26px;border-radius:12px;">${escapeHtml(cta?.label || "")}</a>
           </td></tr>` : "";
 
   const html = `<!doctype html>
@@ -121,16 +145,17 @@ export function renderEmail({ content, personal = null, product = null, firstNam
       </td></tr>
       <tr><td style="background:#FFFFFF;border:1px solid ${COLORS.line};border-radius:16px;padding:34px 28px 14px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          ${content.eyebrow ? `<tr><td style="padding:0 0 12px;font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.accentText};">${escapeHtml(content.eyebrow)}</td></tr>` : ""}
-          <tr><td style="padding:0 0 20px;font-family:${SERIF};font-size:30px;line-height:1.2;font-weight:bold;color:${COLORS.ink};">${escapeHtml(content.headline)}</td></tr>
+          ${content.eyebrow || editShared ? `<tr><td style="padding:0 0 12px;font-family:${SANS};font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.accentText};"${edit(editShared, "eyebrow", "Small label (optional)")}>${escapeHtml(content.eyebrow || "")}</td></tr>` : ""}
+          <tr><td style="padding:0 0 20px;font-family:${SERIF};font-size:30px;line-height:1.2;font-weight:bold;color:${COLORS.ink};"${edit(editShared, "headline", "Headline")}>${escapeHtml(content.headline)}</td></tr>
           <tr><td>${p(`Hi ${escapeHtml(greetingName)},`)}</td></tr>
           ${noteBlock}
-          <tr><td>${paragraphs.map((text) => p(rich(text))).join("")}</td></tr>
+          <tr><td${edit(editShared, "paragraphs", "Write the email here")}>${(paragraphs.length || !editShared ? paragraphs : [""]).map((text) => p(rich(text))).join("")}</td></tr>
           ${tipsBlock}
           ${productBlock}
           ${ctaBlock}
           <tr><td style="padding:0 0 22px;font-family:${SANS};font-size:16px;line-height:1.6;color:${COLORS.ink};">See you soon,<br><span style="font-family:${SERIF};font-size:20px;font-weight:bold;">Laura</span></td></tr>
-          ${postscripts.map((ps) => `<tr><td style="padding:0 0 22px;font-family:${SANS};font-size:15px;line-height:1.6;color:${COLORS.soft};"><strong>P.S.</strong> ${rich(ps)}</td></tr>`).join("")}
+          ${psRow(content.ps, editShared, "ps", "Add a P.S. for everyone (optional)")}
+          ${psRow(personal?.ps, editPersonal, "personalPs", "Add a P.S. just for this client (optional)")}
         </table>
       </td></tr>
       <tr><td align="center" style="padding:22px 16px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${COLORS.muted};">

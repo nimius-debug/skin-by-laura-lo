@@ -49,6 +49,10 @@ const content = {
   check("the shared P.S. and the personal P.S. both show after Laura's name",
     [extras.html.includes("Two spots left Saturday"), extras.html.includes("Bring your SPF"), extras.text.includes("P.S. Two spots left Saturday")], [true, true, true]);
   check("the plain-text copy drops the ** marks", extras.text.includes("This is SO important."), true);
+  const named = renderEmail({ content: { ...content, paragraphs: ["Read [my routine](https://skinbylauralo.com/shop) tonight."] }, goal: "news", siteUrl: SITE, unsubscribeUrl: "u" });
+  check("a named link shows its words in the email and the address in the plain copy",
+    [named.html.includes('href="https://skinbylauralo.com/shop"') && named.html.includes(">my routine</a>"), named.text.includes("Read my routine (https://skinbylauralo.com/shop) tonight.")], [true, true]);
+  check("an email that is sent is never editable", extras.html.includes("data-edit") || extras.html.includes("contenteditable"), false);
 }
 
 // --- matching -----------------------------------------------------------------
@@ -273,7 +277,15 @@ async function freshEnv(extra = {}) {
   check("before sending, the page says what the AI has cost so far", page.includes("AI cost so far: $0.05 (3 AI calls, Claude Sonnet 5.5)."), true);
 
   const editor = await (await route(`/admin/campaigns/${campaignId}?v=${shared.id}&view=preview&edit=1`)).text();
-  check("the editor has a live preview, a P.S. and a choice of button", [editor.includes("data-live-preview"), editor.includes('name="ps"'), editor.includes('name="goal"')], [true, true, true]);
+  check("Edit makes the email itself editable, with a P.S. and a choice of button",
+    [editor.includes("data-inline-editor"), editor.includes("data-edit=&quot;paragraphs&quot;"), editor.includes("data-edit=&quot;ps&quot;"), editor.includes('name="goal"')], [true, true, true, true]);
+  check("only the version being edited is marked, and the normal preview has no edit marks",
+    [editor.includes("data-edit=&quot;personalNote&quot;"), page.includes("data-edit")], [false, false]);
+  const mayaEditor = await (await route(`/admin/campaigns/${campaignId}?v=${maya.id}&view=preview&edit=1`)).text();
+  check("a personal version's editor marks its note, product line and P.S., not the shared words",
+    [mayaEditor.includes("data-edit=&quot;personalNote&quot;"), mayaEditor.includes("data-edit=&quot;productNote&quot;"), mayaEditor.includes("data-edit=&quot;personalPs&quot;"), mayaEditor.includes("data-edit=&quot;paragraphs&quot;")], [true, true, true, false]);
+  check("the editor's hidden fields start with the saved words, so saving without the script changes nothing",
+    editor.includes('name="paragraphs" value="First &lt;b&gt;paragraph&lt;/b&gt;.\n\nSecond\nline."'), true);
   const preview = await route(`/admin/campaigns/${campaignId}/versions/${shared.id}/preview`, {
     method: "POST", body: new URLSearchParams({ subject: "Live", headline: "Live headline", paragraphs: "Fresh words — here.", ps: "See you soon ✨" }),
   });

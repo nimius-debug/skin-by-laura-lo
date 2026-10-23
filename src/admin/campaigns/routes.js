@@ -125,11 +125,13 @@ async function handleTranscribe(request, env) {
   }
 }
 
-function previewFor(env, campaign, version) {
+/** The email as the preview shows it. With `editing`, the version's own parts are marked for the editor. */
+function previewFor(env, campaign, version, { editing = false } = {}) {
   const firstName = version.isShared ? "" : String(version.client_name || "").trim().split(/\s+/)[0];
   return buildMessage({
     campaign, version, send: { first_name: firstName },
     siteUrl: settings(env).siteUrl, unsubscribe: `${settings(env).siteUrl}/email/unsubscribe`,
+    editable: editing ? (version.isShared ? "shared" : "personal") : null,
   }).html;
 }
 
@@ -153,7 +155,7 @@ async function reviewPage(env, url, campaignId) {
     back: { href: "/admin/campaigns", label: "Campaigns" },
     body: campaignReviewPage({
       campaign, versions, selected, view,
-      previewHtml: previewFor(env, campaign, selected),
+      previewHtml: previewFor(env, campaign, selected, { editing }),
       counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing,
       hints: voiceHints(versionText(campaign, selected)),
       canTest: sendingConfigured(env) && Boolean(env.REMINDER_EMAIL),

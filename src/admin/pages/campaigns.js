@@ -191,41 +191,39 @@ function versionName(version) {
   return version.isShared ? "Everyone else" : version.client_name || "Client";
 }
 
-const FORMAT_HINT = "Use **double stars** around words to make them bold. Web addresses become links.";
+/** A hidden field that already holds the saved value, so a save without the script changes nothing. */
+function kept(name, value) {
+  return html`<input type="hidden" name="${name}" value="${value || ""}" data-field="${name}" />`;
+}
 
+// The editor: the email itself becomes editable in the preview below (see
+// client.js), and this bar holds what isn't in the email body: the subject,
+// the inbox preview line, the button, formatting and Save.
 function editForm({ campaign, version }) {
   const action = `/admin/campaigns/${campaign.id}/versions/${version.id}`;
-  const buttons = html`<div class="camp-actions">
-      <button type="submit" class="btn btn-primary">Save changes</button>
-      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
-    </div>
-    <div class="camp-muted">The preview updates as you type. Nothing changes until you save.</div>`;
-  if (version.isShared) {
-    const content = campaign.content;
-    return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
-      <input type="hidden" name="action" value="save" />
+  const shared = version.isShared;
+  const content = campaign.content;
+  return html`<form method="post" action="${action}" class="camp-edit camp-editor" data-inline-editor data-hints-url="${action}/preview">
+    <input type="hidden" name="action" value="save" />
+    ${shared ? html`
       <label class="field">Subject line<input type="text" name="subject" value="${content.subject}" maxlength="120" required /></label>
       <label class="field">Preview line (shown after the subject in the inbox)<input type="text" name="preheader" value="${content.preheader}" maxlength="160" /></label>
-      <label class="field">Small label above the headline<input type="text" name="eyebrow" value="${content.eyebrow}" maxlength="60" /></label>
-      <label class="field">Headline<input type="text" name="headline" value="${content.headline}" maxlength="140" required /></label>
-      <label class="field">Paragraphs (leave a blank line between them, and add as many as you like)<textarea name="paragraphs" rows="10">${(content.paragraphs || []).join("\n\n")}</textarea></label>
-      <div class="camp-muted">${FORMAT_HINT}</div>
-      <label class="field">Tips title<input type="text" name="tipsTitle" value="${content.tipsTitle}" maxlength="80" /></label>
-      <label class="field">Tips (one per line, leave empty for none)<textarea name="tips" rows="4">${(content.tips || []).join("\n")}</textarea></label>
-      <label class="field">P.S. (optional, after your name)<textarea name="ps" rows="2" maxlength="600" placeholder="For example: I have two openings left this Saturday ✨">${content.ps || ""}</textarea></label>
-      <label class="field">Button at the end
+      ${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
+      ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}`
+    : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
+    <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
+      <button type="button" class="camp-tool" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
+      <button type="button" class="camp-tool" data-format="link" title="Add a link">Link</button>
+      ${shared ? html`<label class="camp-tool-select">Button
         <select name="goal">${GOAL_OPTIONS.map((option) => html`<option value="${option.value}"${option.value === campaign.goal ? html` selected` : ""}>${option.value === "news" ? "No button" : option.label}</option>`)}</select>
-      </label>
-      ${buttons}
-    </form>`;
-  }
-  return html`<form method="post" action="${action}" class="camp-edit" data-live-preview="${action}/preview">
-    <input type="hidden" name="action" value="save" />
-    <label class="field">Personal note<textarea name="personalNote" rows="5" required>${version.personal.personalNote || ""}</textarea></label>
-    ${version.personal.product ? html`<label class="field">Line about ${version.personal.product.name}<textarea name="productNote" rows="2">${version.personal.product.note || ""}</textarea></label>` : ""}
-    <label class="field">P.S. just for ${versionName(version)} (optional)<textarea name="ps" rows="2" maxlength="600">${version.personal.ps || ""}</textarea></label>
-    <div class="camp-muted">${FORMAT_HINT} The rest of the email is the shared one. Edit "Everyone else" to change it for everybody.</div>
-    ${buttons}
+      </label>` : ""}
+      <span class="camp-toolbar-gap"></span>
+      <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview">Cancel</a>
+      <button type="submit" class="btn btn-primary">Save changes</button>
+    </div>
+    <div class="camp-muted">${shared
+      ? "Click anywhere in the email below and type. Enter starts a new paragraph or tip."
+      : html`Click the note, the product line or the P.S. below and type. The rest is the email everyone gets: edit "Everyone else" to change it for everybody.`}</div>
   </form>`;
 }
 

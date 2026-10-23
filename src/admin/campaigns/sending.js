@@ -143,7 +143,7 @@ function utcDayStart(now) {
 }
 
 /** The finished email for one queued send. */
-export function buildMessage({ campaign, version, send, siteUrl, unsubscribe }) {
+export function buildMessage({ campaign, version, send, siteUrl, unsubscribe, editable = null }) {
   const personal = version && !version.isShared ? version.personal : null;
   const product = personal?.product || campaign.content.product || null;
   return renderEmail({
@@ -154,6 +154,7 @@ export function buildMessage({ campaign, version, send, siteUrl, unsubscribe }) 
     goal: campaign.goal,
     siteUrl,
     unsubscribeUrl: unsubscribe,
+    editable,
   });
 }
 
