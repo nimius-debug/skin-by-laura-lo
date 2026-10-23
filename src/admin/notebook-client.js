@@ -48,6 +48,11 @@ export const NOTEBOOK_JS = String.raw`
   var FAR_BACKING = 0.4;
   // The server takes up to 12 pages a note.
   var MAX_PAGES = 12;
+  // Upright, the page grows to fill a big iPad; on its side it stays the width of a sheet, so
+  // more of it fits on the screen.
+  var MAX_PAGE_UPRIGHT = 1000;
+  // Pen sizes: a multiplier on the pressure-based width.
+  var PEN_SIZES = [{ name: "Fine", scale: 0.7 }, { name: "Medium", scale: 1 }, { name: "Bold", scale: 1.6 }];
   // A touch this wide is a resting hand, not a fingertip.
   var PALM_RADIUS = 30;
 
@@ -56,6 +61,7 @@ export const NOTEBOOK_JS = String.raw`
     tool: "pen",          // pen | highlighter | eraser
     color: "#2B3A55",
     fingerDraws: false,
+    size: 1,              // index into PEN_SIZES
     undo: [],
     redo: [],
     date: /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday(),
@@ -79,9 +85,16 @@ export const NOTEBOOK_JS = String.raw`
     return new Date(iso + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
-  function setStatus(text, tone) {
+  function setStatus(text, tone, link) {
     if (!statusEl) return;
     statusEl.textContent = text;
+    if (link) {
+      var a = document.createElement("a");
+      a.href = link.href;
+      a.textContent = link.label;
+      statusEl.appendChild(document.createTextNode(" "));
+      statusEl.appendChild(a);
+    }
     statusEl.setAttribute("data-tone", tone || "");
   }
 
@@ -152,7 +165,7 @@ export const NOTEBOOK_JS = String.raw`
     ctx.fillStyle = stroke.color;
     if (points.length === 1) {
       ctx.beginPath();
-      ctx.arc(points[0][0], points[0][1], widthFor(points[0][2]) / 2, 0, Math.PI * 2);
+      ctx.arc(points[0][0], points[0][1], widthFor(points[0][2], stroke.size) / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       return;
@@ -162,7 +175,7 @@ export const NOTEBOOK_JS = String.raw`
     for (var i = 1; i < points.length; i += 1) {
       var to = i < points.length - 1 ? midpoint(points[i], points[i + 1]) : points[i];
       ctx.beginPath();
-      ctx.lineWidth = widthFor(points[i][2]);
+      ctx.lineWidth = widthFor(points[i][2], stroke.size);
       ctx.moveTo(from[0], from[1]);
       ctx.quadraticCurveTo(points[i][0], points[i][1], to[0], to[1]);
       ctx.stroke();
@@ -171,9 +184,9 @@ export const NOTEBOOK_JS = String.raw`
     ctx.restore();
   }
 
-  function widthFor(pressure) {
+  function widthFor(pressure, size) {
     var p = pressure > 0 ? pressure : 0.5;
-    return 1.1 + p * 2.6;
+    return (1.1 + p * 2.6) * (size > 0 ? size : 1);
   }
 
   function renderPage(index) {
@@ -199,11 +212,12 @@ export const NOTEBOOK_JS = String.raw`
 
   function sizePage(index) {
     var view = pageViews[index];
-    var cssWidth = Math.min(PAGE_W, scroller.clientWidth - 32) * state.zoom;
+    var cssWidth = baseWidth() * state.zoom;
     var cssHeight = cssWidth * PAGE_H / PAGE_W;
     var dpr = window.devicePixelRatio || 1;
     var backing = view.near ? Math.min(cssWidth * dpr / PAGE_W, MAX_BACKING) : FAR_BACKING;
     view.canvas.style.width = cssWidth + "px";
+    if (index === 0) scroller.style.setProperty("--page-w", cssWidth + "px");
     view.canvas.style.height = cssHeight + "px";
     view.canvas.width = Math.round(PAGE_W * backing);
     view.canvas.height = Math.round(PAGE_H * backing);
@@ -211,6 +225,11 @@ export const NOTEBOOK_JS = String.raw`
     view.committed.height = view.canvas.height;
     view.scale = view.canvas.width / PAGE_W;
     renderPage(index);
+  }
+
+  function baseWidth() {
+    var upright = window.innerHeight >= window.innerWidth;
+    return Math.max(200, Math.min(upright ? MAX_PAGE_UPRIGHT : PAGE_W, scroller.clientWidth - 32));
   }
 
   function addPageView(index) {
@@ -251,8 +270,33 @@ export const NOTEBOOK_JS = String.raw`
 
   function updatePageButton() {
     var button = document.getElementById("nb-add-page");
-    if (button) button.disabled = state.pages.length >= MAX_PAGES;
+    if (!button) return;
+    var full = state.pages.length >= MAX_PAGES;
+    button.disabled = full;
+    var label = document.getElementById("nb-add-page-label");
+    if (label) label.textContent = full ? "A note can have up to " + MAX_PAGES + " pages" : "Add a page";
+    updatePageCount();
   }
+
+  // "Page 2 of 3", for the page in the middle of the screen. Hidden while there is one page.
+  var pageCount = document.getElementById("nb-page-count");
+  function updatePageCount() {
+    if (!pageCount) return;
+    if (pageViews.length < 2) { pageCount.hidden = true; return; }
+    var box = scroller.getBoundingClientRect();
+    var middle = box.top + box.height / 2;
+    var current = 0;
+    pageViews.forEach(function (view, index) {
+      if (view.canvas.getBoundingClientRect().top <= middle) current = index;
+    });
+    pageCount.textContent = "Page " + (current + 1) + " of " + pageViews.length;
+    pageCount.hidden = false;
+  }
+  var countFrame = 0;
+  scroller.addEventListener("scroll", function () {
+    if (countFrame) return;
+    countFrame = requestAnimationFrame(function () { countFrame = 0; updatePageCount(); });
+  }, { passive: true });
 
   /* -------------------------------------------------------------- input */
 
@@ -260,6 +304,8 @@ export const NOTEBOOK_JS = String.raw`
   // While changing a saved note whose handwriting hasn't loaded, nothing can be written, so
   // Done can never replace her pages with a blank one.
   var locked = false;
+  // Takes back the stroke a finger is drawing, while one is.
+  var touchStroke = null;
 
   function toPage(canvas, event) {
     var rect = canvas.getBoundingClientRect();
@@ -301,13 +347,31 @@ export const NOTEBOOK_JS = String.raw`
     canvas.addEventListener("touchstart", holdStill, { passive: false });
     canvas.addEventListener("touchmove", holdStill, { passive: false });
 
+    // A second finger means a pinch or a two-finger tap, not writing: take back what the first one drew.
+    function cancelTouch() {
+      if (erased) {
+        erased.slice().reverse().forEach(function (item) { state.pages[index].splice(item.at, 0, item.stroke); });
+        erased = null;
+        renderPage(index);
+      } else if (live) {
+        live = null;
+        paintPage(index, null);
+      }
+      touchStroke = null;
+    }
+
     canvas.addEventListener("pointerdown", function (event) {
       if (locked) return;
+      if (event.pointerType === "touch" && !event.isPrimary) {
+        if (touchStroke) touchStroke();
+        return;
+      }
       if (event.pointerType === "touch" && (!state.fingerDraws || event.width > PALM_RADIUS * 2)) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       event.preventDefault();
       try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* a pointer that has already lifted */ }
       if (event.pointerType === "pen") penDown = true;
+      touchStroke = event.pointerType === "touch" ? cancelTouch : null;
       var point = toPage(canvas, event);
       if (state.tool === "eraser") {
         erased = [];
@@ -315,7 +379,7 @@ export const NOTEBOOK_JS = String.raw`
         if (erased.length) renderPage(index);
         return;
       }
-      live = { tool: state.tool, color: state.color, points: [point] };
+      live = { tool: state.tool, color: state.color, size: PEN_SIZES[state.size].scale, points: [point] };
       paintPage(index, live);
     });
 
@@ -335,6 +399,10 @@ export const NOTEBOOK_JS = String.raw`
 
     function finish(event) {
       if (event.pointerType === "pen") penDown = false;
+      if (event.pointerType === "touch") {
+        if (!event.isPrimary) return;
+        touchStroke = null;
+      }
       if (erased) {
         if (erased.length) record({ type: "erase", page: index, strokes: erased });
         erased = null;
@@ -422,7 +490,7 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function saveLocal() {
-    var record = { clientId: draftKey, date: state.date, pages: state.pages, updatedAt: Date.now() };
+    var record = { clientId: draftKey, clientName: clientName, noteId: noteId || null, date: state.date, pages: state.pages, updatedAt: Date.now() };
     return withStore("readwrite", function (store) {
       return hasInk() ? store.put(record) : store.delete(draftKey);
     }).then(function () {
@@ -471,24 +539,49 @@ export const NOTEBOOK_JS = String.raw`
     button.addEventListener("click", function () { pickColor(button.getAttribute("data-color")); });
   });
 
-  document.getElementById("nb-undo").addEventListener("click", function () {
+  function undo() {
     var action = state.undo.pop();
-    if (!action) return;
+    if (!action) return false;
     applyUndo(action);
     state.redo.push(action);
     updateUndoButtons();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveLocal, 400);
-  });
-  document.getElementById("nb-redo").addEventListener("click", function () {
+    return true;
+  }
+  function redo() {
     var action = state.redo.pop();
-    if (!action) return;
+    if (!action) return false;
     applyRedo(action);
     state.undo.push(action);
     updateUndoButtons();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveLocal, 400);
-  });
+    return true;
+  }
+  document.getElementById("nb-undo").addEventListener("click", undo);
+  document.getElementById("nb-redo").addEventListener("click", redo);
+
+  // Pen size cycles Fine, Medium, Bold, and is remembered on this iPad.
+  var sizeBtn = document.getElementById("nb-size");
+  function pickSize(size) {
+    state.size = size;
+    if (!sizeBtn) return;
+    sizeBtn.setAttribute("aria-label", "Pen size: " + PEN_SIZES[size].name);
+    sizeBtn.setAttribute("data-size", String(size));
+  }
+  try {
+    var savedSize = localStorage.getItem("nb-pen-size");
+    if (savedSize !== null && Number(savedSize) >= 0 && Number(savedSize) < PEN_SIZES.length) pickSize(Number(savedSize));
+  } catch (error) { /* private window */ }
+  if (sizeBtn) {
+    sizeBtn.addEventListener("click", function () {
+      pickSize((state.size + 1) % PEN_SIZES.length);
+      if (state.tool !== "pen") pickTool("pen");
+      setStatus("Pen: " + PEN_SIZES[state.size].name.toLowerCase(), "");
+      try { localStorage.setItem("nb-pen-size", String(state.size)); } catch (error) { /* private window */ }
+    });
+  }
 
   var fingerBtn = document.getElementById("nb-finger");
   fingerBtn.addEventListener("click", function () {
@@ -509,12 +602,26 @@ export const NOTEBOOK_JS = String.raw`
     var setLastOpen = function (open) {
       lastToggle.setAttribute("aria-expanded", String(open));
       document.getElementById("nb-last-body").hidden = !open;
+      lastToggle.parentNode.setAttribute("data-open", String(open));
     };
     lastToggle.addEventListener("click", function () {
       setLastOpen(lastToggle.getAttribute("aria-expanded") !== "true");
     });
-    // Upright, the page fills the width and the card would cover it, so it starts folded.
-    if (window.innerWidth < 1100) setLastOpen(false);
+    // Open only where it fits beside the page; otherwise it would cover her writing, so it starts folded.
+    var lastCard = lastToggle.parentNode;
+    var placeLast = function () {
+      var margin = (scroller.clientWidth - baseWidth()) / 2;
+      var fits = margin >= 230;
+      // Beside the page it takes the margin's width, so it never reaches over the lines.
+      lastCard.style.width = fits ? Math.min(280, Math.floor(margin - 28)) + "px" : "";
+      setLastOpen(fits);
+    };
+    placeLast();
+    var lastWide = window.innerWidth > window.innerHeight;
+    window.addEventListener("resize", function () {
+      var wide = window.innerWidth > window.innerHeight;
+      if (wide !== lastWide) { lastWide = wide; placeLast(); }
+    });
   }
 
   /* ---------------------------------------------------------------- zoom */
@@ -547,13 +654,22 @@ export const NOTEBOOK_JS = String.raw`
   // Two fingers pinch the pages, not the whole app. While pinching the pages are just stretched
   // (cheap), then re-drawn at the new size when the fingers lift.
   var pinch = null;
+  // A quick tap with two fingers undoes, with three redoes, as in Noteful and GoodNotes.
+  var tap = null;
   function fingerGap(touches) {
     var dx = touches[0].clientX - touches[1].clientX;
     var dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
   }
   scroller.addEventListener("touchstart", function (event) {
-    if (event.touches.length !== 2 || penDown) return;
+    if (penDown) { tap = null; return; }
+    if (event.touches.length === 1) {
+      tap = { fingers: 1, at: Date.now(), x: event.touches[0].clientX, y: event.touches[0].clientY, top: scroller.scrollTop, moved: false };
+    } else if (tap) {
+      tap.fingers = Math.max(tap.fingers, event.touches.length);
+      if (Date.now() - tap.at > 250) tap = null;
+    }
+    if (event.touches.length !== 2) return;
     var x = (event.touches[0].clientX + event.touches[1].clientX) / 2;
     var y = (event.touches[0].clientY + event.touches[1].clientY) / 2;
     var box = pagesBox.getBoundingClientRect();
@@ -561,12 +677,27 @@ export const NOTEBOOK_JS = String.raw`
     pagesBox.style.transformOrigin = (x - box.left) + "px " + (y - box.top) + "px";
   }, { passive: true });
   scroller.addEventListener("touchmove", function (event) {
+    if (tap && !tap.moved) {
+      var t = event.touches[0];
+      if (Math.abs(t.clientX - tap.x) > 12 || Math.abs(t.clientY - tap.y) > 12) tap.moved = true;
+    }
     if (!pinch || event.touches.length !== 2) return;
     event.preventDefault();
     var target = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, state.zoom * fingerGap(event.touches) / pinch.gap));
     pinch.ratio = target / state.zoom;
+    if (tap && Math.abs(pinch.ratio - 1) > 0.01) tap.moved = true;
     pagesBox.style.transform = "scale(" + pinch.ratio + ")";
   }, { passive: false });
+  function endTap(event) {
+    if (!tap || event.touches.length) return;
+    var done = tap;
+    tap = null;
+    if (done.fingers < 2 || done.moved || Date.now() - done.at > 300 || Math.abs(scroller.scrollTop - done.top) > 4) return;
+    if (done.fingers === 2 && undo()) setStatus("Undone", "");
+    else if (done.fingers === 3 && redo()) setStatus("Redone", "");
+  }
+  scroller.addEventListener("touchend", endTap);
+  scroller.addEventListener("touchcancel", function () { tap = null; });
   function endPinch(event) {
     if (!pinch || event.touches.length >= 2) return;
     var done = pinch;
@@ -582,7 +713,7 @@ export const NOTEBOOK_JS = String.raw`
   var resizeTimer = null;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () { pageViews.forEach(function (_, index) { sizePage(index); }); }, 150);
+    resizeTimer = setTimeout(function () { pageViews.forEach(function (_, index) { sizePage(index); }); updatePageCount(); }, 150);
   });
 
   /* ------------------------------------------------------ done and review */
@@ -627,7 +758,12 @@ export const NOTEBOOK_JS = String.raw`
     busy.hidden = !on;
   }
 
+  var sending = false;
+  // How long the iPad waits for the reading before giving up (the server stops at 45 seconds).
+  var SEND_TIMEOUT_MS = 90000;
+
   function done() {
+    if (sending) return;
     if (locked) {
       openSaved();
       return;
@@ -638,7 +774,12 @@ export const NOTEBOOK_JS = String.raw`
     }
     clearTimeout(saveTimer);
     saveLocal();
+    sending = true;
     showBusy(true);
+    var timedOut = false;
+    var controller = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { timedOut = true; if (controller) controller.abort(); }, SEND_TIMEOUT_MS);
+    function finished() { sending = false; clearTimeout(timer); showBusy(false); }
     var indexes = pagesToSend();
     Promise.all(indexes.map(exportPage)).then(function (blobs) {
       var form = new FormData();
@@ -648,14 +789,15 @@ export const NOTEBOOK_JS = String.raw`
       if (noteId) form.append("note", noteId);
       // Done tapped again: the server can throw the earlier reading away.
       if (currentDraft) form.append("replaces", currentDraft.draftId);
-      return fetch("/admin/clients/" + encodeURIComponent(clientId) + "/ink", { method: "POST", body: form, credentials: "same-origin" })
+      return fetch("/admin/clients/" + encodeURIComponent(clientId) + "/ink", { method: "POST", body: form, credentials: "same-origin", signal: controller ? controller.signal : undefined })
         .then(function (response) {
           return response.json().catch(function () { return {}; }).then(function (body) { return { response: response, body: body }; });
         })
         .then(function (result) {
-          showBusy(false);
+          finished();
           if (result.response.status === 401) {
-            setStatus("You've been signed out. Log in again; this note is safe on this iPad.", "warn");
+            setStatus("You've been signed out. This note is safe on this iPad.", "warn",
+              { href: "/admin/login?next=" + encodeURIComponent(location.pathname + location.search), label: "Log in" });
             return;
           }
           if (!result.response.ok) {
@@ -665,8 +807,10 @@ export const NOTEBOOK_JS = String.raw`
           openReview(result.body, blobs);
         });
     }).catch(function () {
-      showBusy(false);
-      setStatus("No connection. The note is safe on this iPad; tap Done when you're back online.", "warn");
+      finished();
+      setStatus(timedOut
+        ? "Reading took too long. The note is safe on this iPad; tap Done to try again."
+        : "No connection. The note is safe on this iPad; tap Done when you're back online.", "warn");
     });
   }
 
@@ -716,8 +860,10 @@ export const NOTEBOOK_JS = String.raw`
     var saveButtons = document.querySelectorAll("[data-save]");
     function saving(on) {
       saveButtons.forEach(function (button) {
+        if (!button.hasAttribute("data-label")) button.setAttribute("data-label", button.innerHTML);
         button.disabled = on;
-        button.textContent = on ? "Saving…" : "Save to dashboard";
+        if (on) button.textContent = "Saving…";
+        else button.innerHTML = button.getAttribute("data-label");
       });
     }
     var fields = {};

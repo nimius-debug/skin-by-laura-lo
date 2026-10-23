@@ -33,6 +33,12 @@ h1.page-title { margin: 0; font-family: 'Fraunces', serif; font-weight: 600; fon
 .btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; padding: 11px 18px; border-radius: 10px; border: none; cursor: pointer; font-family: inherit; }
 .btn-primary { background: var(--accent); color: #FFF8F2; }
 .btn-secondary { background: transparent; border: 1.5px solid var(--line); color: var(--ink-soft); }
+/* On a touch screen (the iPad at any width) every button is at least Apple's 44 pt to tap. */
+@media (pointer: coarse) {
+  .btn, .logout-btn { min-height: 44px; }
+  .btn { justify-content: center; }
+  .btn-regenerate { padding-top: 11px; padding-bottom: 11px; }
+}
 .pill { font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
 .pill-accent { background: var(--accent-soft); color: #96583C; }
 .pill-muted { color: var(--muted); }
@@ -73,6 +79,24 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .today-service { font-size: 13px; color: var(--ink-soft); }
 .today-write { flex-shrink: 0; text-decoration: none; min-height: 44px; }
 .today-empty { font-size: 14px; color: var(--ink-soft); }
+.today-row.is-next { background: var(--accent-soft); margin: 0 -12px; padding-left: 12px; padding-right: 12px; border-radius: 10px; border-top-color: transparent; }
+.today-row.is-next + .today-row { border-top-color: transparent; }
+.today-time { display: flex; flex-direction: column; gap: 2px; }
+.today-next { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #96583C; }
+.today-done { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
+.today-saved { font-size: 13px; font-weight: 600; color: #3F5A44; }
+.has-note .today-who a { color: var(--ink-soft); }
+.unsent-card[hidden] { display: none; }
+.unsent-card { display: flex; flex-direction: column; gap: 10px; border: 1.5px solid var(--accent); }
+.unsent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.unsent-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-top: 1px solid #F0E8DC; }
+.unsent-row:first-child { border-top: 0; }
+.unsent-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; font-weight: 600; }
+.unsent-when { font-size: 13px; font-weight: 400; color: var(--ink-soft); }
+@media (max-width: 520px) {
+  .today-row { flex-wrap: wrap; }
+  .today-done, .today-row > .today-write { margin-left: 86px; }
+}
 .note-actions { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .write-note-btn { align-self: flex-start; margin-top: 8px; text-decoration: none; }
 .section-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
@@ -418,7 +442,7 @@ function nav(active, back) {
   `;
 }
 
-export function loginPage({ error = "", username = "", configured = true, remember = true } = {}) {
+export function loginPage({ error = "", username = "", configured = true, remember = true, next = "/admin" } = {}) {
   return toString(html`<!doctype html>
 <html lang="en">
 <head>
@@ -435,6 +459,7 @@ ${raw(APP_HEAD)}
     <div class="login-brand">Laura — Admin</div>
     ${configured
       ? html`<form method="post" action="/admin/login" class="login-form">
+          ${next && next !== "/admin" ? html`<input type="hidden" name="next" value="${next}" />` : ""}
           <label class="field">Username
             <input type="text" name="username" value="${username}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required />
           </label>

@@ -5,6 +5,84 @@ export const ADMIN_CLIENT_JS = String.raw`
 (function () {
   "use strict";
 
+  /* ------------------------------------------- unsent notes on this iPad */
+
+  // The writing screen keeps each unsent note in IndexedDB until it's saved. Only read them here:
+  // if the database doesn't exist yet, opening it must not create it (the writing screen does that).
+  function readUnsentNotes() {
+    return new Promise(function (resolve) {
+      if (!window.indexedDB) { resolve([]); return; }
+      var request;
+      try { request = indexedDB.open("laura-notes"); } catch (error) { resolve([]); return; }
+      request.onupgradeneeded = function () { request.transaction.abort(); };
+      request.onerror = function () { resolve([]); };
+      request.onblocked = function () { resolve([]); };
+      request.onsuccess = function () {
+        var db = request.result;
+        try {
+          if (!db.objectStoreNames.contains("drafts")) { db.close(); resolve([]); return; }
+          var all = db.transaction("drafts", "readonly").objectStore("drafts").getAll();
+          all.onsuccess = function () {
+            db.close();
+            resolve((all.result || []).filter(function (note) {
+              return note && note.clientId && Array.isArray(note.pages) && note.pages.some(function (strokes) { return strokes && strokes.length; });
+            }));
+          };
+          all.onerror = function () { db.close(); resolve([]); };
+        } catch (error) {
+          db.close();
+          resolve([]);
+        }
+      };
+    });
+  }
+
+  function unsentLink(note) {
+    // The key is "<client id>" for a new note, or "<client id>:<note id>" when changing a saved one.
+    var parts = String(note.clientId).split(":");
+    var clientId = parts[0];
+    var noteId = note.noteId || parts[1] || "";
+    return { clientId: clientId, noteId: noteId, href: "/admin/clients/" + encodeURIComponent(clientId) + "/write" + (noteId ? "?note=" + encodeURIComponent(noteId) : "") };
+  }
+
+  function wireUnsentNotes() {
+    var card = document.getElementById("unsent-notes");
+    var writeButtons = document.querySelectorAll(".write-note-btn[data-write-client]");
+    if (!card && !writeButtons.length) return;
+    readUnsentNotes().then(function (notes) {
+      if (!notes.length) return;
+      // On a client's page, a note already started for her reads "Resume note".
+      writeButtons.forEach(function (button) {
+        var id = button.getAttribute("data-write-client");
+        var waiting = notes.some(function (note) { return note.clientId === id; });
+        if (waiting) button.textContent = "Resume note";
+      });
+      if (!card) return;
+      var list = document.getElementById("unsent-list");
+      notes.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).forEach(function (note) {
+        var link = unsentLink(note);
+        var row = document.createElement("li");
+        row.className = "unsent-row";
+        var who = document.createElement("span");
+        who.className = "unsent-who";
+        who.textContent = note.clientName || "A client";
+        var when = document.createElement("span");
+        when.className = "unsent-when";
+        var changed = note.updatedAt ? new Date(note.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+        when.textContent = (link.noteId ? "Changes to a saved note" : "New note") + (changed ? " · last changed " + changed : "");
+        who.appendChild(when);
+        var resume = document.createElement("a");
+        resume.className = "btn btn-primary today-write";
+        resume.href = link.href;
+        resume.textContent = "Resume";
+        row.appendChild(who);
+        row.appendChild(resume);
+        list.appendChild(row);
+      });
+      card.hidden = false;
+    });
+  }
+
   /* --------------------------------------------------------- clients page */
 
   function wireClientsPage() {
@@ -1093,6 +1171,7 @@ export const ADMIN_CLIENT_JS = String.raw`
 
   document.addEventListener("DOMContentLoaded", function () {
     wireClientsPage();
+    wireUnsentNotes();
     wireFormLinks();
     wireClientProfilePage();
     wireUploadPage();

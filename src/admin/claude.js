@@ -124,6 +124,9 @@ Rules:
 Respond with ONLY a JSON object, no other text, in exactly this shape:
 {"fields": {"Treatment type": "...", "Notes / remarks": "..."}, "summary": "...", "confidence": "high", "unclear": ["..."]}`;
 
+// Reading a page takes a few seconds; past this something is wrong and she shouldn't be kept waiting.
+const INK_READ_TIMEOUT_MS = 45000;
+
 // Added when she changes a note she already saved: its sections may hold corrections she typed.
 const INK_EDIT_RULES = `
 
@@ -136,9 +139,10 @@ This note was saved before, and she has now changed the handwriting. Its section
  * Read an iPad note's pages (PNG images, in order) into its four sections. Throws when the
  * API can't be reached; a reply that isn't the expected JSON comes back as a low-confidence
  * reading with nothing filled in, so she can still type it and save. `current` is the saved
- * note's sections when she is changing one, so her typed corrections are kept.
+ * note's sections when she is changing one, so her typed corrections are kept. Gives up after
+ * `timeoutMs`, so the iPad's "Reading…" never waits forever; she can then type it or save it as is.
  */
-export async function readInkNote(env, pages, { current = null } = {}) {
+export async function readInkNote(env, pages, { current = null, timeoutMs = INK_READ_TIMEOUT_MS } = {}) {
   if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
   const content = [];
@@ -152,17 +156,33 @@ export async function readInkNote(env, pages, { current = null } = {}) {
   });
   content.push({ type: "text", text: "Now respond with the JSON object described above, and nothing else." });
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": ANTHROPIC_VERSION },
-    body: JSON.stringify({ model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, max_tokens: 2048, system: saved.length ? INK_PROMPT + INK_EDIT_RULES : INK_PROMPT, messages: [{ role: "user", content }] }),
+  const controller = new AbortController();
+  let timer;
+  const timedOut = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`Claude handwriting request took over ${timeoutMs} ms`));
+    }, timeoutMs);
   });
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`Claude handwriting request failed (${response.status}): ${detail.slice(0, 300)}`);
+  const request = (async () => {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": ANTHROPIC_VERSION },
+      body: JSON.stringify({ model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, max_tokens: 2048, system: saved.length ? INK_PROMPT + INK_EDIT_RULES : INK_PROMPT, messages: [{ role: "user", content }] }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Claude handwriting request failed (${response.status}): ${detail.slice(0, 300)}`);
+    }
+    const payload = await response.json();
+    return planInkReading(payload?.content?.find((block) => block.type === "text")?.text || "");
+  })();
+  try {
+    return await Promise.race([request, timedOut]);
+  } finally {
+    clearTimeout(timer);
   }
-  const payload = await response.json();
-  return planInkReading(payload?.content?.find((block) => block.type === "text")?.text || "");
 }
 
 /** Parse the handwriting reading into { fields, summary, confidence, unclear }, never throwing. */

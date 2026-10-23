@@ -253,7 +253,7 @@ export function clientProfilePage({ client, notes, routine, history = [], servic
     <div class="profile-head">
       <h1 class="page-title">${client.name}</h1>
       <div class="synced">Synced from Square ✓</div>
-      <a href="/admin/clients/${client.id}/write" class="btn btn-primary write-note-btn">Write a note</a>
+      <a href="/admin/clients/${client.id}/write" class="btn btn-primary write-note-btn" data-write-client="${client.id}">Write a note</a>
     </div>
 
     <div class="two-col">
