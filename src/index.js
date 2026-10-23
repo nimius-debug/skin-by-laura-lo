@@ -21,6 +21,7 @@ import { handleAdminRequest } from "./admin/routes.js";
 import { deleteStaleDrafts } from "./admin/db.js";
 import { handleUnsubscribe } from "./admin/campaigns/routes.js";
 import { runScheduled } from "./admin/campaigns/schedule.js";
+import { runNoteReminders } from "./admin/note-reminders.js";
 
 const MAX_QTY = 10;
 const MAX_LINES = 50;
@@ -442,10 +443,12 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
   },
 
   // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails
-  // within the daily limit, and the Tuesday/Thursday reminders. Also clears
-  // note drafts nobody saved.
+  // within the daily limit, the Tuesday/Thursday reminders, and a notification
+  // for any visit still without a note a day later. Also clears note drafts
+  // nobody saved.
   async scheduled(controller, env, ctx) {
     ctx.waitUntil(runScheduled(env, new Date(controller.scheduledTime)));
+    ctx.waitUntil(runNoteReminders(env, new Date(controller.scheduledTime)).catch((error) => console.error("Missing-note reminders failed:", error.message)));
     ctx.waitUntil(deleteStaleDrafts(env).catch((error) => console.error("Clearing old drafts failed:", error.message)));
   },
 };

@@ -49,7 +49,48 @@ function todayCard(today) {
   `;
 }
 
-export function clientsPage({ clients, today = null }) {
+/** Visits from the last week that still have no note, after their reminder went out. Hidden when there are none. */
+function needsNotesCard(visits) {
+  if (!visits.length) return "";
+  return html`
+    <section class="card today-card needs-notes-card" id="needs-notes" aria-labelledby="needs-notes-heading">
+      <div class="section-label" id="needs-notes-heading">Still need notes</div>
+      <ul class="today-list">
+        ${visits.map((visit) => html`
+          <li class="today-row">
+            <span class="today-who">
+              <a href="/admin/clients/${visit.clientId}">${visit.name}</a>
+              <span class="today-service">${visit.service ? `${visit.service} · ` : ""}${visit.when}</span>
+            </span>
+            <a class="btn btn-primary today-write" href="/admin/clients/${visit.clientId}/write" data-write-client="${visit.clientId}">Write a note</a>
+          </li>
+        `)}
+      </ul>
+    </section>
+  `;
+}
+
+/** The missing-note reminders switch, and turning on notifications on this device. Hidden when there's no Square. */
+function remindersCard(on) {
+  if (on === null) return "";
+  return html`
+    <section class="card reminders-card" aria-label="Reminders">
+      <form method="post" action="/admin/reminders" class="camp-switches" data-autosubmit>
+        <label class="camp-switch">
+          <span><span class="camp-switch-label">Remind me about missing notes</span><span class="camp-switch-hint">A notification a day after a service visit that has no note yet</span></span>
+          <input type="checkbox" name="note_reminders" value="on"${on ? html` checked` : ""} role="switch" />
+        </label>
+        <noscript><button type="submit" class="btn btn-secondary">Save</button></noscript>
+      </form>
+      <div class="camp-push" data-push>
+        <button type="button" class="btn btn-secondary" data-push-button hidden>Turn on notifications on this device</button>
+        <div class="camp-muted" data-push-status>Notifications come to each phone, iPad or computer where you turn them on.</div>
+      </div>
+    </section>
+  `;
+}
+
+export function clientsPage({ clients, today = null, needsNotes = [], noteReminders = null }) {
   return html`
     <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 16px;">
       <div style="flex: 1; min-width: 200px;">
@@ -67,6 +108,7 @@ export function clientsPage({ clients, today = null }) {
     </section>
 
     ${todayCard(today)}
+    ${needsNotesCard(needsNotes)}
 
     <div class="card" style="padding: 0; overflow: hidden;">
       <table class="data">
@@ -88,5 +130,7 @@ export function clientsPage({ clients, today = null }) {
         </tbody>
       </table>
     </div>
+
+    ${remindersCard(noteReminders)}
   `;
 }

@@ -20,6 +20,8 @@ import { extractNoteEntries, readInkNote, summarizeClient, summaryInputHash, sum
 import { cleanFields, fieldsAsText, noteFields, NOTE_FIELDS } from "./note-fields.js";
 import { notebookPage, noteEditPage } from "./pages/notebook.js";
 import { todaysAppointments } from "./today.js";
+import { remindersOn, setRemindersOn, visitsNeedingNotes } from "./note-reminders.js";
+import { recentMessages } from "./campaigns/push.js";
 import { NOTEBOOK_JS } from "./notebook-client.js";
 import { purchaseViewFrom } from "./routine.js";
 import { loadClientOrders } from "./purchases.js";
@@ -636,8 +638,24 @@ export async function handleAdminRequest(request, env, url) {
 async function handleSignedIn(request, env, url, segments, method) {
   // GET /admin
   if (url.pathname === "/admin" && method === "GET") {
-    const [clients, today] = await Promise.all([db.listClients(env), todaysAppointments(env)]);
-    return adminHtmlResponse(adminPage({ title: "Clients", body: clientsPage({ clients, today: isConfigured(env) ? today : null }) }));
+    const [clients, today, needsNotes, noteReminders] = await Promise.all([
+      db.listClients(env), todaysAppointments(env),
+      visitsNeedingNotes(env).catch((error) => { console.error("Reading visits without notes failed:", error.message); return []; }),
+      remindersOn(env),
+    ]);
+    return adminHtmlResponse(adminPage({ title: "Clients", body: clientsPage({ clients, today: isConfigured(env) ? today : null, needsNotes, noteReminders: isConfigured(env) ? noteReminders : null }) }));
+  }
+
+  // The missing-note reminders switch on the clients page.
+  if (url.pathname === "/admin/reminders" && method === "POST") {
+    const form = await request.formData().catch(() => new FormData());
+    await setRemindersOn(env, form.get("note_reminders") === "on");
+    return (request.headers.get("accept") || "").includes("application/json") ? jsonResponse({ ok: true }) : redirect("/admin");
+  }
+
+  // What a notification should say. The push itself is empty, so the service worker asks here.
+  if (url.pathname === "/admin/push/messages" && method === "GET") {
+    return jsonResponse({ messages: await recentMessages(env) });
   }
 
   // POST /admin/sync — pulls clients + seller notes from Square bookings

@@ -86,6 +86,7 @@ label.field input, label.field textarea { display: block; margin-top: 6px; width
 .today-done { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
 .today-saved { font-size: 13px; font-weight: 600; color: #3F5A44; }
 .has-note .today-who a { color: var(--ink-soft); }
+.reminders-card { display: flex; flex-direction: column; gap: 10px; }
 .unsent-card[hidden] { display: none; }
 .unsent-card { display: flex; flex-direction: column; gap: 10px; border: 1.5px solid var(--accent); }
 .unsent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }

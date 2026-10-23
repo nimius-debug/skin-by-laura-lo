@@ -75,7 +75,7 @@ async function notesDatedFor(env, clientIds, day) {
   return notes;
 }
 
-async function serviceNamesFor(env, variationIds) {
+export async function serviceNamesFor(env, variationIds) {
   const names = new Map();
   if (!variationIds.length) return names;
   const payload = await squareFetch(env, "/v2/catalog/batch-retrieve", { object_ids: variationIds, include_related_objects: true });
@@ -90,7 +90,7 @@ async function serviceNamesFor(env, variationIds) {
   return names;
 }
 
-async function customerNamesFor(env, customerIds) {
+export async function customerNamesFor(env, customerIds) {
   const names = new Map();
   if (!customerIds.length) return names;
   const payload = await squareFetch(env, "/v2/customers/bulk-retrieve", { customer_ids: customerIds });

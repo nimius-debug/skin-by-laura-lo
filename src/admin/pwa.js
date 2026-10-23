@@ -114,7 +114,7 @@ const SHELL_VERSION = contentVersion(SHELL_FILES.join("|") + OFFLINE_HTML);
 
 /** The service worker, served from /admin/sw.js with its scope widened to /admin. */
 export const SERVICE_WORKER_JS = `// Laura Admin service worker. Keeps the app's own files on the phone for fast launches,
-// shows an offline screen when there's no connection, and shows the email reminders.
+// shows an offline screen when there's no connection, and shows the reminders.
 // It never stores client pages or data.
 const CACHE = "admin-shell-${SHELL_VERSION}";
 const SHELL = ${JSON.stringify(SHELL_FILES)};
@@ -131,19 +131,50 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Tuesday and Thursday reminders. The push carries no data, so the message is fixed here.
+// Reminders: this week's email, and visits still missing a note. The push carries no data, so the
+// worker asks the dashboard what to say (the phone is signed in) and shows each message once.
+// It always shows something, since a push that shows nothing can get the app's notifications cut off.
+const ICON = "/admin/assets/icon-192.png";
+const SEEN = "/admin/__push-seen";
+const isIpad = () => self.navigator.maxTouchPoints > 1 && /iPad|Macintosh/.test(self.navigator.userAgent);
+
+async function seenIds() {
+  const hit = await caches.open("admin-push").then((cache) => cache.match(SEEN)).catch(() => null);
+  return hit ? hit.json().catch(() => []) : [];
+}
+
+async function showReminders() {
+  let messages = null;
+  try {
+    const response = await fetch("/admin/push/messages", { credentials: "same-origin", cache: "no-store", redirect: "manual" });
+    if (response.ok) messages = (await response.json()).messages || [];
+  } catch {}
+  if (!messages || !messages.length) {
+    return self.registration.showNotification("Laura Admin", { body: "You have a new reminder. Tap to open the app.", icon: ICON, badge: ICON, tag: "reminder", data: { url: "/admin" } });
+  }
+  const seen = await seenIds();
+  let fresh = messages.filter((message) => !seen.includes(message.id));
+  // Nothing new (this phone already showed them): show the newest again, quietly, in its own place.
+  if (!fresh.length) fresh = messages.slice(0, 1);
+  await Promise.all(fresh.slice(0, 4).map((message) => self.registration.showNotification(message.title, {
+    body: message.body, icon: ICON, badge: ICON, tag: message.id,
+    data: { url: (isIpad() && message.writeUrl) || message.url || "/admin" },
+  })));
+  const cache = await caches.open("admin-push");
+  await cache.put(SEEN, new Response(JSON.stringify([...fresh.map((message) => message.id), ...seen].slice(0, 100))));
+}
+
 self.addEventListener("push", (event) => {
-  event.waitUntil(self.registration.showNotification("Time for this week's email", {
-    body: "Tap to write today's email to your clients.",
-    icon: "/admin/assets/icon-192.png",
-    badge: "/admin/assets/icon-192.png",
-    tag: "campaign-reminder",
-  }));
+  event.waitUntil(showReminders());
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow("/admin/campaigns/new"));
+  const url = (event.notification.data && event.notification.data.url) || "/admin";
+  event.waitUntil(self.clients.matchAll({ type: "window" }).then((windows) => {
+    const open = windows.find((client) => "navigate" in client);
+    return open ? open.focus().then(() => open.navigate(url)).catch(() => self.clients.openWindow(url)) : self.clients.openWindow(url);
+  }));
 });
 
 self.addEventListener("fetch", (event) => {

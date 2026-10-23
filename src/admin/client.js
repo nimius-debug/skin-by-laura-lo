@@ -1064,20 +1064,21 @@ export const ADMIN_CLIENT_JS = String.raw`
     return bytes;
   }
 
-  // Tuesday and Thursday reminders as phone notifications (the Home Screen app on iPhone).
+  // Reminders as notifications: this week's email (Campaigns page) and missing notes (clients page).
+  // On an iPhone or iPad they need the Home Screen app; on a computer the browser is enough.
   function wirePushButton() {
     var box = document.querySelector("[data-push]");
     if (!box) return;
     var button = box.querySelector("[data-push-button]");
     var status = box.querySelector("[data-push-status]");
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.Notification) {
-      if (!isHomeScreenApp() && /iPhone|iPad/.test(navigator.userAgent)) status.textContent = "To get reminders as notifications, add this page to your Home Screen (Share, then Add to Home Screen) and open it from there. Reminders also come by email.";
+      if (!isHomeScreenApp() && /iPhone|iPad/.test(navigator.userAgent)) status.textContent = "To get reminders as notifications, add this page to your Home Screen (Share, then Add to Home Screen) and open it from there.";
       return;
     }
     navigator.serviceWorker.ready.then(function (registration) {
       return registration.pushManager.getSubscription().then(function (existing) {
         if (existing && Notification.permission === "granted") {
-          status.textContent = "Phone notifications are on for this device.";
+          status.textContent = "Notifications are on for this device.";
           // Make sure the server has it (for example after the app was reinstalled).
           fetch("/admin/campaigns/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(existing) });
           return;
@@ -1103,7 +1104,7 @@ export const ADMIN_CLIENT_JS = String.raw`
             .then(function (response) {
               if (!response.ok) throw new Error("Couldn't save the setting.");
               button.hidden = true;
-              status.textContent = "Phone notifications are on for this device.";
+              status.textContent = "Notifications are on for this device.";
             })
             .catch(function (error) {
               button.disabled = false;
