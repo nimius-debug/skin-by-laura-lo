@@ -27,6 +27,8 @@ import { ADMIN_CLIENT_JS } from "./client.js";
 import { MANIFEST, OFFLINE_HTML, SERVICE_WORKER_JS } from "./pwa.js";
 import { iconBytes } from "./icons.js";
 import { handleCampaignRoute } from "./campaigns/routes.js";
+import * as forms from "./forms.js";
+import { formsHomePage, formSubmissionsPage, submissionPage, clientFormsCard } from "./pages/forms.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
 // sheet. Flip to true to bring the upload pages and routes back.
@@ -263,7 +265,12 @@ async function handleInsight(env, clientId, { refresh = false } = {}) {
 async function handleSync(env) {
   try {
     const result = await syncClientsFromSquare(env);
-    return jsonResponse(result);
+    // Forms from people who weren't clients yet link once the sync adds them.
+    const formsLinked = await forms.linkWaitingSubmissions(env).catch((error) => {
+      console.error("Linking waiting forms failed:", error.message);
+      return 0;
+    });
+    return jsonResponse({ ...result, formsLinked });
   } catch (error) {
     console.error("Square client sync failed:", error.message);
     return jsonResponse({ message: error.message || "Sync failed." }, 502);
@@ -284,6 +291,57 @@ async function handleOriginal(env, noteId) {
   const object = await storage.getObject(env, note.pdf_key);
   if (!object) return notFound();
   return new Response(object.body, { headers: { "content-type": "application/pdf", "cache-control": "private, max-age=3600" } });
+}
+
+/** /admin/forms and below. Returns null for anything it doesn't handle. */
+async function handleFormsRoute(request, env, url, segments, method) {
+  // GET /admin/forms
+  if (segments.length === 2 && method === "GET") {
+    const [counts, recent] = await Promise.all([forms.formCounts(env), forms.listSubmissions(env, { limit: 15 })]);
+    const siteUrl = settings(env).siteUrl;
+    return adminHtmlResponse(adminPage({ title: "Forms", active: "forms", body: formsHomePage({ counts, recent, siteUrl }) }));
+  }
+
+  if (segments[2] === "submissions" && segments[3]) {
+    const id = segments[3];
+    // GET /admin/forms/submissions/:id — opening it marks it as seen.
+    if (segments.length === 4 && method === "GET") {
+      const submission = await forms.getSubmission(env, id);
+      if (!submission) return notFound();
+      if (submission.status === "new") await forms.setStatus(env, id, "reviewed");
+      const [suggestions, clients] = await Promise.all([forms.clientsNamed(env, submission.name), db.listClients(env)]);
+      const form = forms.formBySlug(submission.form_slug);
+      return adminHtmlResponse(adminPage({
+        title: submission.name, active: `form:${submission.form_slug}`,
+        back: { href: `/admin/forms/${submission.form_slug}`, label: "Forms" },
+        body: submissionPage({ form, submission, suggestions, clients }),
+      }));
+    }
+    // POST /admin/forms/submissions/:id/link
+    if (segments[4] === "link" && method === "POST") {
+      const data = await request.formData().catch(() => null);
+      const clientId = String(data?.get("client_id") || "");
+      if (!clientId || !(await forms.linkSubmission(env, id, clientId, "manual"))) {
+        return jsonResponse({ message: "Pick a client to link this form to." }, 400);
+      }
+      return redirect(`/admin/forms/submissions/${id}`);
+    }
+    // POST /admin/forms/submissions/:id/unlink
+    if (segments[4] === "unlink" && method === "POST") {
+      await forms.unlinkSubmission(env, id);
+      return redirect(`/admin/forms/submissions/${id}`);
+    }
+    return null;
+  }
+
+  // GET /admin/forms/:slug
+  if (segments.length === 3 && method === "GET") {
+    const form = forms.formBySlug(segments[2]);
+    if (!form) return notFound();
+    const submissions = await forms.listSubmissions(env, { slug: form.slug });
+    return adminHtmlResponse(adminPage({ title: form.title, active: `form:${form.slug}`, body: formSubmissionsPage({ form, submissions }) }));
+  }
+  return null;
 }
 
 export async function handleAdminRequest(request, env, url) {
@@ -369,6 +427,11 @@ async function handleSignedIn(request, env, url, segments, method) {
   const campaignResponse = await handleCampaignRoute(request, env, url, segments, method);
   if (campaignResponse) return campaignResponse;
 
+  if (segments[1] === "forms") {
+    const formsResponse = await handleFormsRoute(request, env, url, segments, method);
+    if (formsResponse) return formsResponse;
+  }
+
   const clientMatch = segments[1] === "clients" ? segments[2] : null;
 
   if (clientMatch && segments.length === 3 && method === "GET") {
@@ -379,7 +442,9 @@ async function handleSignedIn(request, env, url, segments, method) {
       await loadClientOrders(env, client, { refresh: true }).catch((error) => console.error("Refresh failed:", error.message));
       return redirect(`/admin/clients/${clientMatch}`);
     }
-    const [notes, sourceFiles] = await Promise.all([db.listNotesForClient(env, clientMatch), db.listSourceFiles(env, clientMatch)]);
+    const [notes, sourceFiles, formSubmissions] = await Promise.all([
+      db.listNotesForClient(env, clientMatch), db.listSourceFiles(env, clientMatch), forms.listSubmissionsForClient(env, clientMatch),
+    ]);
     const { routine, history, services, spend, flags, purchasesFailed, syncedAt, source } = await loadClientPurchases(env, client, notes);
     const saved = await db.getSavedSummary(env, clientMatch);
     const savedSummary = saved && {
@@ -388,7 +453,7 @@ async function handleSignedIn(request, env, url, segments, method) {
       // null when the purchases couldn't be read, so the page doesn't claim it is out of date.
       current: purchasesFailed ? null : saved.hash === (await summaryInputHash(env, { client, notes, routine, history, flags })),
     };
-    return adminHtmlResponse(adminPage({ title: client.name, back: { href: "/admin", label: "Clients" }, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, purchases: { syncedAt, source, failed: purchasesFailed } }) }));
+    return adminHtmlResponse(adminPage({ title: client.name, back: { href: "/admin", label: "Clients" }, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, formsCard: clientFormsCard(formSubmissions), purchases: { syncedAt, source, failed: purchasesFailed } }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {

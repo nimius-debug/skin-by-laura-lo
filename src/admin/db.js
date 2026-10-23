@@ -40,7 +40,7 @@ export async function upsertClientFromSquare(env, { squareCustomerId, name }) {
 
 export async function listNotesForClient(env, clientId) {
   const { results } = await env.CLIENT_NOTES_DB.prepare(
-    `SELECT id, note_date, summary, extracted_text, confidence, source, pdf_key, created_at
+    `SELECT id, note_date, summary, extracted_text, confidence, source, pdf_key, source_submission_id, created_at
      FROM notes WHERE client_id = ?
      ORDER BY (note_date IS NULL), note_date DESC, created_at DESC`,
   ).bind(clientId).all();

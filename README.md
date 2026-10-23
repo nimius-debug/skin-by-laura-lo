@@ -243,6 +243,45 @@ is signed with the password, so changing `ADMIN_PASSWORD` signs everyone out.
 PDF/image note uploads are switched off (`UPLOADS_ENABLED` in
 `src/admin/routes.js`) while notes come from the Excel sheet.
 
+### Client forms
+
+Intake forms clients fill out before a visit, under **Forms** in the site
+header (`/forms`, `/forms/<form>`). Each form is written as data in
+`src/forms/definitions.js`: steps, questions, which steps only apply to some
+services, and how each answer reads in the client's notes. The public page,
+the server-side checks and the admin view are all built from that, so a new
+form is a new entry there.
+
+- **One step at a time.** A progress bar, large tap targets, and only the
+  steps for the services she picked. Each step is checked before moving on,
+  and everything is checked again on the server. Without JavaScript the form
+  shows as one long page and still sends.
+- **Kept whole.** Every submission is saved in `form_submissions` exactly as
+  sent, with the questions as she saw them.
+- **Linked to the client.** Her email, then her phone, is looked up in
+  Square. A match with an existing client links straight away. A Square
+  customer with no completed booking yet links on the next "Sync from
+  Square". Anything else waits on the form's page in the admin for Laura to
+  pick the client.
+- **Fed into the insight.** A linked submission is also written as a note
+  (`notes.source = 'form'`) holding only the answers that matter for her care
+  (services, actives, allergies, conditions, pregnancy, reactions). The AI
+  summary, the safety check and the email matching read it like any other
+  note, and the summary's cache sees the change. Negative answers are worded
+  so they aren't flagged ("No known allergies").
+- **Admin.** `/admin/forms` shows each form with its counts and a link to copy,
+  and every submission with its answers and a client picker. A client's page
+  lists the forms she has sent.
+
+**Setup.** Run migration `0007_form_submissions.sql` before deploying:
+
+```bash
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0007_form_submissions.sql
+```
+
+For the Square lookup the access token also needs **Customers read**
+(`CUSTOMERS_READ`), which the client sync already uses.
+
 ### Email campaigns
 
 `/admin/campaigns` writes and sends the twice-weekly client email (Tuesday

@@ -1,5 +1,6 @@
 import { html, toString, raw } from "../html.js";
 import { APP_HEAD, ASSET_VERSION } from "./pwa.js";
+import { FORMS } from "../forms/definitions.js";
 
 const ADMIN_STYLES = `
 :root { --ink:#2A241F; --ink-soft:#6E6358; --line:#E7DCCB; --ground:#FBF6F0; --surface:#FFFFFF;
@@ -328,6 +329,37 @@ const CAMPAIGN_STYLES = `
 }
 `;
 
+const FORMS_STYLES = `
+.admin-nav a.nav-sub { padding: 7px 14px 7px 28px; font-size: 13px; color: #A99D8F; }
+.admin-nav a.nav-sub.active { background: #3A322B; color: #FFF8F2; font-weight: 600; }
+.forms-grid { display: flex; flex-wrap: wrap; gap: 18px; }
+.forms-card { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.forms-card-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; color: var(--ink); }
+.forms-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-soft); }
+.forms-stats strong { font-family: 'Fraunces', serif; font-size: 26px; color: var(--ink); margin-right: 2px; }
+.forms-link-row { display: flex; gap: 8px; }
+.forms-link-row input { flex: 1; min-width: 0; color: var(--ink-soft); background: var(--ground); }
+.forms-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.forms-contact { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; margin-top: 4px; }
+.forms-q { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); line-height: 1.45; }
+.forms-blank { color: var(--muted); font-style: italic; }
+.forms-linked, .forms-unlinked { display: flex; flex-direction: column; gap: 10px; }
+.forms-unlinked { border-color: #E8CFA0; background: #FFFBF3; }
+.forms-client-name { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; }
+.forms-link-form { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.forms-link-form select { display: block; width: 100%; margin-top: 6px; font: inherit; font-size: 15px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
+.forms-change { font-size: 13.5px; }
+.forms-change summary { cursor: pointer; color: var(--ink-soft); font-weight: 600; padding: 4px 0; }
+.forms-change[open] { display: flex; flex-direction: column; gap: 10px; }
+.forms-client-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid #F0E8DC; color: var(--ink); }
+.forms-client-row:last-child { border-bottom: none; }
+@media (max-width: 760px) {
+  .forms-col-form { display: none; }
+  .forms-card-actions .btn { flex: 1; justify-content: center; }
+  .forms-link-form select { font-size: 16px; }
+}
+`;
+
 const LOGIN_STYLES = `
 body.login-body { background: var(--ink); }
 .login-wrap { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
@@ -344,23 +376,28 @@ body.login-body { background: var(--ink); }
 
 const TAB_ICONS = {
   clients: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5"></path></svg>',
+  forms: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="18" rx="2.5"></rect><path d="M9 3.5h6v3H9z"></path><path d="M8.5 11.5h7M8.5 15.5h4.5"></path></svg>',
   campaigns: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M3.5 6.5l8.5 6.5 8.5-6.5"></path></svg>',
 };
 
 /** The phone's bottom tab bar, on the top-level screens only (pages with a back button don't show it). */
 function tabBar(active) {
-  const tab = (href, label, key) => html`<a href="${href}" class="tab${active === key ? " on" : ""}"${active === key ? raw(' aria-current="page"') : ""}>${raw(TAB_ICONS[key])}<span>${label}</span></a>`;
-  return html`<nav class="tab-bar" aria-label="Sections">${tab("/admin", "Clients", "clients")}${tab("/admin/campaigns", "Email", "campaigns")}</nav>`;
+  const on = (key) => active === key || (key === "forms" && active.startsWith("form"));
+  const tab = (href, label, key) => html`<a href="${href}" class="tab${on(key) ? " on" : ""}"${on(key) ? raw(' aria-current="page"') : ""}>${raw(TAB_ICONS[key])}<span>${label}</span></a>`;
+  return html`<nav class="tab-bar" aria-label="Sections">${tab("/admin", "Clients", "clients")}${tab("/admin/campaigns", "Email", "campaigns")}${tab("/admin/forms", "Forms", "forms")}</nav>`;
 }
 
 function nav(active, back) {
-  const link = (href, label, key) => html`<a href="${href}"${active === key ? raw(' class="active"') : ""}>${label}</a>`;
+  const isOn = (key) => active === key || (key === "forms" && active.startsWith("form"));
+  const link = (href, label, key) => html`<a href="${href}"${isOn(key) ? raw(' class="active"') : ""}>${label}</a>`;
   return html`
     <nav class="admin-nav${back ? " has-back" : ""}" aria-label="Admin">
       ${back ? html`<a class="nav-back" href="${back.href}"><span class="nav-back-chevron" aria-hidden="true">‹</span>${back.label}</a>` : ""}
       <div class="brand">Laura — Admin</div>
       ${link("/admin", "Clients", "clients")}
       ${link("/admin/campaigns", "Email campaigns", "campaigns")}
+      ${link("/admin/forms", "Forms", "forms")}
+      ${FORMS.map((form) => html`<a class="nav-sub${active === `form:${form.slug}` ? " active" : ""}" href="/admin/forms/${form.slug}">${form.navLabel}</a>`)}
       <div class="spacer"></div>
       <form method="post" action="/admin/logout" style="margin: 0;">
         <button type="submit" class="logout-btn">Log out</button>
@@ -416,7 +453,7 @@ ${raw(APP_HEAD)}
 <meta name="robots" content="noindex, nofollow" />
 <title>${title ? `${title} · Admin` : "Admin"}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600;700&display=swap" />
-<style>${raw(ADMIN_STYLES)}${raw(CAMPAIGN_STYLES)}</style>
+<style>${raw(ADMIN_STYLES)}${raw(CAMPAIGN_STYLES)}${raw(FORMS_STYLES)}</style>
 </head>
 <body>
 <div class="admin-shell${back ? "" : " has-tabs"}">

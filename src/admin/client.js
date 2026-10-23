@@ -39,7 +39,7 @@ export const ADMIN_CLIENT_JS = String.raw`
               syncBtn.disabled = false;
               return;
             }
-            if (status) status.textContent = "Found " + result.data.clientsFound + " client(s), imported " + result.data.notesImported + " note(s) from Square. Reloading...";
+            if (status) status.textContent = "Found " + result.data.clientsFound + " client(s), imported " + result.data.notesImported + " note(s) from Square" + (result.data.formsLinked ? ", linked " + result.data.formsLinked + " form(s)" : "") + ". Reloading...";
             window.location.reload();
           })
           .catch(function () {
@@ -47,6 +47,30 @@ export const ADMIN_CLIENT_JS = String.raw`
             syncBtn.disabled = false;
           });
       });
+    }
+  }
+
+  /* ------------------------------------------------------------ forms page */
+
+  // "Copy link" next to each form, to paste into a booking confirmation or a text.
+  function wireFormLinks() {
+    document.querySelectorAll("[data-copy-link]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var link = btn.getAttribute("data-copy-link");
+        var done = function () {
+          btn.textContent = "Copied";
+          setTimeout(function () { btn.textContent = "Copy link"; }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(done, function () { selectSource(btn); });
+        } else {
+          selectSource(btn);
+        }
+      });
+    });
+    function selectSource(btn) {
+      var input = btn.parentNode.querySelector("[data-copy-source]");
+      if (input) { input.focus(); input.select(); }
     }
   }
 
@@ -1069,6 +1093,7 @@ export const ADMIN_CLIENT_JS = String.raw`
 
   document.addEventListener("DOMContentLoaded", function () {
     wireClientsPage();
+    wireFormLinks();
     wireClientProfilePage();
     wireUploadPage();
     wireCampaignLists();
