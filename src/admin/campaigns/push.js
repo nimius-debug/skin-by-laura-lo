@@ -2,12 +2,14 @@
 // works for the Home Screen app: Laura turns it on once from the Campaigns
 // page, and the reminder shows up like any app notification.
 //
-// The push carries no data. The app's service worker shows a fixed message
-// and opens the "new email" screen, so nothing needs encrypting and no client
-// details ever pass through Apple's or Google's push servers.
+// The push carries no data. Before waking the phones, the message is saved
+// here; the app's service worker then asks the dashboard (signed in) what to
+// show. So nothing needs encrypting and no client names ever pass through
+// Apple's or Google's push servers. Used by the email reminders and by the
+// missing-note reminders (see ../note-reminders.js).
 //
 // The signing keys (VAPID) are made on first use and kept in admin_settings;
-// the phones' subscriptions are kept there too.
+// the phones' subscriptions and the recent messages are kept there too.
 
 import { SUPPORT_EMAIL } from "../../config.js";
 import { getSetting, setSetting } from "./store.js";
@@ -82,10 +84,38 @@ async function vapidHeader(keys, endpoint, now) {
   return `vapid t=${header}.${claims}.${base64url(signature)}, k=${keys.publicKey}`;
 }
 
-/** Wakes every subscribed phone. Subscriptions the push service says are gone are removed. Returns how many were reached. */
-export async function notifyPhones(env, { now = Date.now(), fetchImpl = fetch } = {}) {
+// A push can reach a phone that was off hours later, so messages are kept as long as a push lives (its ttl).
+const MESSAGE_LIFETIME_MS = 12 * 60 * 60 * 1000;
+const MAX_MESSAGES = 30;
+
+/**
+ * The messages saved in the last 12 hours, newest first: [{ id, title, body, url, writeUrl?, at }].
+ * The service worker shows the ones it hasn't shown yet.
+ */
+export async function recentMessages(env, { now = Date.now() } = {}) {
+  let list;
+  try {
+    list = JSON.parse((await getSetting(env, "push_messages")) || "[]");
+  } catch {
+    list = [];
+  }
+  return (Array.isArray(list) ? list : []).filter((message) => now - Date.parse(message.at) < MESSAGE_LIFETIME_MS);
+}
+
+/** Saves messages for the service worker to fetch. A message with an id already saved replaces it. */
+export async function saveMessages(env, messages, { now = Date.now() } = {}) {
+  const at = new Date(now).toISOString();
+  const ids = new Set(messages.map((message) => message.id));
+  const kept = (await recentMessages(env, { now })).filter((message) => !ids.has(message.id));
+  const list = [...messages.map((message) => ({ ...message, at })), ...kept].slice(0, MAX_MESSAGES);
+  await setSetting(env, "push_messages", JSON.stringify(list));
+}
+
+/** Saves `messages`, then wakes every subscribed phone to show them. Subscriptions the push service says are gone are removed. Returns how many were reached. */
+export async function notifyPhones(env, { messages = [], now = Date.now(), fetchImpl = fetch } = {}) {
   const subscriptions = await listSubscriptions(env);
   if (!subscriptions.length) return 0;
+  if (messages.length) await saveMessages(env, messages, { now });
   const keys = await vapidKeys(env);
   let reached = 0;
   for (const subscription of subscriptions) {

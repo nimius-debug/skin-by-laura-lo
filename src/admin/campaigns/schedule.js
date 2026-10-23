@@ -88,7 +88,9 @@ export async function maybeRemind(env, now) {
   await store.setSetting(env, "last_reminder_date", local.date);
   if (await campaignStartedToday(env, local)) return { reminded: false, reason: "already-started" };
 
-  const phones = await notifyPhones(env).catch((error) => { console.error("Reminder push failed:", error.message); return 0; });
+  const phones = await notifyPhones(env, {
+    messages: [{ id: `campaign-${local.date}`, title: "Time for this week's email", body: "Tap to write today's email to your clients.", url: "/admin/campaigns/new" }],
+  }).catch((error) => { console.error("Reminder push failed:", error.message); return 0; });
   let ideas = [];
   if (env.ANTHROPIC_API_KEY && env.REMINDER_EMAIL) {
     try {
