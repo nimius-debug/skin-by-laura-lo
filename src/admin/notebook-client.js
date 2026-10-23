@@ -42,7 +42,12 @@ export const NOTEBOOK_JS = String.raw`
   var MAX_ZOOM = 2.5;
   // Canvas pixels per page unit at most. Higher zoom is drawn slightly soft rather than risk
   // the large canvases iPad Safari refuses to keep in memory.
-  var MAX_BACKING = 3;
+  var MAX_BACKING = 2.5;
+  // Pages away from the screen are kept this coarse, so a long note doesn't use up Safari's
+  // canvas memory. They are re-drawn sharp as they scroll near.
+  var FAR_BACKING = 0.4;
+  // The server takes up to 12 pages a note.
+  var MAX_PAGES = 12;
   // A touch this wide is a resting hand, not a fingertip.
   var PALM_RADIUS = 30;
 
@@ -197,7 +202,7 @@ export const NOTEBOOK_JS = String.raw`
     var cssWidth = Math.min(PAGE_W, scroller.clientWidth - 32) * state.zoom;
     var cssHeight = cssWidth * PAGE_H / PAGE_W;
     var dpr = window.devicePixelRatio || 1;
-    var backing = Math.min(cssWidth * dpr / PAGE_W, MAX_BACKING);
+    var backing = view.near ? Math.min(cssWidth * dpr / PAGE_W, MAX_BACKING) : FAR_BACKING;
     view.canvas.style.width = cssWidth + "px";
     view.canvas.style.height = cssHeight + "px";
     view.canvas.width = Math.round(PAGE_W * backing);
@@ -216,21 +221,45 @@ export const NOTEBOOK_JS = String.raw`
     canvas.setAttribute("aria-label", "Note page " + (index + 1) + ". Write with Apple Pencil.");
     wrap.appendChild(canvas);
     pagesBox.appendChild(wrap);
-    var view = { canvas: canvas, committed: document.createElement("canvas"), scale: 1 };
+    // Until the observer says otherwise, the first pages and a newly added one are on screen.
+    var view = { canvas: canvas, committed: document.createElement("canvas"), scale: 1, near: !nearWatch || index < 2 || index === state.pages.length - 1 };
     pageViews[index] = view;
     wirePointer(canvas, index);
     sizePage(index);
+    if (nearWatch) nearWatch.observe(wrap);
+    updatePageButton();
   }
 
+  // Which pages are on or near the screen, so only those are drawn at full sharpness.
+  var nearWatch = "IntersectionObserver" in window ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      var index = Array.prototype.indexOf.call(pagesBox.children, entry.target);
+      var view = pageViews[index];
+      if (!view || view.near === entry.isIntersecting) return;
+      view.near = entry.isIntersecting;
+      sizePage(index);
+    });
+  }, { root: scroller, rootMargin: "100% 0px" }) : null;
+
   function buildPages() {
+    if (nearWatch) nearWatch.disconnect();
     pagesBox.innerHTML = "";
     pageViews = [];
     state.pages.forEach(function (_, index) { addPageView(index); });
+    updatePageButton();
+  }
+
+  function updatePageButton() {
+    var button = document.getElementById("nb-add-page");
+    if (button) button.disabled = state.pages.length >= MAX_PAGES;
   }
 
   /* -------------------------------------------------------------- input */
 
   var penDown = false;
+  // While changing a saved note whose handwriting hasn't loaded, nothing can be written, so
+  // Done can never replace her pages with a blank one.
+  var locked = false;
 
   function toPage(canvas, event) {
     var rect = canvas.getBoundingClientRect();
@@ -273,6 +302,7 @@ export const NOTEBOOK_JS = String.raw`
     canvas.addEventListener("touchmove", holdStill, { passive: false });
 
     canvas.addEventListener("pointerdown", function (event) {
+      if (locked) return;
       if (event.pointerType === "touch" && (!state.fingerDraws || event.width > PALM_RADIUS * 2)) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       event.preventDefault();
@@ -467,6 +497,7 @@ export const NOTEBOOK_JS = String.raw`
   });
 
   document.getElementById("nb-add-page").addEventListener("click", function () {
+    if (locked || state.pages.length >= MAX_PAGES) return;
     state.pages.push([]);
     addPageView(state.pages.length - 1);
     pageViews[state.pages.length - 1].canvas.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -561,6 +592,11 @@ export const NOTEBOOK_JS = String.raw`
   var reviewError = document.getElementById("nb-review-error");
   var currentDraft = null;
   var previewUrls = [];
+  // Sections she has typed in on the review. A later Done keeps her words rather than a new reading.
+  var typed = {};
+  document.querySelectorAll("[data-field]").forEach(function (input) {
+    input.addEventListener("input", function () { typed[input.getAttribute("data-field")] = true; });
+  });
 
   function exportPage(index) {
     var scale = 1.5; // 1230 x 1740: sharp enough to read, small enough to send quickly
@@ -571,7 +607,14 @@ export const NOTEBOOK_JS = String.raw`
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     drawTemplate(ctx, index);
     state.pages[index].forEach(function (stroke) { drawStroke(ctx, stroke); });
-    return new Promise(function (resolve) { canvas.toBlob(resolve, "image/png"); });
+    return new Promise(function (resolve) {
+      canvas.toBlob(function (blob) {
+        // Safari holds canvas memory until it's shrunk.
+        canvas.width = 0;
+        canvas.height = 0;
+        resolve(blob);
+      }, "image/png");
+    });
   }
 
   function pagesToSend() {
@@ -585,6 +628,10 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function done() {
+    if (locked) {
+      openSaved();
+      return;
+    }
     if (!hasInk()) {
       setStatus("Write something first.", "warn");
       return;
@@ -639,7 +686,8 @@ export const NOTEBOOK_JS = String.raw`
     var reading = draft.reading || {};
     var fields = reading.fields || {};
     document.querySelectorAll("[data-field]").forEach(function (input) {
-      input.value = fields[input.getAttribute("data-field")] || "";
+      var name = input.getAttribute("data-field");
+      if (!typed[name]) input.value = fields[name] || "";
     });
     document.getElementById("nb-date").value = state.date;
 
@@ -724,8 +772,14 @@ export const NOTEBOOK_JS = String.raw`
     banner.hidden = true;
     if (noteId) {
       // Changing a saved note: back to the note as it was saved.
-      clearLocal().then(loadSaved).then(function (pages) {
-        state.pages = pages || [[]];
+      loadSaved().then(function (pages) {
+        // Her changes stay until the saved note is in hand.
+        if (!pages) {
+          setStatus("Couldn't open the saved handwriting, so nothing was changed. Try again when you're back online.", "warn");
+          return;
+        }
+        clearLocal();
+        state.pages = pages;
         state.date = /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday();
         buildPages();
         updateUndoButtons();
@@ -761,14 +815,27 @@ export const NOTEBOOK_JS = String.raw`
     updateUndoButtons();
   }
 
-  loadLocal().then(function (saved) {
-    if (saved || !noteId) return begin(saved);
-    // Opening a saved note: its strokes come from the dashboard.
+  // Opening a saved note: its strokes come from the dashboard. Until they arrive the page stays
+  // locked, and Done tries again.
+  function openSaved() {
+    locked = true;
+    setStatus("Opening the handwriting…", "");
     return loadSaved().then(function (pages) {
-      if (!pages) setStatus("Couldn't open the handwriting. Check the connection and reopen.", "warn");
-      state.pages = pages || [[]];
+      if (!pages) {
+        setStatus("Couldn't open the handwriting. Check the connection, then tap Done to try again.", "warn");
+        return;
+      }
+      locked = false;
+      setStatus("", "");
+      state.pages = pages;
       begin(null);
     });
+  }
+
+  loadLocal().then(function (saved) {
+    if (saved || !noteId) return begin(saved);
+    buildPages();
+    return openSaved();
   });
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(function () { pageViews.forEach(function (_, index) { renderPage(index); }); });

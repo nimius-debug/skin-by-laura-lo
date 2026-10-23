@@ -82,10 +82,31 @@ async function customerNamesFor(env, customerIds) {
   return names;
 }
 
-/** Today's appointments: { day, rows, failed }. rows is empty (and failed true) when Square can't be read. */
-export async function todaysAppointments(env, { now = new Date() } = {}) {
+// The clients page waits for the list, so a slow Square shouldn't hold up the iPad's home screen.
+const SQUARE_BUDGET_MS = 3000;
+
+/**
+ * Today's appointments: { day, rows, failed }. rows is empty (and failed true) when Square can't
+ * be read within `timeoutMs`.
+ */
+export async function todaysAppointments(env, { now = new Date(), timeoutMs = SQUARE_BUDGET_MS } = {}) {
   const window = salonDay(now);
   if (!isConfigured(env)) return { day: window.day, rows: [], failed: false };
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      console.error(`Reading today's bookings took over ${timeoutMs} ms; showing the page without them.`);
+      resolve({ day: window.day, rows: [], failed: true });
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([readAppointments(env, window), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readAppointments(env, window) {
   try {
     const payload = await squareGet(env, "/v2/bookings", { location_id: env.SQUARE_LOCATION_ID, start_at_min: window.start, start_at_max: window.end, limit: 100 });
     const bookings = (payload.bookings || []).filter((booking) => SHOWN_STATUSES.has(booking.status));

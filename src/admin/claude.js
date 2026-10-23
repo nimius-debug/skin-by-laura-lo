@@ -124,15 +124,28 @@ Rules:
 Respond with ONLY a JSON object, no other text, in exactly this shape:
 {"fields": {"Treatment type": "...", "Notes / remarks": "..."}, "summary": "...", "confidence": "high", "unclear": ["..."]}`;
 
+// Added when she changes a note she already saved: its sections may hold corrections she typed.
+const INK_EDIT_RULES = `
+
+This note was saved before, and she has now changed the handwriting. Its sections as currently saved are given below. They may include corrections she typed herself, so:
+- Start from the saved sections and keep her typed wording wherever the handwriting still says the same thing.
+- Change or add only what the handwriting now shows differently (new lines, crossed-out or rewritten words).
+- Leave a saved section as it is if the handwriting under that heading hasn't changed.`;
+
 /**
  * Read an iPad note's pages (PNG images, in order) into its four sections. Throws when the
  * API can't be reached; a reply that isn't the expected JSON comes back as a low-confidence
- * reading with nothing filled in, so she can still type it and save.
+ * reading with nothing filled in, so she can still type it and save. `current` is the saved
+ * note's sections when she is changing one, so her typed corrections are kept.
  */
-export async function readInkNote(env, pages) {
+export async function readInkNote(env, pages, { current = null } = {}) {
   if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
   const content = [];
+  const saved = current ? NOTE_FIELDS.filter((name) => current[name]) : [];
+  if (saved.length) {
+    content.push({ type: "text", text: `The note's sections as currently saved:\n\n${saved.map((name) => `${name}:\n${current[name]}`).join("\n\n")}` });
+  }
   pages.forEach((page, index) => {
     content.push({ type: "text", text: `Page ${index + 1}:` });
     content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: bytesToBase64(page) } });
@@ -142,7 +155,7 @@ export async function readInkNote(env, pages) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": ANTHROPIC_VERSION },
-    body: JSON.stringify({ model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, max_tokens: 2048, system: INK_PROMPT, messages: [{ role: "user", content }] }),
+    body: JSON.stringify({ model: env.ANTHROPIC_MODEL || DEFAULT_MODEL, max_tokens: 2048, system: saved.length ? INK_PROMPT + INK_EDIT_RULES : INK_PROMPT, messages: [{ role: "user", content }] }),
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");

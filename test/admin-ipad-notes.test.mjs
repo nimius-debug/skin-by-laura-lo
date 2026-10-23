@@ -10,7 +10,7 @@ import { NOTEBOOK_JS } from "../src/admin/notebook-client.js";
 import { APP_HEAD } from "../src/admin/pwa.js";
 import { iconBytes } from "../src/admin/icons.js";
 import worker from "../src/index.js";
-import { salonDay, appointmentRows } from "../src/admin/today.js";
+import { salonDay, appointmentRows, todaysAppointments } from "../src/admin/today.js";
 import { deleteStaleDrafts } from "../src/admin/db.js";
 
 let failures = 0;
@@ -222,6 +222,32 @@ function claudeReplies(text) {
   check("Square notes have no edit page", (await call("/admin/notes/note_old/edit")).status, 404);
   const profile = await (await call("/admin/clients/client_maya")).text();
   check("her page links to Edit and Edit handwriting on iPad notes", [profile.includes(`/admin/notes/${noteId}/edit`), profile.includes(`write?note=${noteId}`)], [true, true]);
+
+  // Editing the handwriting after a dashboard correction: Claude is shown the saved sections, so her typing is kept.
+  let sentBody = null;
+  globalThis.fetch = async (url, init) => {
+    sentBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify({ fields: { "Treatment type": "Peel + LED 10 min", "Notes / remarks": "calmer\nless redness" }, summary: "Calmer.", confidence: "high", unclear: [] }) }] }), { status: 200 });
+  };
+  const again = inkForm();
+  again.append("note", noteId);
+  await (await call("/admin/clients/client_maya/ink", { method: "POST", body: again })).json();
+  const sentText = sentBody.messages[0].content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+  check("changing the handwriting shows Claude the saved sections and asks it to keep them", [sentText.includes("Peel + LED 10 min"), sentText.includes("calmer"), sentBody.system.includes("keep her typed wording")], [true, true, true]);
+
+  globalThis.fetch = async () => new Response("{}", { status: 529 });
+  const failing = inkForm();
+  failing.append("note", noteId);
+  const fallback = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: failing })).json();
+  check("if the reading fails while changing a note, the review starts from the saved sections", [fallback.readFailed, fallback.reading.fields], [true, { "Treatment type": "Peel + LED 10 min", "Notes / remarks": "calmer" }]);
+
+  sentBody = null;
+  globalThis.fetch = async (url, init) => {
+    sentBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify({ fields: { "Treatment type": "Peel" }, summary: "Peel.", confidence: "high", unclear: [] }) }] }), { status: 200 });
+  };
+  await call("/admin/clients/client_maya/ink", { method: "POST", body: inkForm() });
+  check("a new note's reading isn't given any saved sections", [JSON.stringify(sentBody.messages).includes("currently saved"), sentBody.system.includes("keep her typed wording")], [false, false]);
 }
 globalThis.fetch = realFetch;
 
@@ -257,6 +283,10 @@ globalThis.fetch = realFetch;
   globalThis.fetch = async () => { throw new Error("Square down"); };
   const down = await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"));
   check("when Square is down the clients page still opens and says so", [down.status, (await down.text()).includes("Couldn't read today's bookings")], [200, true]);
+  globalThis.fetch = (url, init) => new Promise((resolve) => setTimeout(() => resolve(new Response(JSON.stringify({ bookings: [] }))), 2000));
+  const started = Date.now();
+  const slow = await todaysAppointments(squareEnv, { timeoutMs: 100 });
+  check("a slow Square gives up on today's list instead of holding the page", [slow.failed, slow.rows, Date.now() - started < 1000], [true, [], true]);
   globalThis.fetch = realFetch;
 }
 

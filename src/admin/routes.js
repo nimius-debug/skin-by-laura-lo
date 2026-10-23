@@ -329,7 +329,9 @@ async function handleInkRead(request, env, clientId) {
   }
 
   const noteId = typeof form.get("note") === "string" ? form.get("note") : "";
-  if (noteId && !(await editableInkNote(env, clientId, noteId))) return jsonResponse({ message: "That note can't be changed here." }, 404);
+  const editing = noteId ? await editableInkNote(env, clientId, noteId) : null;
+  if (noteId && !editing) return jsonResponse({ message: "That note can't be changed here." }, 404);
+  const savedFields = editing ? noteFields(editing) || {} : null;
   // Done tapped again: the earlier reading is no longer wanted.
   await discardDraft(env, clientId, typeof form.get("replaces") === "string" ? form.get("replaces") : "");
 
@@ -338,10 +340,11 @@ async function handleInkRead(request, env, clientId) {
   const inkKey = `drafts/${draftId}/ink.json`;
   await env.NOTES_BUCKET.put(inkKey, strokes);
 
-  let reading = { fields: {}, summary: "", confidence: "low", unclear: [] };
+  // Changing a saved note: if the reading fails, the review starts from what was saved, not blank.
+  let reading = { fields: savedFields || {}, summary: "", confidence: "low", unclear: [] };
   let readFailed = false;
   try {
-    reading = await readInkNote(env, pages);
+    reading = await readInkNote(env, pages, { current: savedFields });
   } catch (error) {
     console.error("Reading handwriting failed:", error.message);
     readFailed = true;
@@ -402,6 +405,7 @@ async function handleNoteEditPage(env, noteId) {
   const note = await db.getNote(env, noteId);
   if (!note || note.source !== "ipad") return notFound();
   const client = await db.getClient(env, note.client_id);
+  if (!client) return notFound();
   return adminHtmlResponse(adminPage({
     title: `Edit note — ${client.name}`,
     back: { href: `/admin/clients/${client.id}`, label: client.name },
