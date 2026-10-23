@@ -208,7 +208,7 @@ function editForm({ campaign, version }) {
     ${shared ? html`
       ${kept("subject", content.subject)}${kept("preheader", content.preheader)}${kept("eyebrow", content.eyebrow)}${kept("headline", content.headline)}${kept("paragraphs", (content.paragraphs || []).join("\n\n"))}
       ${kept("tipsTitle", content.tipsTitle)}${kept("tips", (content.tips || []).join("\n"))}${kept("ps", content.ps)}
-      ${kept("greeting", content.greeting)}${kept("buttonLabel", content.buttonLabel)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}`
+      ${kept("greeting", content.greeting)}${kept("fallbackName", content.fallbackName)}${kept("buttonLabel", content.buttonLabel)}${kept("buttonUrl", content.buttonUrl)}${kept("signoff", content.signoff)}${kept("signName", content.signName)}`
     : html`${kept("personalNote", version.personal.personalNote)}${kept("productNote", version.personal.product?.note)}${kept("ps", version.personal.ps)}`}
     <div class="camp-toolbar" role="toolbar" aria-label="Formatting">
       <button type="button" class="camp-tool" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>

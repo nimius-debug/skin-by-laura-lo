@@ -265,7 +265,8 @@ out through [Resend](https://resend.com).
    approved, edited, or rejected and redrafted with Laura's feedback. The
    email in the preview is the editor, with no Edit step: she clicks
    anything in it and types, including the subject and inbox preview line
-   (shown above the email), the "Hi", the button's words and the sign-off.
+   (shown above the email), the "Hi there", the button's words and where it
+   links, and the "See you soon, Laura" sign-off.
    Bold and links come from the toolbar, Enter adds a paragraph or tip, and
    there's a P.S. (for everyone, or just one client) and the button to show.
    Changes save as she types and keep the version's approval, since they're

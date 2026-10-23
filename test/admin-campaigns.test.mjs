@@ -280,7 +280,7 @@ async function freshEnv(extra = {}) {
   check("the email in review is editable as it is, with a P.S. and a choice of button, and no Edit step",
     [editor.includes("data-inline-editor"), editor.includes("data-edit=&quot;paragraphs&quot;"), editor.includes("data-edit=&quot;ps&quot;"), editor.includes('name="goal"'), editor.includes("edit=1")], [true, true, true, true, false]);
   check("the subject, preview line, greeting, button and sign-off are editable in the email too",
-    ["subject", "preheader", "greeting", "buttonLabel", "signoff", "signName"].map((name) => editor.includes(`data-edit=&quot;${name}&quot;`)), [true, true, true, true, true, true]);
+    ["subject", "preheader", "greeting", "fallbackName", "buttonLabel", "buttonUrl", "signoff", "signName"].map((name) => editor.includes(`data-edit=&quot;${name}&quot;`)), [true, true, true, true, true, true, true, true]);
   check("the shared editor doesn't mark a personal note, and saves as Laura types", [editor.includes("data-edit=&quot;personalNote&quot;"), editor.includes("data-save-state"), editor.includes("Save changes")], [false, true, false]);
   const mayaEditor = await (await route(`/admin/campaigns/${campaignId}?v=${maya.id}&view=preview`)).text();
   check("a personal version's editor marks its note, product line and P.S., not the shared words",
@@ -314,10 +314,12 @@ async function freshEnv(extra = {}) {
   check("editing the shared email splits paragraphs on blank lines and tips on lines",
     [saved.content.subject, saved.content.paragraphs, saved.content.tips, saved.content.product.name], ["New subject", ["One.", "Two."], ["A", "B"], "Mixi Mandelic Acid 5%"]);
   check("the shared P.S. and the button are saved", [saved.content.ps, saved.goal], ["Book soon", "shop"]);
-  check("Laura's usual words aren't stored, so they follow the button choice", [saved.content.greeting, saved.content.buttonLabel, saved.content.signoff, saved.content.signName], ["", "", "", ""]);
-  await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.", goal: "book", greeting: "Hey", buttonLabel: "Grab a spot", signoff: "Talk soon,", signName: "Laura ✨", preheader: "Quick one" });
+  check("Laura's usual words aren't stored, so they follow the button choice", [saved.content.greeting, saved.content.buttonLabel, saved.content.buttonUrl, saved.content.signoff, saved.content.signName], ["", "", "", "", ""]);
+  await post(shared.id, { action: "save", subject: "New subject", headline: "New headline", paragraphs: "One.", goal: "book", greeting: "Hey", fallbackName: "friend", buttonLabel: "Grab a spot", buttonUrl: "calendly.com/laura", signoff: "Talk soon,", signName: "Laura ✨", preheader: "Quick one" });
   const worded = await store.getCampaign(env, campaignId);
   const wordedEmail = buildMessage({ campaign: worded, version: (await store.listVersions(env, campaignId))[0], send: { first_name: "Ana" }, siteUrl: "https://x.test", unsubscribe: "https://x.test/u" });
+  const nameless = buildMessage({ campaign: worded, version: (await store.listVersions(env, campaignId))[0], send: { first_name: "" }, siteUrl: "https://x.test", unsubscribe: "https://x.test/u" });
+  check("her own button link and the name for clients without one are used", [wordedEmail.html.includes('href="https://calendly.com/laura"'), nameless.html.includes("Hey friend,")], [true, true]);
   check("her own greeting, button words, sign-off and preview line are saved and sent",
     [worded.content.preheader, wordedEmail.html.includes("Hey Ana,"), wordedEmail.html.includes(">Grab a spot</a>"), wordedEmail.text.includes("Talk soon,\nLaura ✨"), wordedEmail.html.includes("data-edit")],
     ["Quick one", true, true, true, false]);

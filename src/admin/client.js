@@ -449,7 +449,7 @@ export const ADMIN_CLIENT_JS = String.raw`
   // fields (**bold**, [named links](https://...), blank lines between
   // paragraphs) and saved, which is what the server stores and renders.
   var EDIT_BLOCK = /^(P|DIV|LI|OL|UL|H[1-6]|TABLE|TBODY|TR|TD)$/;
-  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, buttonLabel: true, signoff: true, signName: true };
+  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, fallbackName: true, buttonLabel: true, buttonUrl: true, signoff: true, signName: true };
   var FIELD_FOR = { personalPs: "ps" };
 
   function editedText(node) {
@@ -657,6 +657,11 @@ export const ADMIN_CLIENT_JS = String.raw`
           var label = row.querySelector("a");
           label.textContent = BUTTONS[goal.value];
           markEmpty(label);
+          var address = row.querySelector('[data-edit="buttonUrl"]');
+          if (address) {
+            address.textContent = row.getAttribute("data-url-" + goal.value) || "";
+            markEmpty(address);
+          }
         }
         fit();
         changed();

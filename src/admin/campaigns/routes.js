@@ -4,7 +4,7 @@ import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
-import { defaultButtonLabel } from "./email-template.js";
+import { defaultButtonLabel, defaultButtonUrl } from "./email-template.js";
 import { costEstimateInputs, draftCampaign, redraftPersonal, redraftShared } from "./drafting.js";
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
@@ -177,8 +177,21 @@ function versionText(campaign, version) {
   return [...(content.paragraphs || []), ...(content.tips || []), content.ps];
 }
 
+/** A web address Laura typed for the button, or "" if it isn't one. */
+function buttonAddress(value) {
+  let address = String(value || "").trim();
+  if (!address) return "";
+  if (!/^https?:\/\//i.test(address)) address = `https://${address}`;
+  try {
+    const url = new URL(address);
+    return url.hostname.includes(".") || url.hostname === "localhost" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 /** The campaign and version as the editor's form would leave them. Pure: nothing is saved. */
-export function applyEdits(campaign, version, form) {
+export function applyEdits(campaign, version, form, siteUrl = "") {
   if (version.isShared) {
     const goal = GOALS.has(String(form.get("goal"))) ? String(form.get("goal")) : campaign.goal;
     // Laura's own wording, kept only where it differs from the usual words.
@@ -197,7 +210,10 @@ export function applyEdits(campaign, version, form) {
       tips: lines(form.get("tips")).slice(0, 8),
       ps: field(form, "ps", 600),
       greeting: own("greeting", 40, "Hi"),
+      fallbackName: own("fallbackName", 40, "there"),
       buttonLabel: own("buttonLabel", 40, defaultButtonLabel(goal)),
+      // The usual page for the button choice isn't stored, so switching the button follows it.
+      buttonUrl: buttonAddress(own("buttonUrl", 500, buttonAddress(defaultButtonUrl(siteUrl, goal)))),
       signoff: own("signoff", 60, "See you soon,"),
       signName: own("signName", 40, "Laura"),
     };
@@ -213,7 +229,7 @@ async function handlePreview(request, env, campaignId, versionId) {
   const [campaign, version] = await Promise.all([store.getCampaign(env, campaignId), store.getVersion(env, versionId)]);
   if (!campaign || !version || version.campaign_id !== campaignId) return jsonResponse({ message: "Not found" }, 404);
   const form = await request.formData().catch(() => new FormData());
-  const edited = applyEdits(campaign, version, form);
+  const edited = applyEdits(campaign, version, form, settings(env).siteUrl);
   return jsonResponse({
     html: previewFor(env, edited.campaign, edited.version),
     hints: voiceHints(versionText(edited.campaign, edited.version)),
@@ -237,7 +253,7 @@ async function handleVersionAction(request, env, campaignId, versionId) {
       return redirect(back);
     }
     if (action === "save") {
-      const edited = applyEdits(campaign, version, form);
+      const edited = applyEdits(campaign, version, form, settings(env).siteUrl);
       if (version.isShared) await store.updateCampaign(env, campaignId, { content: edited.campaign.content, goal: edited.campaign.goal });
       else await store.updateVersion(env, versionId, { personal: edited.version.personal });
       // Laura's own edits don't need approving again, so the version keeps its status.
