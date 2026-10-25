@@ -9,12 +9,12 @@ const parse = (text, fallback) => {
 
 // --- campaigns and versions ---------------------------------------------------
 
-export async function createCampaign(env, { topic, goal, content, usage, versions }) {
+export async function createCampaign(env, { topic, goal, content, usage, versions, audience = {} }) {
   const db = env.CLIENT_NOTES_DB;
   const campaignId = newId("campaign");
   const statements = [
-    db.prepare("INSERT INTO email_campaigns (id, topic, goal, content_json, usage_json) VALUES (?, ?, ?, ?, ?)")
-      .bind(campaignId, topic, goal, JSON.stringify(content), JSON.stringify(usage || {})),
+    db.prepare("INSERT INTO email_campaigns (id, topic, goal, content_json, usage_json, audience_json) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(campaignId, topic, goal, JSON.stringify(content), JSON.stringify(usage || {}), JSON.stringify(audience)),
     db.prepare("INSERT INTO email_versions (id, campaign_id, client_id) VALUES (?, ?, NULL)").bind(newId("version"), campaignId),
   ];
   for (const version of versions) {
@@ -27,16 +27,29 @@ export async function createCampaign(env, { topic, goal, content, usage, version
 
 function campaignFromRow(row) {
   if (!row) return null;
-  return { ...row, content: parse(row.content_json, {}), usage: parse(row.usage_json, {}) };
+  return { ...row, content: parse(row.content_json, {}), usage: parse(row.usage_json, {}), audience: audienceFrom(row.audience_json) };
+}
+
+/**
+ * Who a campaign goes to. `emails` is null for campaigns from before recipients
+ * could be picked: those go to everyone. `personalize` false means one email for all.
+ */
+export function audienceFrom(text) {
+  const saved = parse(text || "{}", {}) || {};
+  return {
+    personalize: saved.personalize !== false,
+    emails: Array.isArray(saved.emails) ? saved.emails.map((email) => String(email).toLowerCase()) : null,
+  };
 }
 
 export async function getCampaign(env, campaignId) {
   return campaignFromRow(await env.CLIENT_NOTES_DB.prepare("SELECT * FROM email_campaigns WHERE id = ?").bind(campaignId).first());
 }
 
-export async function updateCampaign(env, campaignId, { content, goal, usage, status }) {
+export async function updateCampaign(env, campaignId, { content, goal, usage, status, audience }) {
   const sets = [];
   const values = [];
+  if (audience) { sets.push("audience_json = ?"); values.push(JSON.stringify(audience)); }
   if (content) { sets.push("content_json = ?"); values.push(JSON.stringify(content)); }
   if (goal) { sets.push("goal = ?"); values.push(goal); }
   if (usage) { sets.push("usage_json = ?"); values.push(JSON.stringify(usage)); }
@@ -79,6 +92,16 @@ export async function updateVersion(env, versionId, { status, personal, reason, 
   await env.CLIENT_NOTES_DB.prepare(`UPDATE email_versions SET ${sets.join(", ")} WHERE id = ?`).bind(...values, versionId).run();
 }
 
+/** Sets the status of several versions of one campaign at once (bulk approve or reject). */
+export async function updateVersionStatuses(env, campaignId, versionIds, status) {
+  const ids = [...new Set(versionIds)].slice(0, 1000);
+  if (!ids.length) return;
+  const db = env.CLIENT_NOTES_DB;
+  await db.batch(chunks(ids, 90).map((group) => db.prepare(
+    `UPDATE email_versions SET status = ?, updated_at = datetime('now') WHERE campaign_id = ? AND id IN (${group.map(() => "?").join(", ")})`,
+  ).bind(status, campaignId, ...group)));
+}
+
 /** Recent campaigns with their counts, newest first. */
 export async function listCampaigns(env, limit = 20) {
   const { results } = await env.CLIENT_NOTES_DB.prepare(
@@ -118,12 +141,91 @@ export async function nextQueued(env, limit) {
   return results;
 }
 
-/** Emails handed to Resend since the start of `dayStartIso` (UTC). */
-export async function countSentSince(env, dayStartIso) {
+/** Campaign emails handed to Resend since `sinceIso` (UTC). */
+export async function countSentSince(env, sinceIso) {
   const row = await env.CLIENT_NOTES_DB.prepare(
     "SELECT COUNT(*) AS n FROM email_sends WHERE status = 'sent' AND sent_at >= ?",
-  ).bind(dayStartIso).first();
+  ).bind(sinceIso).first();
   return row?.n || 0;
+}
+
+/** Test emails and reminders sent since `sinceIso`, which Resend counts too. */
+export async function countOtherSentSince(env, sinceIso) {
+  const row = await env.CLIENT_NOTES_DB.prepare("SELECT COUNT(*) AS n FROM email_other_sends WHERE sent_at >= ?").bind(sinceIso).first();
+  return row?.n || 0;
+}
+
+/** Notes an email sent outside a campaign (kind: test | reminder). */
+export async function recordOtherSend(env, kind, now = new Date()) {
+  await env.CLIENT_NOTES_DB.prepare("INSERT INTO email_other_sends (id, kind, sent_at) VALUES (?, ?, ?)")
+    .bind(newId("othersend"), kind, now.toISOString()).run();
+}
+
+/** Queued emails per campaign, in the order they go out: [{ campaign_id, n, topic, eyebrow }]. */
+export async function queuedByCampaign(env) {
+  const { results } = await env.CLIENT_NOTES_DB.prepare(
+    `SELECT s.campaign_id, COUNT(*) AS n, MIN(s.created_at) AS first_at FROM email_sends s
+     WHERE s.status = 'queued' GROUP BY s.campaign_id ORDER BY first_at, MIN(s.rowid)`,
+  ).all();
+  return results.map((row) => ({ campaignId: row.campaign_id, count: row.n }));
+}
+
+/** Per-campaign delivery counts for the campaigns that have been sent or are sending, newest first. */
+export async function deliveryStats(env, limit = 12) {
+  const { results } = await env.CLIENT_NOTES_DB.prepare(
+    `SELECT c.id, c.topic, c.content_json, c.status, c.send_started_at, c.sent_at,
+       SUM(s.status = 'queued') AS queued,
+       SUM(s.status = 'sent') AS sent,
+       SUM(s.status = 'failed') AS failed,
+       SUM(s.status = 'skipped') AS skipped,
+       SUM(s.status = 'sent' AND s.delivered_at IS NOT NULL) AS delivered,
+       SUM(s.status = 'sent' AND s.opened_at IS NOT NULL) AS opened,
+       SUM(s.status = 'sent' AND s.delivery_status IN ('bounced', 'complained')) AS bounced,
+       MAX(s.sent_at) AS last_sent_at
+     FROM email_campaigns c JOIN email_sends s ON s.campaign_id = c.id
+     WHERE c.status != 'review'
+     GROUP BY c.id ORDER BY COALESCE(c.send_started_at, c.created_at) DESC LIMIT ?`,
+  ).bind(limit).all();
+  return results.map((row) => ({ ...row, content: parse(row.content_json, {}) }));
+}
+
+/** The latest sent or queued emails, newest first, for the Scheduled page. */
+export async function recentSends(env, limit = 25) {
+  const { results } = await env.CLIENT_NOTES_DB.prepare(
+    `SELECT s.id, s.campaign_id, s.email, s.first_name, s.status, s.error, s.sent_at, s.delivery_status, s.delivered_at, s.opened_at,
+       c.topic, c.content_json
+     FROM email_sends s JOIN email_campaigns c ON c.id = s.campaign_id
+     WHERE s.status != 'queued'
+     ORDER BY s.sent_at IS NULL, s.sent_at DESC, s.rowid DESC LIMIT ?`,
+  ).bind(limit).all();
+  return results.map((row) => ({ ...row, content: parse(row.content_json, {}) }));
+}
+
+// How far along each event puts an email; a later webhook never moves it back.
+const DELIVERY_RANK = { delayed: 1, delivered: 2, opened: 3, clicked: 4, bounced: 5, complained: 5 };
+
+/**
+ * Applies one Resend webhook event to the send it's about, found by Resend's id,
+ * else by campaign and address. Returns whether a send was updated.
+ */
+export async function applyDeliveryEvent(env, { providerId, campaignId, email, status, at }) {
+  const db = env.CLIENT_NOTES_DB;
+  let send = providerId ? await db.prepare("SELECT id, delivery_status FROM email_sends WHERE provider_id = ?").bind(providerId).first() : null;
+  if (!send && campaignId && email) {
+    send = await db.prepare("SELECT id, delivery_status FROM email_sends WHERE campaign_id = ? AND email = ?").bind(campaignId, email.toLowerCase()).first();
+  }
+  if (!send || !DELIVERY_RANK[status]) return false;
+  const keep = (DELIVERY_RANK[send.delivery_status] || 0) > DELIVERY_RANK[status];
+  const delivered = ["delivered", "opened", "clicked"].includes(status);
+  const opened = status === "opened" || status === "clicked";
+  await db.prepare(
+    `UPDATE email_sends SET delivery_status = ?, delivery_updated_at = ?,
+       delivered_at = CASE WHEN ? THEN COALESCE(delivered_at, ?) ELSE delivered_at END,
+       opened_at = CASE WHEN ? THEN COALESCE(opened_at, ?) ELSE opened_at END,
+       provider_id = COALESCE(provider_id, ?)
+     WHERE id = ?`,
+  ).bind(keep ? send.delivery_status : status, at, delivered ? 1 : 0, at, opened ? 1 : 0, at, providerId || null, send.id).run();
+  return true;
 }
 
 export async function countQueued(env) {

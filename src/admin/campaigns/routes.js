@@ -2,7 +2,9 @@
 
 import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
-import { campaignReviewPage, campaignsHomePage, newCampaignPage, unsubscribePage } from "../pages/campaigns.js";
+import {
+  campaignRecipientsPage, campaignReviewPage, campaignsHomePage, newCampaignPage, scheduledPage, unsubscribePage,
+} from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
 import { contentProducts, defaultButtonLabel, defaultButtonUrl, productCardHtml } from "./email-template.js";
 import {
@@ -11,7 +13,8 @@ import {
 import { addSubscription, pushPublicKey } from "./push.js";
 import { localTime, reminderSettingKey, REMINDER_DAYS } from "./schedule.js";
 import {
-  buildMessage, dailyLimit, queueCampaign, recipientEstimate, sendingConfigured, sendQueued, sendTestEmail, verifyUnsubscribe,
+  buildMessage, dailyLimit, projectSchedule, queueCampaign, recipientChoices, recipientEstimate, sendingConfigured, sendQueued,
+  sendTestEmail, usageSummary, verifyUnsubscribe,
 } from "./sending.js";
 import { settings } from "../../config.js";
 import * as store from "./store.js";
@@ -109,12 +112,59 @@ async function handleDraft(request, env) {
     ? jsonResponse({ message }, status)
     : redirect(withMessage(`/admin/campaigns/new?topic=${encodeURIComponent(topic)}`, { error: message })));
   if (topic.length < 10) return fail("Write a sentence or two about this week's topic first.", 400);
+  // Without the switch on the page (an old tab, no script), personal notes stay on.
+  const personalize = !form.has("personalizeShown") || form.get("personalize") === "on";
+  const recipients = pickedRecipients(form);
+  if (recipients && !recipients.length) return fail("Pick at least one person to send this email to.", 400);
   try {
-    const id = await draftCampaign(env, { topic, goal });
+    const id = await draftCampaign(env, { topic, goal, personalize, recipients });
     return wantsJson ? jsonResponse({ redirect: `/admin/campaigns/${id}` }) : redirect(`/admin/campaigns/${id}`);
   } catch (error) {
     console.error("Drafting a campaign failed:", error.message);
     return fail(`Couldn't draft the email: ${error.message}`.slice(0, 300), 502);
+  }
+}
+
+const EMAIL_PATTERN = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/;
+
+/**
+ * The people picked in the recipient list: [{ email, customerId }], or null when
+ * the form had no list (sent without the script), which means everyone.
+ */
+export function pickedRecipients(form) {
+  if (!form?.has("recipients")) return null;
+  let list;
+  try {
+    list = JSON.parse(String(form.get("recipients")));
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(list)) return null;
+  const seen = new Set();
+  const picked = [];
+  for (const entry of list.slice(0, 5000)) {
+    const email = String(entry?.email || "").trim().toLowerCase();
+    if (!EMAIL_PATTERN.test(email) || seen.has(email)) continue;
+    seen.add(email);
+    picked.push({ email, customerId: String(entry?.customerId || "").slice(0, 64) || null });
+  }
+  return picked;
+}
+
+/** Today's usage and the queue, for the picker's "goes out today / tomorrow" line. */
+async function sendingOutlook(env) {
+  const [usage, queue] = await Promise.all([usageSummary(env), store.queuedByCampaign(env)]);
+  return { usage, queued: queue.reduce((sum, entry) => sum + entry.count, 0), today: new Date().toISOString().slice(0, 10) };
+}
+
+/** The recipient list as JSON, for the picker. */
+async function handleRecipients(env) {
+  try {
+    const [recipients, outlook] = await Promise.all([recipientChoices(env), sendingOutlook(env)]);
+    return jsonResponse({ recipients, ...outlook });
+  } catch (error) {
+    console.error("Loading recipients failed:", error.message);
+    return jsonResponse({ message: error.message || "Couldn't load the client list from Square." }, 502);
   }
 }
 
@@ -147,14 +197,23 @@ async function reviewPage(env, url, campaignId) {
   const view = url.searchParams.get("view") === "preview" || (requested && url.searchParams.get("view") !== "list") ? "preview" : "list";
   // While a campaign is in review, the email itself is the editor.
   const editing = campaign.status === "review";
-  const [counts, estimate, costInputs, shop] = await Promise.all([
+  const picked = campaign.audience.emails;
+  const [counts, estimate, costInputs, shop, usage, queue] = await Promise.all([
     store.sendCounts(env, campaignId),
-    campaign.status === "review" ? recipientEstimate(env) : null,
+    campaign.status === "review" ? (picked ? picked.length : recipientEstimate(env)) : null,
     // Only a rejected version shows the redraft button and what it costs.
     campaign.status === "review" && selected.status === "rejected" ? estimateInputsOrNull(env, campaign.goal) : null,
     // The shared email's editor offers the shop's products to add.
     editing && selected.isShared ? shopProducts(env) : [],
+    campaign.status === "review" ? usageSummary(env) : null,
+    campaign.status === "review" ? store.queuedByCampaign(env) : [],
   ]);
+  // When this one would go out, behind whatever is already queued.
+  const schedule = usage && estimate
+    ? projectSchedule({ queue: [...queue.map((entry) => ({ id: entry.campaignId, count: entry.count })), { id: campaignId, count: estimate }], usage })
+      .map((day) => ({ date: day.date, count: day.parts.filter((part) => part.id === campaignId).reduce((sum, part) => sum + part.count, 0) }))
+      .filter((day) => day.count)
+    : [];
   return adminHtmlResponse(adminPage({
     title: campaign.content.eyebrow || "Review",
     active: "campaigns",
@@ -162,7 +221,7 @@ async function reviewPage(env, url, campaignId) {
     body: campaignReviewPage({
       campaign, versions, selected, view,
       previewHtml: previewFor(env, campaign, selected, { editing }),
-      counts, estimate, costInputs, dailyLimit: dailyLimit(env), editing, shop,
+      counts, estimate, picked: Boolean(picked), schedule, costInputs, dailyLimit: dailyLimit(env), editing, shop,
       hints: voiceHints(versionText(campaign, selected)),
       canTest: sendingConfigured(env) && Boolean(env.REMINDER_EMAIL),
       notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
@@ -307,6 +366,26 @@ async function handleVersionAction(request, env, campaignId, versionId) {
   return redirect(back);
 }
 
+/** Approve, reject or un-approve several versions at once, from the ticked boxes in the list. */
+async function handleBulkVersions(request, env, campaignId) {
+  const campaign = await store.getCampaign(env, campaignId);
+  if (!campaign) return notFound();
+  const form = await request.formData().catch(() => new FormData());
+  const action = String(form.get("action") || "");
+  const ids = form.getAll("ids").map(String).filter(Boolean);
+  const current = String(form.get("v") || "");
+  const back = `/admin/campaigns/${campaignId}${current ? `?v=${encodeURIComponent(current)}` : ""}`;
+  const status = { approve: "approved", reject: "rejected", review: "review" }[action];
+  if (campaign.status !== "review") return redirect(withMessage(back, { error: "This email is already sending, so it can't be changed." }));
+  if (!status) return redirect(back);
+  if (!ids.length) return redirect(withMessage(back, { error: "Tick the versions you want to change first." }));
+  const versions = await store.listVersions(env, campaignId);
+  const valid = ids.filter((id) => versions.some((version) => version.id === id));
+  await store.updateVersionStatuses(env, campaignId, valid, status);
+  const word = { approved: "Approved", rejected: "Rejected", review: "Moved back to review:" }[status];
+  return redirect(withMessage(back, { notice: `${word} ${valid.length} version${valid.length === 1 ? "" : "s"}.` }));
+}
+
 /** The editor adds a product to the email: its card, as the email shows it. */
 async function handleProductCard(env, url) {
   const name = String(url.searchParams.get("name") || "");
@@ -314,6 +393,56 @@ async function handleProductCard(env, url) {
   if (!shop.some((product) => product.name === name)) return jsonResponse({ message: "That product isn't in the shop." }, 404);
   const card = productCard({ name, products: shop, siteUrl: settings(env).siteUrl, label: "" });
   return jsonResponse({ name: card.name, html: productCardHtml(card, { removable: true }) });
+}
+
+async function recipientsPage(env, url, campaignId) {
+  const campaign = await store.getCampaign(env, campaignId);
+  if (!campaign) return notFound();
+  return adminHtmlResponse(adminPage({
+    title: "Who gets it",
+    active: "campaigns",
+    back: { href: `/admin/campaigns/${campaignId}`, label: "Review" },
+    body: campaignRecipientsPage({ campaign, error: url.searchParams.get("error") }),
+  }));
+}
+
+async function handleSaveRecipients(request, env, campaignId) {
+  const campaign = await store.getCampaign(env, campaignId);
+  if (!campaign) return notFound();
+  const back = `/admin/campaigns/${campaignId}`;
+  if (campaign.status !== "review") return redirect(withMessage(back, { error: "This email is already sending, so who gets it can't change." }));
+  const form = await request.formData().catch(() => new FormData());
+  const recipients = pickedRecipients(form);
+  if (!recipients) return redirect(back);
+  if (!recipients.length) return redirect(withMessage(`${back}/recipients`, { error: "Pick at least one person." }));
+  await store.updateCampaign(env, campaignId, { audience: { personalize: campaign.audience.personalize, emails: recipients.map((recipient) => recipient.email) } });
+  return redirect(withMessage(back, { notice: `Saved: this email goes to ${recipients.length} ${recipients.length === 1 ? "person" : "people"}.` }));
+}
+
+/** The Scheduled page: Resend usage, what goes out on which day, and how the sent emails did. */
+async function scheduled(env, url) {
+  const now = new Date();
+  const [usage, queue, stats, recent] = await Promise.all([
+    usageSummary(env, { now }), store.queuedByCampaign(env), store.deliveryStats(env), store.recentSends(env),
+  ]);
+  const names = new Map(stats.map((row) => [row.id, row]));
+  for (const entry of queue) {
+    if (!names.has(entry.campaignId)) {
+      const campaign = await store.getCampaign(env, entry.campaignId);
+      if (campaign) names.set(entry.campaignId, campaign);
+    }
+  }
+  const days = projectSchedule({ queue: queue.map((entry) => ({ id: entry.campaignId, count: entry.count })), usage, now });
+  return adminHtmlResponse(adminPage({
+    title: "Scheduled emails",
+    active: "campaigns:scheduled",
+    body: scheduledPage({
+      usage, days, campaigns: names, stats, recent, now,
+      tracking: Boolean(env.RESEND_WEBHOOK_SECRET), configured: sendingConfigured(env),
+      siteUrl: settings(env).siteUrl,
+      notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
+    }),
+  }));
 }
 
 async function handleSend(env, campaignId) {
@@ -324,12 +453,21 @@ async function handleSend(env, campaignId) {
   if (!sendingConfigured(env)) return redirect(withMessage(back, { error: "Email sending isn't set up yet. See the Campaigns page for what's missing." }));
   try {
     const { queued, personal } = await queueCampaign(env, campaignId);
-    const result = await sendQueued(env).catch((error) => {
-      console.error("First send failed:", error.message);
-      return { sent: 0 };
-    });
-    const later = queued - result.sent;
-    const notice = `Sending to ${queued} clients (${personal} personal). ${result.sent} sent now${later > 0 ? `, the rest go out over the next ${Math.ceil(later / dailyLimit(env)) || 1} day(s)` : ""}.`;
+    await sendQueued(env).catch((error) => console.error("First send failed:", error.message));
+    // The run may also have sent another campaign's queue, so count this one's own.
+    const counts = await store.sendCounts(env, campaignId);
+    const sentNow = counts.sent;
+    const later = counts.queued;
+    let rest = "";
+    if (later > 0) {
+      const [usage, queue] = await Promise.all([usageSummary(env), store.queuedByCampaign(env)]);
+      const days = projectSchedule({ queue: queue.map((entry) => ({ id: entry.campaignId, count: entry.count })), usage })
+        .map((day) => ({ date: day.date, count: day.parts.filter((part) => part.id === campaignId).reduce((sum, part) => sum + part.count, 0) }))
+        .filter((day) => day.count);
+      const last = days[days.length - 1];
+      rest = last ? `, the other ${later} are scheduled and finish ${dayLabel(last.date)}` : `, the other ${later} are scheduled`;
+    }
+    const notice = `Sending to ${queued} ${queued === 1 ? "person" : "people"} (${personal} personal). ${sentNow} sent now${rest}. See Scheduled for progress.`;
     return redirect(withMessage(back, { notice }));
   } catch (error) {
     console.error("Queueing a campaign failed:", error.message);
@@ -372,6 +510,11 @@ async function handlePushSubscribe(request, env) {
   }
 }
 
+/** "on Tue, Oct 27" for a UTC date. */
+function dayLabel(date) {
+  return `on ${new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}`;
+}
+
 /** Signed-in /admin/campaigns routes. Returns null for paths that aren't campaign routes. */
 export async function handleCampaignRoute(request, env, url, segments, method) {
   if (segments[1] !== "campaigns") return null;
@@ -392,13 +535,18 @@ export async function handleCampaignRoute(request, env, url, segments, method) {
     }));
   }
   if (first === "transcribe" && method === "POST") return handleTranscribe(request, env);
+  if (first === "recipients" && !second && method === "GET") return handleRecipients(env);
+  if (first === "scheduled" && !second && method === "GET") return scheduled(env, url);
   if (first === "product-card" && method === "GET") return handleProductCard(env, url);
   if (first === "settings" && method === "POST") return handleSettings(request, env);
   if (first === "push-key" && method === "GET") return jsonResponse({ publicKey: await pushPublicKey(env) });
   if (first === "push" && method === "POST") return handlePushSubscribe(request, env);
 
   if (first && !second && method === "GET") return reviewPage(env, url, first);
+  if (first && second === "versions" && third === "bulk" && method === "POST") return handleBulkVersions(request, env, first);
   if (first && second === "versions" && third && segments[5] === "preview" && method === "POST") return handlePreview(request, env, first, third);
+  if (first && second === "recipients" && method === "GET") return recipientsPage(env, url, first);
+  if (first && second === "recipients" && method === "POST") return handleSaveRecipients(request, env, first);
   if (first && second === "versions" && third && method === "POST") return handleVersionAction(request, env, first, third);
   if (first && second === "send" && method === "POST") return handleSend(env, first);
   if (first && second === "test" && method === "POST") return handleTest(request, env, first);

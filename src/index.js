@@ -20,6 +20,7 @@ import {
 import { handleAdminRequest } from "./admin/routes.js";
 import { deleteStaleDrafts } from "./admin/db.js";
 import { handleUnsubscribe } from "./admin/campaigns/routes.js";
+import { handleResendWebhook } from "./admin/campaigns/webhook.js";
 import { runScheduled } from "./admin/campaigns/schedule.js";
 import { runNoteReminders } from "./admin/note-reminders.js";
 
@@ -269,6 +270,10 @@ export default {
     // Unsubscribe links in the client emails. Public: the link itself is signed.
     if (path === "/email/unsubscribe") {
       return handleUnsubscribe(request, env, url);
+    }
+    // Resend's delivery events for campaign emails. Public: each request is signed.
+    if (path === "/email/resend-webhook") {
+      return handleResendWebhook(request, env);
     }
 
     // ------------------------------------------------------------- assets

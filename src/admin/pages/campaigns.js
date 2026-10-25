@@ -34,10 +34,40 @@ function plural(count, word) {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+function peopleCount(count) {
+  return `${count} ${count === 1 ? "person" : "people"}`;
+}
+
 function steps(current) {
-  return html`<ol class="camp-steps" aria-label="Steps">
-    ${["Write", "Find clients", "Review", "Send"].map((label, index) => html`<li class="${index + 1 === current ? "on" : index + 1 < current ? "done" : ""}">${index + 1} · ${label}</li>`)}
+  return html`<ol class="camp-steps" aria-label="Steps" data-steps>
+    ${["Write", "Pick who gets it", "Review", "Send"].map((label, index) => html`<li class="${index + 1 === current ? "on" : index + 1 < current ? "done" : ""}">${index + 1} · ${label}</li>`)}
   </ol>`;
+}
+
+/** "Emails | Scheduled": the two parts of Email campaigns. */
+function sectionTabs(current) {
+  const tab = (href, label, key) => html`<a href="${href}" class="${current === key ? "on" : ""}"${current === key ? html` aria-current="page"` : ""}>${label}</a>`;
+  return html`<nav class="camp-section-tabs" aria-label="Email campaigns">${tab("/admin/campaigns", "Emails", "emails")}${tab("/admin/campaigns/scheduled", "Scheduled", "scheduled")}</nav>`;
+}
+
+/** "Tue, Oct 27" for a UTC date ("2026-10-27"). */
+function dayName(date) {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * When a campaign's emails go out, as a sentence: "All 40 go out today." or
+ * "95 go out today, the other 47 on Tue, Oct 27." `days` is [{ date, count }].
+ */
+export function scheduleSentence(days, today, providerLimit = 100) {
+  if (!days.length) return "";
+  const total = days.reduce((sum, day) => sum + day.count, 0);
+  if (days.length === 1 && days[0].date === today) return `All ${total} go out today.`;
+  if (days.length === 1) return `Today's sending is full (Resend's free plan sends ${providerLimit} emails a day), so ${total === 1 ? "it goes" : `all ${total} go`} out on ${dayName(days[0].date)}.`;
+  const parts = days.map((day) => `${day.count} ${day.date === today ? "today" : `on ${dayName(day.date)}`}`);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+  const lead = `Resend's free plan sends ${providerLimit} emails a day, so they go out`;
+  return `${days[0].date === today ? "" : "Today's sending is full. "}${lead} ${list}.`;
 }
 
 function notices({ notice, error }) {
@@ -63,6 +93,7 @@ export function campaignsHomePage({ campaigns, week, reminders, missing, notice,
       </div>
       <a class="btn btn-primary" href="/admin/campaigns/new">+ New email</a>
     </div>
+    ${sectionTabs("emails")}
     ${notices({ notice, error })}
     ${setupCard(missing)}
     <div class="camp-home-grid">
@@ -109,7 +140,7 @@ export function campaignsHomePage({ campaigns, week, reminders, missing, notice,
           </tr>`)}
         </tbody>
       </table></div>` : html`<p class="camp-muted">No emails yet. Press "New email" to write the first one.</p>`}
-      <div class="camp-muted">Resend sends up to ${dailyLimit} emails a day, so a bigger list finishes the next morning.</div>
+      <div class="camp-muted">Resend sends up to ${dailyLimit} emails a day, so a bigger list finishes over the next days. <a href="/admin/campaigns/scheduled">See what's scheduled</a>.</div>
     </section>
   `;
 }
@@ -138,6 +169,51 @@ function costEstimateCard({ estimate, history, topic }) {
   </div>`;
 }
 
+/**
+ * The recipient list: everyone in Square with an email, loaded by the script
+ * (client.js wireRecipientPicker) from /admin/campaigns/recipients. `picked` is
+ * the emails already chosen, or null to start with everyone ticked. The picks
+ * go in the hidden "recipients" field as JSON.
+ */
+function recipientPicker({ picked = null, note = "" }) {
+  return html`<div class="camp-pick" data-recipient-picker data-source="/admin/campaigns/recipients" data-picked="${picked ? JSON.stringify(picked) : ""}">
+    <div class="camp-pick-head">
+      <h2 class="camp-pick-title">Who gets this email?</h2>
+      <p class="camp-muted">${note || "Everyone with an email in Square starts ticked. Untick anyone who shouldn't get it, or clear all and tick a few."}</p>
+    </div>
+    <div class="camp-pick-tools">
+      <input type="search" class="camp-pick-search" placeholder="Search by name or email" aria-label="Search clients" data-pick-search autocomplete="off" />
+      <div class="camp-chips" role="group" aria-label="Show">
+        <button type="button" class="camp-chip on" data-pick-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="camp-chip" data-pick-filter="notes" aria-pressed="false">Has notes</button>
+        <button type="button" class="camp-chip" data-pick-filter="bought" aria-pressed="false">Bought from the shop</button>
+        <button type="button" class="camp-chip" data-pick-filter="picked" aria-pressed="false">Picked</button>
+        <button type="button" class="camp-chip" data-pick-filter="unpicked" aria-pressed="false">Not picked</button>
+      </div>
+      <div class="camp-pick-bulk">
+        <span class="camp-muted" data-pick-shown></span>
+        <button type="button" class="camp-text-btn" data-pick-all>Select all shown</button>
+        <button type="button" class="camp-text-btn" data-pick-none>Clear shown</button>
+      </div>
+    </div>
+    <div class="camp-pick-list" data-pick-list role="group" aria-label="Clients">
+      <div class="camp-pick-loading"><span class="spinner" aria-hidden="true"></span> Loading your clients from Square…</div>
+    </div>
+    <input type="hidden" name="recipients" value="" data-pick-field disabled />
+  </div>`;
+}
+
+/** The bar under the list: how many are picked and which day they go out. */
+function pickBar({ submitLabel, backButton = "", extra = "" }) {
+  return html`<div class="camp-pick-bar" data-pick-bar>
+    <div class="camp-pick-summary">
+      <div><strong data-pick-count>0 picked</strong> <span class="camp-muted" data-pick-cost></span></div>
+      <div class="camp-pick-schedule" data-pick-schedule hidden></div>
+    </div>
+    <div class="camp-pick-actions">${backButton}${extra}<button type="submit" class="btn btn-primary camp-big-btn" data-pick-submit>${submitLabel}</button></div>
+  </div>`;
+}
+
 export function newCampaignPage({ topic = "", goal = "book", missing, error, estimate = null, history = null }) {
   return html`
     <div class="camp-head">
@@ -147,8 +223,9 @@ export function newCampaignPage({ topic = "", goal = "book", missing, error, est
     </div>
     ${notices({ error })}
     ${setupCard(missing)}
-    <div class="camp-new-grid">
-      <form class="card camp-write" method="post" action="/admin/campaigns" data-draft-form>
+    <form class="camp-new-form" method="post" action="/admin/campaigns" data-draft-form data-stage="write">
+    <div class="camp-new-grid" data-stage-write>
+      <div class="card camp-write">
         <div class="camp-record">
           <button type="button" class="camp-mic" data-mic aria-label="Record" hidden>
             <svg class="mic-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0"></path><path d="M12 17v4"></path></svg>
@@ -165,27 +242,63 @@ export function newCampaignPage({ topic = "", goal = "book", missing, error, est
             ${GOAL_OPTIONS.map((option) => html`<label class="camp-goal"><input type="radio" name="goal" value="${option.value}"${option.value === goal ? html` checked` : ""} /> ${option.label}</label>`)}
           </div>
         </fieldset>
+        <input type="hidden" name="personalizeShown" value="1" />
+        <label class="camp-switch camp-personal-switch">
+          <span><span class="camp-switch-label">Personal notes for related clients</span>
+            <span class="camp-switch-hint" data-personal-hint>On: clients whose notes or purchases relate get a short note just for them. Off: one email for everybody.</span></span>
+          <input type="checkbox" name="personalize" value="on" checked role="switch" data-personalize />
+        </label>
         <div class="camp-submit-row">
-          <button type="submit" class="btn btn-primary camp-big-btn" data-draft-button>Find clients and draft emails</button>
+          <button type="submit" class="btn btn-primary camp-big-btn" data-next-button>Next: pick who gets it</button>
         </div>
-        <div class="camp-drafting" data-drafting hidden>
-          <span class="spinner" aria-hidden="true"></span>
-          <span data-drafting-text>Writing the email…</span>
-        </div>
-      </form>
+      </div>
       <aside class="card camp-checks">
         <div class="section-label">What happens next</div>
         <ol class="camp-how">
+          <li>You pick who gets this email. The AI only reads the notes of people you pick.</li>
           <li>The AI writes one email for everyone, in your voice and at a 5th-grade reading level.</li>
           <li>Products you mention are added as cards with their photo, price and a shop link. Say "no products" to leave them out.</li>
-          <li>It looks through every client's notes (from the Excel sheet and Square) and what they bought, and when.</li>
-          <li>Clients it relates to get a short personal note added. Allergy and sensitivity flags keep that advice gentle.</li>
+          <li data-personal-only>With personal notes on, it looks through each picked client's notes and purchases. Clients it relates to get a short personal note. Allergy and sensitivity flags keep that advice gentle.</li>
           <li>You read each version, then approve, edit or reject it. Nothing sends until you press Send.</li>
         </ol>
         <div class="camp-muted">Personal notes never mention medications, pregnancy or diagnoses.</div>
         ${costEstimateCard({ estimate, history, topic })}
       </aside>
     </div>
+    <div class="card camp-pick-card" data-stage-pick hidden>
+      ${recipientPicker({})}
+      ${pickBar({
+        submitLabel: "Draft emails",
+        backButton: html`<button type="button" class="btn btn-secondary" data-back-button>← Back</button>`,
+      })}
+      <div class="camp-drafting" data-drafting hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span data-drafting-text>Writing the email…</span>
+      </div>
+    </div>
+    </form>
+  `;
+}
+
+/** Changing who gets a campaign that is still in review. No redraft: anyone added gets the shared email. */
+export function campaignRecipientsPage({ campaign, error }) {
+  return html`
+    <div class="camp-head">
+      <a class="back-link" href="/admin/campaigns/${campaign.id}">← Back to review</a>
+      <h1 class="page-title">Who gets “${topicLabel(campaign)}”</h1>
+      ${steps(2)}
+    </div>
+    ${notices({ error })}
+    ${campaign.status !== "review" ? html`<div class="camp-error" role="alert">This email is already sending, so who gets it can't change.</div>` : html`
+    <form class="card camp-pick-card" method="post" action="/admin/campaigns/${campaign.id}/recipients" data-pick-form>
+      ${recipientPicker({
+        picked: campaign.audience.emails,
+        note: campaign.audience.personalize
+          ? "Anyone you add gets the email everyone else gets: personal notes were only written for the people picked before drafting."
+          : "Everyone gets the same email.",
+      })}
+      ${pickBar({ submitLabel: "Save", backButton: html`<a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}">Cancel</a>` })}
+    </form>`}
   `;
 }
 
@@ -286,7 +399,7 @@ function spentLine(campaign) {
   return `AI cost so far: ${amount} (${plural(cost.calls, "AI call")}, ${modelName(cost.model)}).`;
 }
 
-function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, canTest }) {
+function sendBar({ campaign, versions, selected, counts, estimate, picked, schedule, dailyLimit, canTest }) {
   const shared = versions.find((version) => version.isShared);
   const personal = versions.filter((version) => !version.isShared);
   const approvedPersonal = personal.filter((version) => version.status === "approved").length;
@@ -301,36 +414,80 @@ function sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, c
     const daysLeft = Math.ceil(counts.queued / dailyLimit);
     return html`<div class="camp-send-bar">
       <div class="camp-send-text">
-        <strong>${campaign.status === "sent" ? "Sent" : "Sending"}:</strong> ${spentLine(campaign)} ${counts.sent} of ${total} sent${counts.queued ? html`, ${counts.queued} queued (about ${plural(daysLeft, "more day")})` : ""}${counts.failed ? html`, ${counts.failed} failed` : ""}${counts.skipped ? html`, ${counts.skipped} unsubscribed` : ""}.
+        <strong>${campaign.status === "sent" ? "Sent" : "Sending"}:</strong> ${spentLine(campaign)} ${counts.sent} of ${total} sent${counts.queued ? html`, ${counts.queued} queued (about ${plural(daysLeft, "more day")})` : ""}${counts.failed ? html`, ${counts.failed} failed` : ""}${counts.skipped ? html`, ${counts.skipped} unsubscribed` : ""}. <a href="/admin/campaigns/scheduled">See Scheduled</a>
       </div>
       ${testForm}
     </div>`;
   }
 
   const ready = shared?.status === "approved";
-  const people = estimate ? `about ${estimate} clients` : "everyone with an email in Square";
-  const days = estimate ? Math.ceil(estimate / dailyLimit) : 1;
+  const people = picked ? `${peopleCount(estimate)} you picked` : estimate ? `about ${estimate} clients` : "everyone with an email in Square";
+  const when = scheduleSentence(schedule, new Date().toISOString().slice(0, 10));
   const spent = spentLine(campaign);
   const costText = `${spent ? `${spent} ` : ""}Sending adds no AI cost, and Resend's free plan covers it.`;
   return html`<div class="camp-send-bar">
     <div class="camp-send-text">
       ${ready
-        ? html`<strong>Goes to ${people}${approvedPersonal ? html` · ${approvedPersonal} personal` : ""}.</strong><span class="camp-send-more"> ${costText}${days > 1 ? html` Resend sends ${dailyLimit} a day, so it finishes over ${days} days.` : ""}${unreviewed ? html` ${plural(unreviewed, "personal version")} not approved yet: those clients get the email everyone else gets.` : ""}</span>`
+        ? html`<strong>Goes to ${people}${approvedPersonal ? html` · ${approvedPersonal} personal` : ""}.</strong> ${schedule.length > 1 || (schedule[0] && schedule[0].date !== new Date().toISOString().slice(0, 10)) ? html`<span class="camp-send-when">${when}</span>` : ""}<span class="camp-send-more"> ${costText}${unreviewed ? html` ${plural(unreviewed, "personal version")} not approved yet: those clients get the email everyone else gets.` : ""}</span>`
         : html`<strong>Approve the email everyone else gets before sending.</strong><span class="camp-send-more"> ${costText}</span>`}
     </div>
     <div class="camp-send-buttons">
       ${testForm}
-      <form method="post" action="/admin/campaigns/${campaign.id}/send" class="camp-inline-form" data-confirm="${ready ? [`Send this email to ${people}?`, spent, "Sending adds no AI cost. This can't be undone."].filter(Boolean).join(" ") : ""}">
-        <button type="submit" class="btn btn-primary camp-big-btn"${ready ? "" : html` disabled`}>Send to everyone</button>
+      <form method="post" action="/admin/campaigns/${campaign.id}/send" class="camp-inline-form" data-confirm="${ready ? [`Send this email to ${people}?`, when, spent, "This can't be undone."].filter(Boolean).join(" ") : ""}">
+        <button type="submit" class="btn btn-primary camp-big-btn"${ready ? "" : html` disabled`}>${picked ? "Send" : "Send to everyone"}</button>
       </form>
     </div>
   </div>`;
 }
 
-export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, costInputs = null, dailyLimit, view, editing, shop = [], hints = [], notice, error, canTest }) {
+/** Who the campaign goes to, with a link to change it while it's in review. */
+function audienceLine(campaign, estimate) {
+  const emails = campaign.audience.emails;
+  const who = emails ? `Goes to ${peopleCount(emails.length)} you picked.` : "Goes to everyone with an email in Square.";
+  const mode = campaign.audience.personalize ? "" : " One email for everyone (personal notes off).";
+  return html`<div class="camp-audience">
+    <span>${who}${mode}</span>
+    ${campaign.status === "review" ? html`<a href="/admin/campaigns/${campaign.id}/recipients">Change who gets it</a>` : ""}
+  </div>`;
+}
+
+/** The version list, each with a box to tick for bulk approve or reject. */
+function versionList({ campaign, versions, selected }) {
+  const inReview = campaign.status === "review";
+  const formId = "bulk-versions";
+  return html`${inReview && versions.length > 1 ? html`<form method="post" action="/admin/campaigns/${campaign.id}/versions/bulk" id="${formId}" class="camp-bulk" data-bulk-form>
+      <input type="hidden" name="v" value="${selected.id}" />
+      <div class="camp-bulk-select">
+        <label class="camp-check-all"><input type="checkbox" data-bulk-all aria-label="Select all versions" /> <span data-bulk-label>Select all</span></label>
+        <button type="button" class="camp-text-btn" data-bulk-pick="review">Select “To review”</button>
+      </div>
+      <div class="camp-bulk-bar" data-bulk-bar>
+        <span class="camp-bulk-count" data-bulk-count>Tick versions to approve or reject several at once.</span>
+        <span class="camp-bulk-buttons">
+          <button type="submit" name="action" value="approve" class="btn btn-approve btn-small" data-bulk-action>Approve</button>
+          <button type="submit" name="action" value="reject" class="btn btn-secondary btn-reject btn-small" data-bulk-action>Reject</button>
+        </span>
+      </div>
+    </form>` : ""}
+    ${versions.map((version) => html`<div class="camp-version-row${version.id === selected.id ? " selected" : ""}">
+      ${inReview && versions.length > 1 ? html`<label class="camp-version-check"><input type="checkbox" name="ids" value="${version.id}" form="${formId}" data-bulk-item data-status="${version.status}" aria-label="Select ${versionName(version)}" /></label>` : ""}
+      <a class="camp-version${version.id === selected.id ? " selected" : ""}" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview"${version.id === selected.id ? html` aria-current="true"` : ""}>
+        <span class="camp-version-top">
+          <span class="camp-version-name">${versionName(version)}</span>
+          <span class="pill pill-${version.status}">${STATUS_LABELS[version.status] || version.status}</span>
+        </span>
+        <span class="camp-version-why">${version.isShared ? (versions.length > 1 ? "Clients without related notes or purchases" : "Everyone you picked") : version.reason || "Related to this topic"}</span>
+      </a>
+    </div>`)}`;
+}
+
+export function campaignReviewPage({ campaign, versions, selected, previewHtml, counts, estimate, picked = false, schedule = [], costInputs = null, dailyLimit, view, editing, shop = [], hints = [], notice, error, canTest }) {
   const toReview = versions.filter((version) => version.status === "review").length;
   const personalCount = versions.length - 1;
   const title = topicLabel(campaign);
+  const listNote = personalCount
+    ? `${plural(personalCount, "personal version")} · everyone else gets the shared email`
+    : campaign.audience.personalize ? "No clients matched closely, so everyone gets the same email." : "Personal notes are off, so everyone gets the same email.";
   return html`
     <div class="camp-head">
       <a class="back-link" href="/admin/campaigns">← Email campaigns</a>
@@ -341,20 +498,15 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
       ${steps(campaign.status === "review" ? 3 : 4)}
     </div>
     ${notices({ notice, error })}
+    ${audienceLine(campaign, estimate)}
     <nav class="camp-tabs" aria-label="View">
       <a href="/admin/campaigns/${campaign.id}?view=list" class="${view === "list" ? "on" : ""}" aria-current="${view === "list" ? "page" : "false"}">Versions${toReview ? ` · ${toReview} to review` : ""}</a>
       <a href="/admin/campaigns/${campaign.id}?v=${selected.id}&view=preview" class="${view === "preview" ? "on" : ""}" aria-current="${view === "preview" ? "page" : "false"}">Preview</a>
     </nav>
     <div class="camp-review" data-view="${view}">
       <section class="camp-versions" aria-label="Versions">
-        <div class="camp-muted">${personalCount ? `${plural(personalCount, "personal version")} · everyone else gets the shared email` : "No clients matched closely, so everyone gets the same email."}</div>
-        ${versions.map((version) => html`<a class="camp-version${version.id === selected.id ? " selected" : ""}" href="/admin/campaigns/${campaign.id}?v=${version.id}&view=preview"${version.id === selected.id ? html` aria-current="true"` : ""}>
-          <span class="camp-version-top">
-            <span class="camp-version-name">${versionName(version)}</span>
-            <span class="pill pill-${version.status}">${STATUS_LABELS[version.status] || version.status}</span>
-          </span>
-          <span class="camp-version-why">${version.isShared ? "Clients without related notes or purchases" : version.reason || "Related to this topic"}</span>
-        </a>`)}
+        <div class="camp-muted">${listNote}</div>
+        ${versionList({ campaign, versions, selected })}
         <div class="camp-muted">Skipped when sending: clients who unsubscribed or have no email in Square.</div>
         ${campaign.status === "review" ? html`<form method="post" action="/admin/campaigns/${campaign.id}/delete" data-confirm="Delete this draft? Nothing has been sent.">
           <button type="submit" class="camp-link-btn">Delete this draft</button>
@@ -364,7 +516,7 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
         <div class="card camp-detail-card">
           <div class="camp-detail-head">
             <div class="camp-detail-name">${versionName(selected)}</div>
-            <div class="camp-muted">${selected.isShared ? "The email every other client gets." : selected.reason}</div>
+            <div class="camp-muted">${selected.isShared ? (personalCount ? "The email every other client gets." : "The email everyone gets.") : selected.reason}</div>
           </div>
           <div class="camp-hints" data-voice-hints${hints.length ? "" : html` hidden`}>
             <div class="camp-hints-title">Laura's voice check</div>
@@ -377,7 +529,171 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
         </div>
       </section>
     </div>
-    ${sendBar({ campaign, versions, selected, counts, estimate, dailyLimit, canTest })}
+    ${sendBar({ campaign, versions, selected, counts, estimate, picked, schedule, dailyLimit, canTest })}
+  `;
+}
+
+// --- Scheduled -----------------------------------------------------------
+
+const TAMPA = "America/New_York";
+
+function tampaTime(iso) {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: TAMPA }).toLowerCase();
+}
+
+function tampaDateTime(iso) {
+  if (!iso) return "";
+  const date = new Date(iso.includes("T") ? iso : `${iso.replace(" ", "T")}Z`);
+  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: TAMPA }).replace(" AM", " am").replace(" PM", " pm");
+}
+
+/**
+ * One usage bar: campaign emails and other emails (tests, reminders) as two
+ * segments of Resend's allowance. The state word (not just the colour) says when it's nearly full.
+ */
+function usageMeter({ label, part, resetText, campaignLimitNote = "" }) {
+  const used = Math.min(part.sent, part.limit);
+  const pct = (value) => `${Math.min(100, (value / part.limit) * 100).toFixed(2)}%`;
+  const share = part.sent / part.limit;
+  const state = share >= 1 ? { key: "full", word: "Full" } : share >= 0.8 ? { key: "high", word: "Almost full" } : { key: "ok", word: "" };
+  return html`<div class="camp-meter camp-meter-${state.key}">
+    <div class="camp-meter-top">
+      <span class="camp-meter-label">${label}</span>
+      ${state.word ? html`<span class="camp-meter-state">${state.word}</span>` : ""}
+    </div>
+    <div class="camp-meter-figure"><strong>${part.sent.toLocaleString("en-US")}</strong> of ${part.limit.toLocaleString("en-US")} sent</div>
+    <div class="camp-meter-track" role="img" aria-label="${label}: ${part.sent} of ${part.limit} sent, ${part.campaign} campaign emails and ${part.other} test or reminder emails">
+      ${part.campaign ? html`<span class="camp-meter-fill" style="width:${pct(Math.min(part.campaign, used))}"></span>` : ""}
+      ${part.other ? html`<span class="camp-meter-fill camp-meter-other" style="width:${pct(Math.min(part.other, used))}"></span>` : ""}
+    </div>
+    <div class="camp-meter-foot">
+      <span>${Math.max(0, part.limit - part.sent).toLocaleString("en-US")} left · ${resetText}</span>
+      <span class="camp-meter-key"><span class="camp-key-dot"></span>Campaigns ${part.campaign}<span class="camp-key-dot camp-key-other"></span>Tests and reminders ${part.other}</span>
+    </div>
+    ${campaignLimitNote ? html`<div class="camp-muted">${campaignLimitNote}</div>` : ""}
+  </div>`;
+}
+
+const DELIVERY_LABELS = {
+  delivered: "Delivered", opened: "Opened", clicked: "Clicked", delayed: "Delayed", bounced: "Bounced", complained: "Marked as spam",
+};
+
+function sendStatus(send) {
+  if (send.status === "failed") return { key: "failed", label: "Failed" };
+  if (send.status === "skipped") return { key: "skipped", label: "Unsubscribed" };
+  if (send.delivery_status) {
+    const bad = send.delivery_status === "bounced" || send.delivery_status === "complained";
+    return { key: bad ? "failed" : send.delivery_status === "delayed" ? "queued" : "delivered", label: DELIVERY_LABELS[send.delivery_status] || send.delivery_status };
+  }
+  return { key: "sent", label: "Sent" };
+}
+
+function campaignName(campaign) {
+  if (!campaign) return "Email";
+  const content = campaign.content || {};
+  return String(content.eyebrow || campaign.topic || "Email").replace(/^this week:\s*/i, "");
+}
+
+/** A thin stacked bar of how a campaign's emails ended up. */
+function outcomeBar(row, tracking) {
+  const total = (row.sent || 0) + (row.queued || 0) + (row.failed || 0) + (row.skipped || 0);
+  if (!total) return "";
+  const delivered = tracking ? Math.min(row.delivered || 0, row.sent || 0) : 0;
+  const parts = [
+    ["delivered", delivered, "Delivered"],
+    ["sent", (row.sent || 0) - delivered - (tracking ? row.bounced || 0 : 0), tracking ? "Sent, not confirmed yet" : "Sent"],
+    ["failed", (row.failed || 0) + (tracking ? row.bounced || 0 : 0), "Failed or bounced"],
+    ["queued", row.queued || 0, "Scheduled"],
+  ].filter(([, value]) => value > 0);
+  return html`<div class="camp-outcome" role="img" aria-label="${parts.map(([, value, label]) => `${label}: ${value}`).join(", ")}">
+    ${parts.map(([key, value, label]) => html`<span class="camp-outcome-${key}" style="flex-grow:${value}" title="${label}: ${value}"></span>`)}
+  </div>`;
+}
+
+export function scheduledPage({ usage, days, campaigns, stats, recent, now, tracking, configured, siteUrl, notice, error }) {
+  const today = now.toISOString().slice(0, 10);
+  const resetDay = `resets at ${tampaTime(usage.today.resetsAt)} Tampa time`;
+  const resetMonth = `resets ${new Date(usage.month.resetsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
+  const queuedTotal = days.reduce((sum, day) => sum + day.total, 0);
+  return html`
+    <div class="camp-title-row">
+      <div>
+        <h1 class="page-title">Email campaigns</h1>
+        <div class="camp-sub">What's going out, when, and how it did.</div>
+      </div>
+      <a class="btn btn-primary" href="/admin/campaigns/new">+ New email</a>
+    </div>
+    ${sectionTabs("scheduled")}
+    ${notices({ notice, error })}
+    ${configured ? "" : html`<div class="card camp-setup"><div class="section-label">Finish setting up</div><ul><li>Add the RESEND_API_KEY secret and CAMPAIGN_FROM_EMAIL so emails can be sent.</li></ul></div>`}
+    <div class="camp-home-grid">
+      <section class="card camp-usage" aria-label="Resend usage">
+        <div class="section-label">Resend free plan</div>
+        ${usageMeter({
+          label: "Today", part: usage.today, resetText: resetDay,
+          campaignLimitNote: `Campaigns send up to ${usage.today.campaignLimit} a day, which leaves room for test emails and reminders.`,
+        })}
+        ${usageMeter({ label: "This month", part: usage.month, resetText: resetMonth })}
+      </section>
+      <section class="card camp-coming" aria-label="Coming up">
+        <div class="section-label">Coming up</div>
+        ${days.length ? html`<div class="camp-coming-total"><strong>${queuedTotal.toLocaleString("en-US")}</strong> ${queuedTotal === 1 ? "email" : "emails"} scheduled</div>
+          <ol class="camp-days">
+            ${days.map((day) => html`<li class="camp-day">
+              <div class="camp-day-head">
+                <span class="camp-day-name">${day.date === today ? "Today" : dayName(day.date)}</span>
+                <span class="camp-day-count">${day.total}</span>
+              </div>
+              <div class="camp-day-bar"><span style="width:${Math.min(100, (day.total / usage.today.campaignLimit) * 100).toFixed(1)}%"></span></div>
+              <ul class="camp-day-parts">${day.parts.map((part) => html`<li><a href="/admin/campaigns/${part.id}">${campaignName(campaigns.get(part.id))}</a> <span class="camp-muted">${part.count}</span></li>`)}</ul>
+            </li>`)}
+          </ol>
+          <div class="camp-muted">Sending runs every 15 minutes. ${days[0].date === today ? "" : "Today's limit is used up, so the next batch goes after the reset. "}A new day starts at ${tampaTime(usage.today.resetsAt)} Tampa time.</div>`
+        : html`<p class="camp-muted">Nothing scheduled. When you send to more people than today's limit allows, the rest wait here for the next day.</p>`}
+      </section>
+    </div>
+    <section class="card camp-recent" aria-label="How they did">
+      <div class="section-label">How they did</div>
+      ${tracking ? "" : html`<div class="camp-tracking-off">
+        <strong>Delivery tracking is off.</strong> You can see what was sent, but not when it arrived or was opened. To turn it on: in Resend, open Webhooks, add <code>${siteUrl}/email/resend-webhook</code> with the delivered, delayed, bounced, complained, opened and clicked events, then save its signing secret with <code>npx wrangler secret put RESEND_WEBHOOK_SECRET</code>.
+      </div>`}
+      ${stats.length ? html`<div class="camp-table-wrap"><table class="data camp-stats">
+        <thead><tr><th scope="col">Email</th><th scope="col">Started</th><th scope="col" class="num">Sent</th>${tracking ? html`<th scope="col" class="num">Delivered</th><th scope="col" class="num">Opened</th><th scope="col" class="num">Bounced</th>` : ""}<th scope="col" class="num">Failed</th><th scope="col" class="num">Unsubscribed</th><th scope="col" class="num">Scheduled</th><th scope="col">Progress</th></tr></thead>
+        <tbody>${stats.map((row) => html`<tr class="row-link" data-href="/admin/campaigns/${row.id}">
+          <td><a href="/admin/campaigns/${row.id}">${campaignName(row)}</a></td>
+          <td class="camp-nowrap">${tampaDateTime(row.send_started_at)}</td>
+          <td class="num">${row.sent || 0}</td>
+          ${tracking ? html`<td class="num">${row.delivered || 0}</td><td class="num">${row.opened || 0}</td><td class="num">${row.bounced || 0}</td>` : ""}
+          <td class="num">${row.failed || 0}</td>
+          <td class="num">${row.skipped || 0}</td>
+          <td class="num">${row.queued || 0}</td>
+          <td class="camp-outcome-cell">${outcomeBar(row, tracking)}</td>
+        </tr>`)}</tbody>
+      </table></div>
+      <div class="camp-outcome-key camp-muted">
+        ${tracking ? html`<span><span class="camp-key-dot camp-outcome-delivered"></span>Delivered</span>` : ""}
+        <span><span class="camp-key-dot camp-outcome-sent"></span>${tracking ? "Sent, not confirmed yet" : "Sent"}</span>
+        <span><span class="camp-key-dot camp-outcome-failed"></span>Failed${tracking ? " or bounced" : ""}</span>
+        <span><span class="camp-key-dot camp-outcome-queued"></span>Scheduled</span>
+      </div>` : html`<p class="camp-muted">Nothing sent yet.</p>`}
+    </section>
+    <section class="card camp-recent" aria-label="Latest emails">
+      <div class="section-label">Latest emails</div>
+      ${recent.length ? html`<div class="camp-table-wrap"><table class="data camp-sends">
+        <thead><tr><th scope="col">To</th><th scope="col">Email</th><th scope="col">Status</th><th scope="col">Sent</th>${tracking ? html`<th scope="col">Delivered</th>` : ""}</tr></thead>
+        <tbody>${recent.map((send) => {
+          const status = sendStatus(send);
+          return html`<tr>
+            <td><span class="camp-send-name">${send.first_name || send.email.split("@")[0]}</span><span class="camp-send-email">${send.email}</span></td>
+            <td><a href="/admin/campaigns/${send.campaign_id}">${campaignName(send)}</a></td>
+            <td><span class="pill pill-send-${status.key}"${send.error ? html` title="${send.error}"` : ""}>${status.label}</span></td>
+            <td class="camp-nowrap">${tampaDateTime(send.sent_at)}</td>
+            ${tracking ? html`<td class="camp-nowrap">${tampaDateTime(send.delivered_at) || html`<span class="camp-muted">—</span>`}</td>` : ""}
+          </tr>`;
+        })}</tbody>
+      </table></div>` : html`<p class="camp-muted">No emails sent yet.</p>`}
+      <div class="camp-muted">Times are Tampa time.</div>
+    </section>
   `;
 }
 

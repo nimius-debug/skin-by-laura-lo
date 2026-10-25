@@ -52,6 +52,7 @@ HIDE_UNCATEGORIZED = "true"
 CAMPAIGN_FROM_EMAIL = "laura@skinbylauralo.com"
 REMINDER_EMAIL = "skinbylauralo@gmail.com" # Tuesday/Thursday reminders and test emails
 EMAIL_DAILY_LIMIT = "95"                   # Resend's free plan allows 100 a day
+EMAIL_MONTHLY_LIMIT = "3000"               # and 3,000 a month (test emails and reminders count too)
 
 # ---------------------------------------------------------------------------
 # Secrets — DO NOT put these here. Set them with:
@@ -63,6 +64,7 @@ EMAIL_DAILY_LIMIT = "95"                   # Resend's free plan allows 100 a day
 #   npx wrangler secret put ADMIN_USERNAME       (login for /admin)
 #   npx wrangler secret put ADMIN_PASSWORD       (login for /admin; changing it signs everyone out)
 #   npx wrangler secret put RESEND_API_KEY       (sends the email campaigns; from resend.com)
+#   npx wrangler secret put RESEND_WEBHOOK_SECRET (Resend webhook signing secret, for delivery tracking)
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

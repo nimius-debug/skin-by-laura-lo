@@ -128,8 +128,22 @@ export async function costEstimateInputs(env, { goal = "book" } = {}) {
   });
 }
 
-/** Writes a new campaign from Laura's idea and returns its id. */
-export async function draftCampaign(env, { topic, goal }) {
+/**
+ * Clients the AI may write a personal note for: only those Laura picked
+ * (`customerIds` are their Square ids), or everyone when she didn't pick.
+ */
+export function pickedProfiles(profiles, customerIds) {
+  if (!customerIds) return profiles;
+  const picked = new Set(customerIds);
+  return profiles.filter((profile) => profile.squareCustomerId && picked.has(profile.squareCustomerId));
+}
+
+/**
+ * Writes a new campaign from Laura's idea and returns its id.
+ *   personalize: false skips the personal notes, so everyone gets the one email.
+ *   recipients:  [{ email, customerId }] she picked, or null for everyone.
+ */
+export async function draftCampaign(env, { topic, goal, personalize = true, recipients = null }) {
   const usage = {};
   const siteUrl = settings(env).siteUrl;
   const products = await shopProducts(env);
@@ -142,7 +156,10 @@ export async function draftCampaign(env, { topic, goal }) {
     products: sharedProductCards({ picks, skip: skipProducts, topic, products, siteUrl }),
   };
 
-  const profiles = await loadProfiles(env);
+  const audience = { personalize, ...(recipients ? { emails: recipients.map((recipient) => recipient.email) } : {}) };
+  if (!personalize) return store.createCampaign(env, { topic, goal, content, usage, versions: [], audience });
+
+  const profiles = pickedProfiles(await loadProfiles(env), recipients && recipients.map((recipient) => recipient.customerId).filter(Boolean));
   const candidates = pickCandidates(profiles, matchTerms).map((match) => match.profile);
   const drafts = await personalDrafts(env, { shared, profiles: candidates, productNames, usage });
   const versions = drafts
@@ -153,7 +170,7 @@ export async function draftCampaign(env, { topic, goal }) {
       personal: personalFrom(draft, profile, { products, siteUrl }),
     }));
 
-  return store.createCampaign(env, { topic, goal, content, usage, versions });
+  return store.createCampaign(env, { topic, goal, content, usage, versions, audience });
 }
 
 function addUsage(total, extra) {
