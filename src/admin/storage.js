@@ -18,6 +18,17 @@ export async function getObject(env, key) {
   return env.NOTES_BUCKET.get(key);
 }
 
+/** Whether an object is stored, without reading its bytes where the bucket allows. */
+export async function hasObject(env, key) {
+  const found = env.NOTES_BUCKET.head ? await env.NOTES_BUCKET.head(key) : await env.NOTES_BUCKET.get(key);
+  return Boolean(found);
+}
+
+/** Where a photo on an iPad note is kept. Ids are checked against IMAGE_ID before they get here. */
+export function noteImageKey(clientId, noteId, imageId) {
+  return `ink/${clientId}/${noteId}/${imageId}.jpg`;
+}
+
 export async function deleteObjects(env, keys) {
   if (keys.length) await env.NOTES_BUCKET.delete(keys);
 }

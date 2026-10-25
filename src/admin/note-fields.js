@@ -1,10 +1,15 @@
-// The four sections a consultation note is written in: the Excel sheet's columns, and the
+// The sections a consultation note is written in: the Excel sheet's four columns, plus
+// "Outside products" (what she uses from other brands or stores, prescriptions included), and the
 // headings printed on the iPad's note page. One place that knows where a note's sections live.
+// Older notes simply don't have the newer section.
 
 import { SHEET_NOTE_FIELDS } from "./data/sheet-notes.js";
 
 // In the order Laura reads them.
-export const NOTE_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Possible treatments"];
+export const NOTE_FIELDS = ["Treatment type", "Notes / remarks", "Purchase history", "Outside products", "Possible treatments"];
+
+/** Products the client uses that don't come from Laura's shop. */
+export const OUTSIDE_FIELD = "Outside products";
 
 /** A note's sections by name, or null when it has none (Square and form notes are plain text). */
 export function noteFields(note) {
@@ -21,7 +26,7 @@ export function noteFields(note) {
   return SHEET_NOTE_FIELDS[note.id] || null;
 }
 
-/** Only the four known sections, trimmed, with empty ones left out. */
+/** Only the known sections, in order, trimmed, with empty ones left out. */
 export function cleanFields(input) {
   const fields = {};
   for (const name of NOTE_FIELDS) {

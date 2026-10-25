@@ -112,7 +112,9 @@ export function planNoteEntries(responseText) {
   }));
 }
 
-const INK_PROMPT = `You are reading a client consultation note a licensed esthetician just handwrote on an iPad with an Apple Pencil. The page has four printed section headings: ${NOTE_FIELDS.join(", ")}. Her handwriting under each heading belongs to that section. Later pages, if any, continue the note.
+const INK_PROMPT = `You are reading a client consultation note a licensed esthetician just handwrote on an iPad with an Apple Pencil. The page has printed section headings: ${NOTE_FIELDS.join(", ")}. Her handwriting under each heading belongs to that section. Later pages, if any, continue the note.
+
+"Outside products" is what the client uses that doesn't come from the esthetician's shop: other brands, drugstore products, or prescriptions such as tretinoin, written as she wrote them. Notes written before that heading was added have only the other four headings; if a heading isn't printed on the page, leave that section out.
 
 Rules:
 - Transcribe what she wrote, section by section, keeping her own words, abbreviations and line breaks (one line per written line). Don't add advice or anything she didn't write.
@@ -136,7 +138,7 @@ This note was saved before, and she has now changed the handwriting. Its section
 - Leave a saved section as it is if the handwriting under that heading hasn't changed.`;
 
 /**
- * Read an iPad note's pages (PNG images, in order) into its four sections. Throws when the
+ * Read an iPad note's pages (PNG images, in order) into its sections. Throws when the
  * API can't be reached; a reply that isn't the expected JSON comes back as a low-confidence
  * reading with nothing filled in, so she can still type it and save. `current` is the saved
  * note's sections when she is changing one, so her typed corrections are kept. Gives up after
@@ -273,6 +275,7 @@ Rules:
 - "flags": cross-check everything she has bought against every allergy, sensitivity, medication, reaction or pregnancy mentioned in her notes. Name the product, the ingredient from its list, and the note it conflicts with. Include the concerns already found above if they are real. Leave it empty if nothing conflicts. Never say a product is safe.
 - "visits": one entry per dated note, oldest first. Keep each cell to a short phrase.
 - "products": products she has bought, current routine first.
+- Her notes may have an "Outside products" section: products she uses from other brands, stores or prescriptions (for example tretinoin). Treat them as part of her routine when looking for conflicts, and name them in "flags" when they clash with what she has bought or with a treatment (for example a retinoid at home before a peel). Don't list them in "products", which is only what she bought from the shop.
 - "watch" and "nextVisit": short, concrete items. Skip generic encouragement.
 - Use the formulation details, not just product names. If a note mentions irritation and a product contains an active known to cause that, say so.
 - If a product's formula is unverified or not on file, don't state its ingredients as fact; say it couldn't be checked.

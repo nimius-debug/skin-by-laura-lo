@@ -30,19 +30,31 @@ export const NOTEBOOK_JS = String.raw`
   var PAGE_H = 1160;
   var LINE_GAP = 34;
   var FIRST_LINE = 150;
-  var SECTIONS = [
-    { label: "Treatment type", y: 118 },
-    { label: "Notes / remarks", y: 322 },
-    { label: "Purchase history", y: 662 },
-    { label: "Possible treatments", y: 866 },
-  ];
+  // The headings printed on the first page. Layout 1 is how notes were written before
+  // "Outside products" was added; a note keeps the layout it was written on.
+  var LAYOUTS = {
+    1: [
+      { label: "Treatment type", y: 118 },
+      { label: "Notes / remarks", y: 322 },
+      { label: "Purchase history", y: 662 },
+      { label: "Possible treatments", y: 866 },
+    ],
+    2: [
+      { label: "Treatment type", y: 118 },
+      { label: "Notes / remarks", y: 322 },
+      { label: "Purchase history", y: 628 },
+      { label: "Outside products", y: 798 },
+      { label: "Possible treatments", y: 934 },
+    ],
+  };
+  var LAYOUT = 2;
   var HIGHLIGHT = "#E9C46A";
   var ERASE_RADIUS = 12;
   var MIN_ZOOM = 1;
   var MAX_ZOOM = 2.5;
   // Canvas pixels per page unit at most. Higher zoom is drawn slightly soft rather than risk
   // the large canvases iPad Safari refuses to keep in memory.
-  var MAX_BACKING = 2.5;
+  var MAX_BACKING = 3;
   // Pages away from the screen are kept this coarse, so a long note doesn't use up Safari's
   // canvas memory. They are re-drawn sharp as they scroll near.
   var FAR_BACKING = 0.4;
@@ -53,7 +65,7 @@ export const NOTEBOOK_JS = String.raw`
   var MAX_PAGE_UPRIGHT = 1000;
   // Pen sizes: a multiplier on the pressure-based width.
   var PEN_SIZES = [{ name: "Fine", scale: 0.7 }, { name: "Medium", scale: 1 }, { name: "Bold", scale: 1.6 }];
-  // A touch this wide is a resting hand, not a fingertip.
+  // With finger drawing on, a touch this wide is a resting hand, not a fingertip.
   var PALM_RADIUS = 30;
 
   var state = {
@@ -66,7 +78,15 @@ export const NOTEBOOK_JS = String.raw`
     redo: [],
     date: /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday(),
     zoom: 1,
+    layout: LAYOUT,       // which headings are printed (see LAYOUTS)
+    images: [],           // photos on the pages: { id, page, x, y, w, h } in page units
   };
+  // Each photo's JPEG, and the decoded picture once it's ready to draw, by id.
+  var photoData = {};
+  var photoPics = {};
+  // Photos already stored with the note being changed: they aren't sent again.
+  var savedPhotos = {};
+  var MAX_PHOTOS = 20;
 
   var scroller = document.getElementById("nb-scroll");
   var pagesBox = document.getElementById("nb-pages");
@@ -122,7 +142,7 @@ export const NOTEBOOK_JS = String.raw`
       ctx.textAlign = "right";
       ctx.fillText(prettyDate(state.date), PAGE_W - 56, 70);
       ctx.textAlign = "left";
-      SECTIONS.forEach(function (section) {
+      (LAYOUTS[state.layout] || LAYOUTS[LAYOUT]).forEach(function (section) {
         ctx.font = "600 12px 'Work Sans', system-ui, sans-serif";
         var label = section.label.toUpperCase();
         var width = ctx.measureText(label).width;
@@ -143,6 +163,95 @@ export const NOTEBOOK_JS = String.raw`
     return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
   }
 
+  /**
+   * A pen stroke's points, steadied for drawing: points closer than a fraction of a unit are
+   * dropped, the path is eased (each point drawn part way from the last), and the pressure is
+   * smoothed so the width swells and thins gently. The last point stays exact, so the ink
+   * reaches the Pencil tip. What's stored is untouched.
+   */
+  function steady(points, size) {
+    var out = [];
+    var last = null;
+    var pressure = points[0][2];
+    for (var i = 0; i < points.length; i += 1) {
+      var p = points[i];
+      var final = i === points.length - 1;
+      if (last && !final) {
+        var dx = p[0] - last[0];
+        var dy = p[1] - last[1];
+        if (dx * dx + dy * dy < 0.16) continue;
+      }
+      pressure = pressure * 0.65 + p[2] * 0.35;
+      var x = last && !final ? last[0] + (p[0] - last[0]) * 0.65 : p[0];
+      var y = last && !final ? last[1] + (p[1] - last[1]) * 0.65 : p[1];
+      last = [x, y, widthFor(pressure, size) / 2];
+      out.push(last);
+    }
+    return out;
+  }
+
+  /** A pen stroke as one filled outline, so a pressure-varying line has smooth, even edges. */
+  function fillPenStroke(ctx, points, size) {
+    var pts = steady(points, size);
+    if (pts.length === 1) {
+      ctx.beginPath();
+      ctx.arc(pts[0][0], pts[0][1], pts[0][2], 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    var left = [];
+    var right = [];
+    var nx = 0;
+    var ny = 0;
+    for (var i = 0; i < pts.length; i += 1) {
+      var a = pts[i > 0 ? i - 1 : i];
+      var b = pts[i < pts.length - 1 ? i + 1 : i];
+      var dx = b[0] - a[0];
+      var dy = b[1] - a[1];
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 0.0001) {
+        nx = -dy / len;
+        ny = dx / len;
+      }
+      var r = pts[i][2];
+      left.push([pts[i][0] + nx * r, pts[i][1] + ny * r]);
+      right.push([pts[i][0] - nx * r, pts[i][1] - ny * r]);
+    }
+    ctx.beginPath();
+    ctx.moveTo(left[0][0], left[0][1]);
+    for (var l = 1; l < left.length - 1; l += 1) {
+      var ml = midpoint(left[l], left[l + 1]);
+      ctx.quadraticCurveTo(left[l][0], left[l][1], ml[0], ml[1]);
+    }
+    ctx.lineTo(left[left.length - 1][0], left[left.length - 1][1]);
+    ctx.lineTo(right[right.length - 1][0], right[right.length - 1][1]);
+    for (var k = right.length - 2; k > 0; k -= 1) {
+      var mr = midpoint(right[k], right[k - 1]);
+      ctx.quadraticCurveTo(right[k][0], right[k][1], mr[0], mr[1]);
+    }
+    ctx.lineTo(right[0][0], right[0][1]);
+    ctx.closePath();
+    ctx.fill();
+    // Round ends, and round joins where the line turns sharply (the outline pinches there).
+    var first = pts[0];
+    var end = pts[pts.length - 1];
+    ctx.beginPath();
+    ctx.arc(first[0], first[1], first[2], 0, Math.PI * 2);
+    ctx.moveTo(end[0] + end[2], end[1]);
+    ctx.arc(end[0], end[1], end[2], 0, Math.PI * 2);
+    for (var t = 1; t < pts.length - 1; t += 1) {
+      var ux = pts[t][0] - pts[t - 1][0];
+      var uy = pts[t][1] - pts[t - 1][1];
+      var vx = pts[t + 1][0] - pts[t][0];
+      var vy = pts[t + 1][1] - pts[t][1];
+      if (ux * vx + uy * vy < 0) {
+        ctx.moveTo(pts[t][0] + pts[t][2], pts[t][1]);
+        ctx.arc(pts[t][0], pts[t][1], pts[t][2], 0, Math.PI * 2);
+      }
+    }
+    ctx.fill();
+  }
+
   function drawStroke(ctx, stroke) {
     var points = stroke.points;
     if (!points.length) return;
@@ -155,32 +264,18 @@ export const NOTEBOOK_JS = String.raw`
       ctx.lineWidth = 18;
       ctx.beginPath();
       ctx.moveTo(points[0][0], points[0][1]);
-      for (var h = 1; h < points.length; h += 1) ctx.lineTo(points[h][0], points[h][1]);
       if (points.length === 1) ctx.lineTo(points[0][0] + 0.1, points[0][1]);
+      for (var h = 1; h < points.length - 1; h += 1) {
+        var m = midpoint(points[h], points[h + 1]);
+        ctx.quadraticCurveTo(points[h][0], points[h][1], m[0], m[1]);
+      }
+      if (points.length > 1) ctx.lineTo(points[points.length - 1][0], points[points.length - 1][1]);
       ctx.stroke();
       ctx.restore();
       return;
     }
-    ctx.strokeStyle = stroke.color;
     ctx.fillStyle = stroke.color;
-    if (points.length === 1) {
-      ctx.beginPath();
-      ctx.arc(points[0][0], points[0][1], widthFor(points[0][2], stroke.size) / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
-    // Short curved segments through the midpoints, each as wide as the pen pressure there.
-    var from = points[0];
-    for (var i = 1; i < points.length; i += 1) {
-      var to = i < points.length - 1 ? midpoint(points[i], points[i + 1]) : points[i];
-      ctx.beginPath();
-      ctx.lineWidth = widthFor(points[i][2], stroke.size);
-      ctx.moveTo(from[0], from[1]);
-      ctx.quadraticCurveTo(points[i][0], points[i][1], to[0], to[1]);
-      ctx.stroke();
-      from = to;
-    }
+    fillPenStroke(ctx, points, stroke.size);
     ctx.restore();
   }
 
@@ -192,22 +287,68 @@ export const NOTEBOOK_JS = String.raw`
   function renderPage(index) {
     var view = pageViews[index];
     if (!view) return;
-    var ctx = view.committed.getContext("2d");
+    var ctx = view.canvas.getContext("2d");
     ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
-    drawTemplate(ctx, index);
-    state.pages[index].forEach(function (stroke) { drawStroke(ctx, stroke); });
-    paintPage(index, null);
+    drawPage(ctx, index);
   }
 
-  function paintPage(index, liveStroke) {
+  /** Everything on a page, in order: the printed page, her photos, then her writing over them. */
+  function drawPage(ctx, index) {
+    drawTemplate(ctx, index);
+    state.images.forEach(function (image) {
+      if (image.page !== index) return;
+      var pic = photoPics[image.id];
+      if (pic) {
+        ctx.drawImage(pic, image.x, image.y, image.w, image.h);
+      } else {
+        ctx.fillStyle = "#EFE7DC";
+        ctx.fillRect(image.x, image.y, image.w, image.h);
+      }
+    });
+    state.pages[index].forEach(function (stroke) { drawStroke(ctx, stroke); });
+  }
+
+  /** Add one finished stroke to its page without redrawing the rest. */
+  function commitStroke(index, stroke) {
     var view = pageViews[index];
+    if (!view) return;
     var ctx = view.canvas.getContext("2d");
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(view.committed, 0, 0);
-    if (liveStroke) {
-      ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
-      drawStroke(ctx, liveStroke);
+    ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
+    drawStroke(ctx, stroke);
+  }
+
+  // The stroke being written is drawn on its own transparent canvas laid over the page, so each
+  // Pencil movement redraws one stroke, not the whole page. There is only one, moved to the page
+  // being written on.
+  var liveCanvas = document.createElement("canvas");
+  liveCanvas.className = "nb-live";
+  liveCanvas.setAttribute("aria-hidden", "true");
+  var liveCtx = liveCanvas.getContext("2d", { desynchronized: true }) || liveCanvas.getContext("2d");
+  var livePage = -1;
+
+  function paintLive(index, stroke, predicted) {
+    var view = pageViews[index];
+    if (!view) return;
+    if (livePage !== index || liveCanvas.width !== view.canvas.width || liveCanvas.parentNode !== view.canvas.parentNode) {
+      liveCanvas.width = view.canvas.width;
+      liveCanvas.height = view.canvas.height;
+      liveCanvas.style.width = view.canvas.style.width;
+      liveCanvas.style.height = view.canvas.style.height;
+      view.canvas.parentNode.appendChild(liveCanvas);
+      livePage = index;
     }
+    liveCtx.setTransform(1, 0, 0, 1, 0, 0);
+    liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+    if (!stroke) return;
+    liveCtx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
+    // Where the Pencil is about to be, drawn but not kept, so the ink keeps up with the tip.
+    drawStroke(liveCtx, predicted && predicted.length ? { tool: stroke.tool, color: stroke.color, size: stroke.size, points: stroke.points.concat(predicted) } : stroke);
+  }
+
+  function clearLive() {
+    if (livePage === -1) return;
+    liveCtx.setTransform(1, 0, 0, 1, 0, 0);
+    liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
   }
 
   function sizePage(index) {
@@ -221,10 +362,10 @@ export const NOTEBOOK_JS = String.raw`
     view.canvas.style.height = cssHeight + "px";
     view.canvas.width = Math.round(PAGE_W * backing);
     view.canvas.height = Math.round(PAGE_H * backing);
-    view.committed.width = view.canvas.width;
-    view.committed.height = view.canvas.height;
     view.scale = view.canvas.width / PAGE_W;
+    if (livePage === index) livePage = -1;
     renderPage(index);
+    if (selectedPhoto) placePhotoBox();
   }
 
   function baseWidth() {
@@ -241,7 +382,7 @@ export const NOTEBOOK_JS = String.raw`
     wrap.appendChild(canvas);
     pagesBox.appendChild(wrap);
     // Until the observer says otherwise, the first pages and a newly added one are on screen.
-    var view = { canvas: canvas, committed: document.createElement("canvas"), scale: 1, near: !nearWatch || index < 2 || index === state.pages.length - 1 };
+    var view = { canvas: canvas, scale: 1, near: !nearWatch || index < 2 || index === state.pages.length - 1 };
     pageViews[index] = view;
     wirePointer(canvas, index);
     sizePage(index);
@@ -258,7 +399,7 @@ export const NOTEBOOK_JS = String.raw`
       view.near = entry.isIntersecting;
       sizePage(index);
     });
-  }, { root: scroller, rootMargin: "100% 0px" }) : null;
+  }, { root: scroller, rootMargin: "150% 0px" }) : null;
 
   function buildPages() {
     if (nearWatch) nearWatch.disconnect();
@@ -301,6 +442,12 @@ export const NOTEBOOK_JS = String.raw`
   /* -------------------------------------------------------------- input */
 
   var penDown = false;
+  // When the Pencil last moved. If Safari ever loses the Pencil's lift, fingers scroll again after a moment.
+  var penSeen = 0;
+  function penActive() { return penDown && Date.now() - penSeen < 1500; }
+  function penLifted(event) { if (event.pointerType === "pen") penDown = false; }
+  document.addEventListener("pointerup", penLifted, true);
+  document.addEventListener("pointercancel", penLifted, true);
   // While changing a saved note whose handwriting hasn't loaded, nothing can be written, so
   // Done can never replace her pages with a blank one.
   var locked = false;
@@ -337,12 +484,15 @@ export const NOTEBOOK_JS = String.raw`
     var live = null;
     var erased = null;
 
-    // Safari scrolls the page for any touch, the Pencil included. Stop it for the Pencil, for a
-    // resting palm, and for anything while the Pencil is down; a fingertip scrolls (with momentum).
+    // iPad Safari scrolls for any touch, the Pencil included. Stop it only for the Pencil and while
+    // the Pencil is writing. Every finger touch is left to Safari so it scrolls natively, with
+    // momentum, anywhere on the page. (Judging a palm by touch size used to catch fingertips too,
+    // which is why the page only scrolled from the margins; iPadOS already ignores a resting
+    // palm while the Pencil writes.)
     function holdStill(event) {
       if (event.touches.length !== 1) return;
       var touch = event.touches[0];
-      if (touch.touchType === "stylus" || penDown || state.fingerDraws || touch.radiusX > PALM_RADIUS) event.preventDefault();
+      if (touch.touchType === "stylus" || penActive() || state.fingerDraws) event.preventDefault();
     }
     canvas.addEventListener("touchstart", holdStill, { passive: false });
     canvas.addEventListener("touchmove", holdStill, { passive: false });
@@ -355,7 +505,7 @@ export const NOTEBOOK_JS = String.raw`
         renderPage(index);
       } else if (live) {
         live = null;
-        paintPage(index, null);
+        clearLive();
       }
       touchStroke = null;
     }
@@ -370,7 +520,7 @@ export const NOTEBOOK_JS = String.raw`
       if (event.pointerType === "mouse" && event.button !== 0) return;
       event.preventDefault();
       try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* a pointer that has already lifted */ }
-      if (event.pointerType === "pen") penDown = true;
+      if (event.pointerType === "pen") { penDown = true; penSeen = Date.now(); }
       touchStroke = event.pointerType === "touch" ? cancelTouch : null;
       var point = toPage(canvas, event);
       if (state.tool === "eraser") {
@@ -380,10 +530,11 @@ export const NOTEBOOK_JS = String.raw`
         return;
       }
       live = { tool: state.tool, color: state.color, size: PEN_SIZES[state.size].scale, points: [point] };
-      paintPage(index, live);
+      paintLive(index, live);
     });
 
     canvas.addEventListener("pointermove", function (event) {
+      if (event.pointerType === "pen") penSeen = Date.now();
       if (!live && !erased) return;
       var events = event.getCoalescedEvents ? event.getCoalescedEvents() : [event];
       if (!events.length) events = [event];
@@ -394,7 +545,8 @@ export const NOTEBOOK_JS = String.raw`
         return;
       }
       events.forEach(function (e) { live.points.push(toPage(canvas, e)); });
-      paintPage(index, live);
+      var predicted = event.getPredictedEvents ? event.getPredictedEvents().slice(0, 2).map(function (e) { return toPage(canvas, e); }) : null;
+      paintLive(index, live, predicted);
     });
 
     function finish(event) {
@@ -409,10 +561,12 @@ export const NOTEBOOK_JS = String.raw`
         return;
       }
       if (!live) return;
-      state.pages[index].push(live);
-      record({ type: "add", page: index, stroke: live });
+      var stroke = live;
       live = null;
-      renderPage(index);
+      state.pages[index].push(stroke);
+      commitStroke(index, stroke);
+      clearLive();
+      record({ type: "add", page: index, stroke: stroke });
     }
     canvas.addEventListener("pointerup", finish);
     canvas.addEventListener("pointercancel", finish);
@@ -428,6 +582,7 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function applyUndo(action) {
+    if (action.type.indexOf("photo") === 0) { undoPhoto(action, true); return; }
     var strokes = state.pages[action.page];
     if (action.type === "add") {
       var at = strokes.lastIndexOf(action.stroke);
@@ -439,6 +594,7 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function applyRedo(action) {
+    if (action.type.indexOf("photo") === 0) { undoPhoto(action, false); return; }
     var strokes = state.pages[action.page];
     if (action.type === "add") {
       strokes.push(action.stroke);
@@ -486,11 +642,12 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function hasInk() {
-    return state.pages.some(function (strokes) { return strokes.length > 0; });
+    return state.images.length > 0 || state.pages.some(function (strokes) { return strokes.length > 0; });
   }
 
   function saveLocal() {
-    var record = { clientId: draftKey, clientName: clientName, noteId: noteId || null, date: state.date, pages: state.pages, updatedAt: Date.now() };
+    var record = { clientId: draftKey, clientName: clientName, noteId: noteId || null, date: state.date, layout: state.layout, pages: state.pages,
+      images: state.images, photos: photoData, savedPhotos: savedPhotos, updatedAt: Date.now() };
     return withStore("readwrite", function (store) {
       return hasInk() ? store.put(record) : store.delete(draftKey);
     }).then(function () {
@@ -716,6 +873,252 @@ export const NOTEBOOK_JS = String.raw`
     resizeTimer = setTimeout(function () { pageViews.forEach(function (_, index) { sizePage(index); }); updatePageCount(); }, 150);
   });
 
+  /* -------------------------------------------------------------- photos */
+
+  // A photo is added from the toolbar (camera or library), shrunk to a sensible size on the iPad,
+  // and placed on the page in view. Tapping it with a finger selects it: drag to move, the corner
+  // to resize, or remove it. The Pencil always writes, over photos too.
+
+  function pagePhotos(index) {
+    return state.images.filter(function (image) { return image.page === index; });
+  }
+
+  function newPhotoId() {
+    var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    var id = "img_";
+    for (var i = 0; i < 12; i += 1) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+  }
+
+  /** Decode a photo's JPEG for drawing, then redraw its page. */
+  function showPhoto(id) {
+    var blob = photoData[id];
+    if (!blob) return Promise.resolve();
+    var url = URL.createObjectURL(blob);
+    var pic = new Image();
+    pic.src = url;
+    return (pic.decode ? pic.decode() : new Promise(function (resolve, reject) { pic.onload = resolve; pic.onerror = reject; }))
+      .then(function () {
+        photoPics[id] = pic;
+        state.images.forEach(function (image) { if (image.id === id) renderPage(image.page); });
+      })
+      .catch(function () { /* drawn as a blank box */ });
+  }
+
+  /** A picked file as a JPEG at most 1600 px on its longest side (iPad photos are 12 MP and up). */
+  function shrinkPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var pic = new Image();
+      pic.onload = function () {
+        var scale = Math.min(1, 1600 / Math.max(pic.naturalWidth, pic.naturalHeight));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(pic.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(pic.naturalHeight * scale));
+        canvas.getContext("2d").drawImage(pic, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function (blob) {
+          var size = { w: canvas.width, h: canvas.height };
+          canvas.width = 0;
+          canvas.height = 0;
+          if (blob) resolve({ blob: blob, w: size.w, h: size.h }); else reject(new Error("couldn't read photo"));
+        }, "image/jpeg", 0.85);
+      };
+      pic.onerror = function () { URL.revokeObjectURL(url); reject(new Error("couldn't read photo")); };
+      pic.src = url;
+    });
+  }
+
+  /** The page in the middle of the screen, and the page-unit y at the middle of what's visible of it. */
+  function pageInView() {
+    var box = scroller.getBoundingClientRect();
+    var middle = box.top + box.height / 2;
+    var current = 0;
+    pageViews.forEach(function (view, index) { if (view.canvas.getBoundingClientRect().top <= middle) current = index; });
+    var rect = pageViews[current].canvas.getBoundingClientRect();
+    var y = (middle - rect.top) * PAGE_H / rect.height;
+    return { page: current, y: Math.max(80, Math.min(PAGE_H - 80, y)) };
+  }
+
+  var photoInput = document.getElementById("nb-photo-input");
+  var photoBtn = document.getElementById("nb-photo");
+  if (photoBtn && photoInput) {
+    photoBtn.addEventListener("click", function () {
+      if (locked) return;
+      if (state.images.length >= MAX_PHOTOS) { setStatus("A note can have up to " + MAX_PHOTOS + " photos.", "warn"); return; }
+      photoInput.click();
+    });
+    photoInput.addEventListener("change", function () {
+      var files = Array.prototype.slice.call(photoInput.files || [], 0, MAX_PHOTOS - state.images.length);
+      photoInput.value = "";
+      if (!files.length) return;
+      setStatus("Adding photo…", "");
+      var spot = pageInView();
+      files.reduce(function (chain, file, i) {
+        return chain.then(function () {
+          return shrinkPhoto(file).then(function (shrunk) {
+            var w = Math.min(420, PAGE_W - 120);
+            var h = w * shrunk.h / shrunk.w;
+            if (h > PAGE_H - 160) { h = PAGE_H - 160; w = h * shrunk.w / shrunk.h; }
+            var image = { id: newPhotoId(), page: spot.page, x: (PAGE_W - w) / 2 + i * 24, y: Math.max(40, Math.min(PAGE_H - h - 40, spot.y - h / 2 + i * 24)), w: w, h: h };
+            photoData[image.id] = shrunk.blob;
+            state.images.push(image);
+            record({ type: "photo-add", image: image });
+            renderPage(image.page);
+            return showPhoto(image.id).then(function () { selectPhoto(image.id); });
+          });
+        });
+      }, Promise.resolve()).then(function () {
+        setStatus("Photo added. Drag to move it, or use the corner to resize.", "good");
+      }).catch(function () {
+        setStatus("Couldn't add that photo. Try another.", "warn");
+      });
+    });
+  }
+
+  /* The box shown around a selected photo, with a resize corner and a Remove button. */
+  var photoBox = document.createElement("div");
+  photoBox.className = "nb-photo-box";
+  photoBox.innerHTML = '<button type="button" class="nb-photo-remove" aria-label="Remove photo">Remove</button><span class="nb-photo-handle" aria-hidden="true"></span>';
+  var selectedPhoto = null;
+
+  function photoById(id) {
+    for (var i = 0; i < state.images.length; i += 1) if (state.images[i].id === id) return state.images[i];
+    return null;
+  }
+
+  function placePhotoBox() {
+    var image = selectedPhoto && photoById(selectedPhoto);
+    var view = image && pageViews[image.page];
+    if (!view) { if (photoBox.parentNode) photoBox.parentNode.removeChild(photoBox); selectedPhoto = null; return; }
+    var k = parseFloat(view.canvas.style.width) / PAGE_W;
+    photoBox.style.left = image.x * k + "px";
+    photoBox.style.top = image.y * k + "px";
+    photoBox.style.width = image.w * k + "px";
+    photoBox.style.height = image.h * k + "px";
+    if (photoBox.parentNode !== view.canvas.parentNode) view.canvas.parentNode.appendChild(photoBox);
+  }
+
+  function selectPhoto(id) {
+    selectedPhoto = id;
+    placePhotoBox();
+  }
+
+  function deselectPhoto() {
+    if (!selectedPhoto) return;
+    selectedPhoto = null;
+    placePhotoBox();
+  }
+
+  /** The photo under a point (page units) on a page, topmost first. */
+  function photoAt(index, point) {
+    for (var i = state.images.length - 1; i >= 0; i -= 1) {
+      var image = state.images[i];
+      if (image.page === index && point[0] >= image.x && point[0] <= image.x + image.w && point[1] >= image.y && point[1] <= image.y + image.h) return image;
+    }
+    return null;
+  }
+
+  // Dragging the box moves the photo; dragging the corner resizes it, keeping its shape.
+  var photoDrag = null;
+  photoBox.addEventListener("pointerdown", function (event) {
+    if (event.target.closest(".nb-photo-remove")) return;
+    var image = photoById(selectedPhoto);
+    if (!image) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try { photoBox.setPointerCapture(event.pointerId); } catch (error) { /* already lifted */ }
+    var k = parseFloat(pageViews[image.page].canvas.style.width) / PAGE_W;
+    photoDrag = { id: image.id, k: k, sx: event.clientX, sy: event.clientY, from: { x: image.x, y: image.y, w: image.w, h: image.h }, resize: !!event.target.closest(".nb-photo-handle") };
+  });
+  photoBox.addEventListener("pointermove", function (event) {
+    if (!photoDrag) return;
+    var image = photoById(photoDrag.id);
+    var dx = (event.clientX - photoDrag.sx) / photoDrag.k;
+    var dy = (event.clientY - photoDrag.sy) / photoDrag.k;
+    var from = photoDrag.from;
+    if (photoDrag.resize) {
+      var w = Math.max(80, Math.min(PAGE_W - from.x, from.w + dx));
+      var h = w * from.h / from.w;
+      if (from.y + h > PAGE_H) { h = PAGE_H - from.y; w = h * from.w / from.h; }
+      image.w = w;
+      image.h = h;
+    } else {
+      image.x = Math.max(0, Math.min(PAGE_W - image.w, from.x + dx));
+      image.y = Math.max(0, Math.min(PAGE_H - image.h, from.y + dy));
+    }
+    placePhotoBox();
+    if (!photoDrag.frame) {
+      photoDrag.frame = requestAnimationFrame(function () {
+        if (photoDrag) photoDrag.frame = 0;
+        renderPage(image.page);
+      });
+    }
+  });
+  function endPhotoDrag() {
+    if (!photoDrag) return;
+    var drag = photoDrag;
+    photoDrag = null;
+    var image = photoById(drag.id);
+    renderPage(image.page);
+    var to = { x: image.x, y: image.y, w: image.w, h: image.h };
+    if (to.x !== drag.from.x || to.y !== drag.from.y || to.w !== drag.from.w) record({ type: "photo-change", id: image.id, from: drag.from, to: to });
+  }
+  photoBox.addEventListener("pointerup", endPhotoDrag);
+  photoBox.addEventListener("pointercancel", endPhotoDrag);
+  photoBox.querySelector(".nb-photo-remove").addEventListener("click", function () {
+    var at = -1;
+    for (var i = 0; i < state.images.length; i += 1) if (state.images[i].id === selectedPhoto) at = i;
+    if (at === -1) return;
+    var image = state.images.splice(at, 1)[0];
+    deselectPhoto();
+    renderPage(image.page);
+    record({ type: "photo-remove", image: image, at: at });
+  });
+
+  function undoPhoto(action, undoing) {
+    var page;
+    if (action.type === "photo-add" || action.type === "photo-remove") {
+      var removing = (action.type === "photo-add") === undoing;
+      if (removing) {
+        state.images = state.images.filter(function (image) { return image.id !== action.image.id; });
+      } else if (!photoById(action.image.id)) {
+        state.images.splice(action.at === undefined ? state.images.length : action.at, 0, action.image);
+      }
+      page = action.image.page;
+    } else {
+      var image = photoById(action.id);
+      if (!image) return;
+      var to = undoing ? action.from : action.to;
+      image.x = to.x; image.y = to.y; image.w = to.w; image.h = to.h;
+      page = image.page;
+    }
+    deselectPhoto();
+    renderPage(page);
+  }
+
+  // A finger tap (no scroll) on a photo selects it; a tap elsewhere puts it down.
+  var photoTap = null;
+  pagesBox.addEventListener("pointerdown", function (event) {
+    if (event.target.closest && event.target.closest(".nb-photo-box")) return;
+    if (event.pointerType === "pen" || state.fingerDraws && event.pointerType === "touch") { if (event.pointerType === "pen") deselectPhoto(); return; }
+    photoTap = { x: event.clientX, y: event.clientY, at: Date.now(), top: scroller.scrollTop, target: event.target };
+  }, true);
+  pagesBox.addEventListener("pointerup", function (event) {
+    var tap = photoTap;
+    photoTap = null;
+    if (!tap || event.pointerType === "pen") return;
+    if (Math.abs(event.clientX - tap.x) > 10 || Math.abs(event.clientY - tap.y) > 10 || Date.now() - tap.at > 500 || Math.abs(scroller.scrollTop - tap.top) > 4) return;
+    var index = -1;
+    pageViews.forEach(function (view, i) { if (view.canvas === tap.target) index = i; });
+    var image = index === -1 ? null : photoAt(index, toPage(pageViews[index].canvas, event));
+    if (image && event.pointerType !== "mouse") selectPhoto(image.id);
+    else if (image && event.pointerType === "mouse" && state.tool !== "pen" && state.tool !== "highlighter") selectPhoto(image.id);
+    else deselectPhoto();
+  }, true);
+  // Touches that become a scroll never send pointerup.
+  pagesBox.addEventListener("pointercancel", function () { photoTap = null; }, true);
+
   /* ------------------------------------------------------ done and review */
 
   var review = document.getElementById("nb-review");
@@ -736,8 +1139,7 @@ export const NOTEBOOK_JS = String.raw`
     canvas.height = PAGE_H * scale;
     var ctx = canvas.getContext("2d");
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawTemplate(ctx, index);
-    state.pages[index].forEach(function (stroke) { drawStroke(ctx, stroke); });
+    drawPage(ctx, index);
     return new Promise(function (resolve) {
       canvas.toBlob(function (blob) {
         // Safari holds canvas memory until it's shrunk.
@@ -749,8 +1151,8 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function pagesToSend() {
-    // Always the first page; later pages only if something is written on them.
-    return state.pages.map(function (strokes, index) { return index === 0 || strokes.length ? index : -1; })
+    // Always the first page; later pages only if something is written or placed on them.
+    return state.pages.map(function (strokes, index) { return index === 0 || strokes.length || pagePhotos(index).length ? index : -1; })
       .filter(function (index) { return index !== -1; });
   }
 
@@ -784,7 +1186,15 @@ export const NOTEBOOK_JS = String.raw`
     Promise.all(indexes.map(exportPage)).then(function (blobs) {
       var form = new FormData();
       blobs.forEach(function (blob, i) { form.append("page", blob, "page-" + (i + 1) + ".png"); });
-      form.append("strokes", JSON.stringify({ v: 1, width: PAGE_W, height: PAGE_H, pages: indexes.map(function (index) { return state.pages[index]; }) }));
+      // Photos follow their page's new number, since empty pages aren't sent. Ones already stored
+      // with the note being changed are listed but not sent again.
+      var photos = state.images.filter(function (image) { return indexes.indexOf(image.page) !== -1; }).map(function (image) {
+        return { id: image.id, page: indexes.indexOf(image.page), x: image.x, y: image.y, w: image.w, h: image.h };
+      });
+      photos.forEach(function (image) {
+        if (!savedPhotos[image.id] && photoData[image.id]) form.append("image", photoData[image.id], image.id);
+      });
+      form.append("strokes", JSON.stringify({ v: 1, layout: state.layout, width: PAGE_W, height: PAGE_H, pages: indexes.map(function (index) { return state.pages[index]; }), images: photos }));
       form.append("date", state.date);
       if (noteId) form.append("note", noteId);
       // Done tapped again: the server can throw the earlier reading away.
@@ -918,14 +1328,16 @@ export const NOTEBOOK_JS = String.raw`
     banner.hidden = true;
     if (noteId) {
       // Changing a saved note: back to the note as it was saved.
-      loadSaved().then(function (pages) {
+      loadSaved().then(function (ink) {
         // Her changes stay until the saved note is in hand.
-        if (!pages) {
+        if (!ink) {
           setStatus("Couldn't open the saved handwriting, so nothing was changed. Try again when you're back online.", "warn");
           return;
         }
         clearLocal();
-        state.pages = pages;
+        state.pages = ink.pages;
+        state.layout = ink.layout || 1;
+        useSavedPhotos(ink);
         state.date = /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday();
         buildPages();
         updateUndoButtons();
@@ -934,22 +1346,47 @@ export const NOTEBOOK_JS = String.raw`
       return;
     }
     state.pages = [[]];
+    state.layout = LAYOUT;
+    state.images = [];
+    photoData = {};
+    photoPics = {};
+    deselectPhoto();
     state.date = localToday();
     buildPages();
     changed();
   });
 
-  /** A saved note's strokes, one list per page, or null if they can't be read. */
+  /** Put a saved note's photos back: their places from its ink, their pictures from the dashboard. */
+  function useSavedPhotos(ink) {
+    state.images = Array.isArray(ink.images) ? ink.images : [];
+    photoData = {};
+    photoPics = {};
+    savedPhotos = {};
+    state.images.forEach(function (image) {
+      savedPhotos[image.id] = true;
+      fetch("/admin/notes/" + encodeURIComponent(noteId) + "/images/" + encodeURIComponent(image.id), { credentials: "same-origin" })
+        .then(function (response) { return response.ok ? response.blob() : null; })
+        .then(function (blob) { if (blob) { photoData[image.id] = blob; return showPhoto(image.id); } })
+        .catch(function () { /* drawn as a blank box; it's still stored with the note */ });
+    });
+  }
+
+  /** A saved note's ink ({ pages, layout, images }), or null if it can't be read. */
   function loadSaved() {
     return fetch("/admin/notes/" + encodeURIComponent(noteId) + "/ink", { credentials: "same-origin" })
       .then(function (response) { return response.ok ? response.json() : null; })
-      .then(function (ink) { return ink && Array.isArray(ink.pages) && ink.pages.length ? ink.pages : null; })
+      .then(function (ink) { return ink && Array.isArray(ink.pages) && ink.pages.length ? ink : null; })
       .catch(function () { return null; });
   }
 
   function begin(saved) {
-    if (saved && Array.isArray(saved.pages) && saved.pages.some(function (strokes) { return strokes.length; })) {
+    if (saved && Array.isArray(saved.pages) && (saved.pages.some(function (strokes) { return strokes.length; }) || (saved.images && saved.images.length))) {
       state.pages = saved.pages;
+      state.layout = saved.layout || 1;
+      state.images = Array.isArray(saved.images) ? saved.images : [];
+      photoData = saved.photos || {};
+      savedPhotos = saved.savedPhotos || {};
+      state.images.forEach(function (image) { showPhoto(image.id); });
       if (/^\d{4}-\d{2}-\d{2}$/.test(saved.date || "")) state.date = saved.date;
       var when = new Date(saved.updatedAt || Date.now());
       document.getElementById("nb-restored-when").textContent = when.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -966,14 +1403,17 @@ export const NOTEBOOK_JS = String.raw`
   function openSaved() {
     locked = true;
     setStatus("Opening the handwriting…", "");
-    return loadSaved().then(function (pages) {
-      if (!pages) {
+    return loadSaved().then(function (ink) {
+      if (!ink) {
         setStatus("Couldn't open the handwriting. Check the connection, then tap Done to try again.", "warn");
         return;
       }
       locked = false;
       setStatus("", "");
-      state.pages = pages;
+      state.pages = ink.pages;
+      // Notes written before "Outside products" keep the four headings they were written on.
+      state.layout = ink.layout || 1;
+      useSavedPhotos(ink);
       begin(null);
     });
   }
