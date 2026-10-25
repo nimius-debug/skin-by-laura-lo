@@ -27,6 +27,7 @@ const ICONS = {
   minus: '<path d="M5 12h14"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 9v6M9 12h6"/>',
+  photo: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="m21 16-5-5-8 8"/>',
   size: '<path d="M4 7h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.2"/><path d="M4 17.5h16" stroke-width="3.6"/>',
 };
 
@@ -66,7 +67,14 @@ button { font: inherit; color: inherit; }
 .nb-sep { width: 1px; height: 28px; background: var(--line); margin: 0 6px; }
 .nb-scroll { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; display: flex; flex-direction: column; }
 .nb-pages { display: flex; flex-direction: column; gap: 24px; padding: 18px 16px 24px; width: max-content; min-width: 100%; box-sizing: border-box; transform-origin: 0 0; }
-.nb-page { margin: 0 auto; }
+.nb-page { margin: 0 auto; position: relative; }
+/* The stroke being written, laid over its page; touches pass through to the page. */
+/* A selected photo: drag it to move, the corner to resize. A finger here moves the photo, not the page. */
+.nb-photo-box { position: absolute; z-index: 2; border: 2px solid var(--accent); border-radius: 4px; touch-action: none; cursor: move; box-shadow: 0 0 0 4px rgba(184,113,79,.18); }
+.nb-photo-handle { position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 3px solid #FFFFFF; cursor: nwse-resize; }
+.nb-photo-handle::before { content: ""; position: absolute; inset: -10px; }
+.nb-photo-remove { position: absolute; top: -52px; right: 0; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 0; background: var(--ink); color: #FFF8F2; font-weight: 600; font-size: 14px; cursor: pointer; }
+.nb-live { position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 4px; }
 /* Fingers scroll the page natively; the script stops the Pencil (and a resting palm) from scrolling. */
 .nb-page canvas { display: block; border-radius: 4px; box-shadow: 0 2px 14px rgba(42,36,31,.12); touch-action: pan-x pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .nb-zoom-level { width: auto; min-width: 56px; padding: 0 6px; font-size: 14px; font-weight: 600; }
@@ -188,6 +196,8 @@ ${raw(APP_HEAD)}
       <button type="button" class="nb-tool" id="nb-undo" aria-label="Undo" disabled>${icon(ICONS.undo)}</button>
       <button type="button" class="nb-tool" id="nb-redo" aria-label="Redo" disabled>${icon(ICONS.redo)}</button>
       <button type="button" class="nb-tool" id="nb-finger" aria-pressed="false" aria-label="Draw with finger">${icon(ICONS.finger)}</button>
+      <button type="button" class="nb-tool" id="nb-photo" aria-label="Add a photo">${icon(ICONS.photo)}</button>
+      <input type="file" id="nb-photo-input" accept="image/*" multiple hidden />
       <span class="nb-sep" aria-hidden="true"></span>
       <button type="button" class="nb-tool" id="nb-zoom-out" aria-label="Zoom out" disabled>${icon(ICONS.minus)}</button>
       <button type="button" class="nb-tool nb-zoom-level" id="nb-zoom-reset" aria-label="Back to 100%">100%</button>

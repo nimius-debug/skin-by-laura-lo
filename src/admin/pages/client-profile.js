@@ -167,7 +167,7 @@ function sheetBody(note) {
 
 function noteCard(note) {
   const dateLabel = formatDate(note.note_date);
-  // Sheet and iPad notes show their four sections, line breaks intact. Square
+  // Sheet and iPad notes show their sections, line breaks intact. Square
   // notes show the seller note exactly as Square has it.
   const body = sheetBody(note);
   return html`

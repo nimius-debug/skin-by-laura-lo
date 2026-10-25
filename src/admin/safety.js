@@ -5,7 +5,7 @@
 // ingredient lists we have on file — products without one are reported as
 // "not screened" rather than assumed safe.
 
-import { noteFields } from "./note-fields.js";
+import { noteFields, OUTSIDE_FIELD } from "./note-fields.js";
 
 const NOTES_FIELD = "Notes / remarks";
 
@@ -16,6 +16,17 @@ export function noteText(note) {
   if (fields) return fields[NOTES_FIELD] || "";
   return note.extracted_text || note.summary || "";
 }
+
+/** What a note lists under "Outside products": what she uses from other brands, stores or prescriptions. */
+export function outsideText(note) {
+  const fields = noteFields(note);
+  return (fields && fields[OUTSIDE_FIELD]) || "";
+}
+
+// In "Outside products" only these count: a product name alone can say "sensitive" without being a
+// concern, but a prescription retinoid or Accutane always matters before a peel or waxing.
+const HOME_RETINOID = /retinol|retinal\b|retin-?a\b|tretinoin|\btret\b|adapalene|differin|tazarotene|trifarotene/i;
+const ACCUTANE = /accutane|isotretinoin/i;
 
 const SIGNALS = [
   { id: "allergy", pattern: /allerg/i },
@@ -71,7 +82,20 @@ function formatDate(iso) {
 
 function collectSignals(notes) {
   const hits = Object.fromEntries(SIGNALS.map((signal) => [signal.id, []]));
+  hits.homeRetinoid = [];
+  const add = (list, note, paragraph) => {
+    const excerpt = tidy(paragraph);
+    if (!list.some((hit) => hit.excerpt === excerpt)) list.push({ date: note.note_date || null, excerpt });
+  };
   for (const note of notes) {
+    for (const paragraph of paragraphs(outsideText(note))) {
+      const accutane = ACCUTANE.exec(paragraph);
+      if (accutane && !negated(paragraph, accutane.index)) add(hits.accutane, note, paragraph);
+      else {
+        const retinoid = HOME_RETINOID.exec(paragraph);
+        if (retinoid && !negated(paragraph, retinoid.index)) add(hits.homeRetinoid, note, paragraph);
+      }
+    }
     for (const paragraph of paragraphs(noteText(note))) {
       for (const signal of SIGNALS) {
         const match = signal.pattern.exec(paragraph);
@@ -186,6 +210,16 @@ export function findFlags({ notes, products }) {
         detail: `Chamomile, calendula and arnica are in the same plant family as ragweed and can cross-react in allergic or sensitive skin: ${joinNames(daisy)}.`,
       });
     }
+  }
+
+  if (hits.homeRetinoid.length) {
+    const hit = hits.homeRetinoid[0];
+    const strong = withTraits(screened, ["acid", "retinoid"]);
+    flags.push({
+      level: "note",
+      title: "Retinoid used at home",
+      detail: `Outside products: “${hit.excerpt}”${when(hit)}. Ask how often she uses it, and pause it before peels, waxing or dermaplaning.${strong.length ? ` She has also bought: ${joinNames(strong)}.` : ""}`,
+    });
   }
 
   for (const hit of hits.reaction.slice(0, 3)) {

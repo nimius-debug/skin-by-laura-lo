@@ -251,9 +251,14 @@ async function handleConfirm(request, env, clientId, draftId) {
 const MAX_INK_PAGES = 12;
 const MAX_PAGE_BYTES = 6 * 1024 * 1024;
 const MAX_STROKES_BYTES = 8 * 1024 * 1024;
+// Photos placed on a note's pages. The iPad sends each as a JPEG named by its id.
+const MAX_INK_IMAGES = 20;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_ID = /^img_[a-z0-9]{6,32}$/;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 const isPng = (bytes) => PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+const isJpeg = (bytes) => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
 const isIsoDate = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 function shortDate(iso) {
@@ -300,6 +305,27 @@ async function handleInkStrokes(env, noteId) {
   return new Response(object.body, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 }
 
+/** The photo ids a note's strokes JSON lists, or none if it can't be read. */
+function listedImageIds(strokesJson) {
+  try {
+    const images = JSON.parse(strokesJson).images;
+    return Array.isArray(images) ? images.map((image) => image && image.id).filter((id) => typeof id === "string" && IMAGE_ID.test(id)) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** A saved note's photo, so the iPad can open the note again with its photos in place. */
+async function handleNoteImage(env, noteId, imageId) {
+  if (!IMAGE_ID.test(imageId || "")) return notFound();
+  const note = await db.getNote(env, noteId);
+  if (!note || note.source !== "ipad" || !note.ink_key) return notFound();
+  const object = await storage.getObject(env, storage.noteImageKey(note.client_id, note.id, imageId));
+  if (!object) return notFound();
+  // An id's bytes never change: a replaced photo gets a new id.
+  return new Response(object.body, { headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=31536000, immutable" } });
+}
+
 /** Throw away a draft this client replaced by tapping Done again, files and all. */
 async function discardDraft(env, clientId, draftId) {
   const draft = draftId ? await db.getDraft(env, draftId) : null;
@@ -333,8 +359,10 @@ async function handleInkRead(request, env, clientId) {
 
   const strokes = typeof form.get("strokes") === "string" ? form.get("strokes") : "";
   if (strokes.length > MAX_STROKES_BYTES) return jsonResponse({ message: "The note is too large to send." }, 400);
+  let parsed;
   try {
-    if (!Array.isArray(JSON.parse(strokes).pages)) throw new Error("no pages");
+    parsed = JSON.parse(strokes);
+    if (!Array.isArray(parsed.pages)) throw new Error("no pages");
   } catch {
     return jsonResponse({ message: "The pen strokes didn't arrive. Try Done again." }, 400);
   }
@@ -342,6 +370,29 @@ async function handleInkRead(request, env, clientId) {
   const noteId = typeof form.get("note") === "string" ? form.get("note") : "";
   const editing = noteId ? await editableInkNote(env, clientId, noteId) : null;
   if (noteId && !editing) return jsonResponse({ message: "That note can't be changed here." }, 404);
+
+  // Photos: each one listed on the pages must arrive now, or already be kept with the note being changed.
+  const listed = parsed.images === undefined ? [] : parsed.images;
+  if (!Array.isArray(listed) || listed.length > MAX_INK_IMAGES) return jsonResponse({ message: `A note can have up to ${MAX_INK_IMAGES} photos.` }, 400);
+  const placement = (image) => image && IMAGE_ID.test(image.id) && Number.isInteger(image.page) && image.page >= 0
+    && ["x", "y", "w", "h"].every((key) => Number.isFinite(image[key]));
+  if (!listed.every(placement)) return jsonResponse({ message: "A photo on the page didn't arrive properly. Try Done again." }, 400);
+  const imageFiles = form.getAll("image").filter((file) => file && typeof file === "object");
+  if (imageFiles.length > MAX_INK_IMAGES) return jsonResponse({ message: `A note can have up to ${MAX_INK_IMAGES} photos.` }, 400);
+  const uploads = new Map();
+  for (const file of imageFiles) {
+    const id = file.name;
+    if (!IMAGE_ID.test(id || "") || uploads.has(id)) return jsonResponse({ message: "A photo didn't arrive properly. Try Done again." }, 400);
+    if (file.size > MAX_IMAGE_BYTES) return jsonResponse({ message: "A photo is too large to send." }, 400);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (!isJpeg(bytes)) return jsonResponse({ message: "Photos must be JPEG images." }, 400);
+    uploads.set(id, bytes);
+  }
+  for (const image of listed) {
+    if (uploads.has(image.id)) continue;
+    const kept = editing && await storage.hasObject(env, storage.noteImageKey(clientId, editing.id, image.id));
+    if (!kept) return jsonResponse({ message: "A photo on the page didn't arrive. Try Done again." }, 400);
+  }
   const savedFields = editing ? noteFields(editing) || {} : null;
   // Done tapped again: the earlier reading is no longer wanted.
   await discardDraft(env, clientId, typeof form.get("replaces") === "string" ? form.get("replaces") : "");
@@ -350,6 +401,13 @@ async function handleInkRead(request, env, clientId) {
   const pdfKey = await storage.putDraftPage(env, draftId, 0, await storage.mergeImagesToPdf(pages.map((bytes) => ({ bytes, mediaType: "image/png" }))), "pdf");
   const inkKey = `drafts/${draftId}/ink.json`;
   await env.NOTES_BUCKET.put(inkKey, strokes);
+  // Only the photos still on the pages are kept.
+  const imageKeys = {};
+  for (const image of listed) {
+    if (!uploads.has(image.id) || imageKeys[image.id]) continue;
+    imageKeys[image.id] = `drafts/${draftId}/${image.id}.jpg`;
+    await env.NOTES_BUCKET.put(imageKeys[image.id], uploads.get(image.id));
+  }
 
   // Changing a saved note: if the reading fails, the review starts from what was saved, not blank.
   let reading = { fields: savedFields || {}, summary: "", confidence: "low", unclear: [] };
@@ -362,7 +420,7 @@ async function handleInkRead(request, env, clientId) {
   }
 
   await db.saveDraft(env, draftId, clientId, {
-    entries: [{ kind: "ink", noteId: noteId || null, pdfKey, inkKey, fields: reading.fields, summary: reading.summary, confidence: reading.confidence }],
+    entries: [{ kind: "ink", noteId: noteId || null, pdfKey, inkKey, imageKeys, fields: reading.fields, summary: reading.summary, confidence: reading.confidence }],
     missingHashes: [],
   });
 
@@ -392,18 +450,28 @@ async function handleInkSave(request, env, clientId, draftId) {
   // She has checked every section against her page, so the note is no longer flagged as hard to read.
   const editing = await editableInkNote(env, clientId, entry.noteId);
   if (entry.noteId && !editing) return jsonResponse({ message: "That note no longer exists." }, 404);
+  const imageKeys = Object.entries(entry.imageKeys || {});
   if (editing) {
+    // Photos she took off the page are deleted once the new strokes are in place.
+    const before = await storage.getObject(env, editing.ink_key);
+    const hadIds = before ? listedImageIds(await new Response(await before.arrayBuffer()).text()) : [];
+    const draftInk = await storage.getObject(env, entry.inkKey);
+    const keepIds = new Set(draftInk ? listedImageIds(await new Response(await draftInk.arrayBuffer()).text()) : []);
+    for (const [imageId, key] of imageKeys) await storage.promoteDraftObject(env, key, storage.noteImageKey(clientId, editing.id, imageId));
     // The changed page and strokes replace the old ones at the note's own keys.
     await storage.promoteDraftObject(env, entry.pdfKey, editing.pdf_key);
     await storage.promoteDraftObject(env, entry.inkKey, editing.ink_key);
     await db.updateInkNote(env, editing.id, { date, summary, text, fields, confidence: "high" });
     await db.deleteDraft(env, draftId);
+    const dropped = hadIds.filter((imageId) => !keepIds.has(imageId)).map((imageId) => storage.noteImageKey(clientId, editing.id, imageId));
+    await storage.deleteObjects(env, dropped);
     return jsonResponse({ noteId: editing.id, redirect: `/admin/clients/${clientId}` });
   }
 
   const id = db.newId("note");
   const pdfKey = `notes/${clientId}/${id}.pdf`;
   const inkKey = `ink/${clientId}/${id}.json`;
+  for (const [imageId, key] of imageKeys) await storage.promoteDraftObject(env, key, storage.noteImageKey(clientId, id, imageId));
   await storage.promoteDraftObject(env, entry.pdfKey, pdfKey);
   await storage.promoteDraftObject(env, entry.inkKey, inkKey);
   await db.commitInkNote(env, clientId, { id, date, summary, text, fields, confidence: "high", pdfKey, inkKey });
@@ -727,6 +795,9 @@ async function handleSignedIn(request, env, url, segments, method) {
     return handleInsight(env, clientMatch, { refresh: url.searchParams.get("refresh") === "1" });
   }
 
+  if (segments[1] === "notes" && segments[3] === "images" && segments.length === 5 && method === "GET") {
+    return handleNoteImage(env, segments[2], segments[4]);
+  }
   if (segments[1] === "notes" && segments[3] === "ink" && segments.length === 4 && method === "GET") {
     return handleInkStrokes(env, segments[2]);
   }

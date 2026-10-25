@@ -278,7 +278,9 @@ export async function getNote(env, noteId) {
 
 /** R2 keys a draft holds: an upload's pages, or an iPad note's page and strokes. */
 export function draftObjectKeys(entries) {
-  return (entries || []).flatMap((entry) => [entry.draftPdfKey, entry.pdfKey, entry.inkKey]).filter((key) => typeof key === "string" && key.startsWith("drafts/"));
+  return (entries || [])
+    .flatMap((entry) => [entry.draftPdfKey, entry.pdfKey, entry.inkKey, ...Object.values(entry.imageKeys || {})])
+    .filter((key) => typeof key === "string" && key.startsWith("drafts/"));
 }
 
 /**
