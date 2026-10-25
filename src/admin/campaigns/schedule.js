@@ -72,6 +72,7 @@ ${ideaHtml}<p style="margin:0 0 18px;"><a href="${escapeHtml(link)}" style="disp
     }),
   });
   if (!response.ok) console.error(`Reminder email failed (${response.status})`);
+  else await store.recordOtherSend(env, "reminder").catch((error) => console.error("Counting the reminder failed:", error.message));
   return response.ok;
 }
 

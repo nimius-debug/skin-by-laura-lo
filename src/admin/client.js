@@ -944,32 +944,250 @@ export const ADMIN_CLIENT_JS = String.raw`
     setup();
   }
 
-  // The new-email page's cost estimate, redone as the topic grows. Same math as cost.js estimateCampaign.
+  // The cost estimate's math, same as cost.js estimateCampaign. Null without a price.
+  function costEstimator() {
+    var box = document.querySelector("[data-cost-estimate]");
+    if (!box) return null;
+    var inputs;
+    try { inputs = JSON.parse(box.getAttribute("data-cost-estimate")); } catch (error) { return null; }
+    if (!inputs || !inputs.price) return null;
+    return {
+      inputs: inputs,
+      cost: function (topicChars, matched) {
+        var calls = Math.ceil(matched / inputs.batch);
+        var input = inputs.sharedInput + Math.ceil(topicChars / 3.5) + calls * inputs.personalCallInput + matched * inputs.clientInput;
+        var output = inputs.sharedOutput + calls * inputs.personalCallOutput + matched * inputs.clientOutput;
+        return (input * inputs.price.input + output * inputs.price.output) / 1e6;
+      },
+      format: function (amount) { return amount < 0.01 ? "under 1¢" : "$" + amount.toFixed(2); },
+    };
+  }
+
+  // The new-email page's cost estimate, redone as the topic grows.
   function wireCostEstimate() {
     var box = document.querySelector("[data-cost-estimate]");
     var topic = document.querySelector("form[data-draft-form] textarea[name=topic]");
-    if (!box || !topic) return;
-    var inputs;
-    try { inputs = JSON.parse(box.getAttribute("data-cost-estimate")); } catch (error) { return; }
-    if (!inputs || !inputs.price) return;
-    function cost(topicChars, matched) {
-      var calls = Math.ceil(matched / inputs.batch);
-      var input = inputs.sharedInput + Math.ceil(topicChars / 3.5) + calls * inputs.personalCallInput + matched * inputs.clientInput;
-      var output = inputs.sharedOutput + calls * inputs.personalCallOutput + matched * inputs.clientOutput;
-      return (input * inputs.price.input + output * inputs.price.output) / 1e6;
-    }
-    function format(amount) {
-      if (amount < 0.01) return "under 1¢";
-      return "$" + amount.toFixed(2);
-    }
+    var estimator = costEstimator();
+    if (!box || !topic || !estimator) return;
     function update() {
       var chars = topic.value.length;
-      box.querySelector("[data-cost-email]").textContent = "About " + format(cost(chars, 0));
-      box.querySelector("[data-cost-examples]").textContent = "If 10 clients match: about " + format(cost(chars, 10)) + ". If 30 match: about " + format(cost(chars, 30)) + ".";
-      box.querySelector("[data-cost-all]").textContent = "about " + format(cost(chars, inputs.clientsWithNotes));
+      box.querySelector("[data-cost-email]").textContent = "About " + estimator.format(estimator.cost(chars, 0));
+      box.querySelector("[data-cost-examples]").textContent = "If 10 clients match: about " + estimator.format(estimator.cost(chars, 10)) + ". If 30 match: about " + estimator.format(estimator.cost(chars, 30)) + ".";
+      box.querySelector("[data-cost-all]").textContent = "about " + estimator.format(estimator.cost(chars, estimator.inputs.clientsWithNotes));
     }
     topic.addEventListener("input", update);
     update();
+  }
+
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function utcDayName(time) {
+    var date = new Date(time);
+    return WEEKDAYS[date.getUTCDay()] + ", " + MONTHS[date.getUTCMonth()] + " " + date.getUTCDate();
+  }
+
+  // Which day "count" new emails go out, behind what's already queued. Same as sending.js projectSchedule.
+  function projectDays(count, outlook) {
+    var usage = outlook.usage;
+    var DAY = 24 * 60 * 60 * 1000;
+    var date = Date.parse(outlook.today + "T00:00:00Z");
+    var room = Math.max(0, Math.min(usage.today.campaignLimit - usage.today.campaign, usage.today.limit - usage.today.sent, usage.month.limit - usage.month.sent));
+    var monthLeft = usage.month.limit - usage.month.sent;
+    var ahead = outlook.queued || 0;
+    var days = [];
+    for (var index = 0; index < 120 && count > 0; index++) {
+      if (index > 0) {
+        var month = new Date(date).getUTCMonth();
+        date += DAY;
+        if (new Date(date).getUTCMonth() !== month) monthLeft = usage.month.limit;
+        room = Math.max(0, Math.min(usage.today.campaignLimit, monthLeft));
+      }
+      var forQueue = Math.min(room, ahead);
+      ahead -= forQueue; room -= forQueue; monthLeft -= forQueue;
+      var take = Math.min(room, count);
+      count -= take; monthLeft -= take;
+      if (take) days.push({ time: date, today: index === 0, count: take });
+    }
+    return days;
+  }
+
+  function scheduleText(days, providerLimit) {
+    if (!days.length) return "";
+    if (days.length === 1 && days[0].today) return "";
+    if (days.length === 1) return "Today's sending is full (Resend's free plan sends " + providerLimit + " emails a day), so " + (days[0].count === 1 ? "this one goes" : "all " + days[0].count + " go") + " out on " + utcDayName(days[0].time) + ".";
+    var parts = days.map(function (day) { return day.count + (day.today ? " today" : " on " + utcDayName(day.time)); });
+    var list = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0];
+    return (days[0].today ? "" : "Today's sending is full. ") + "Resend's free plan sends " + providerLimit + " emails a day, so " +
+      (days[0].today ? days[0].count + " go out today and the rest are scheduled: " : "they're scheduled: ") + list + ".";
+  }
+
+  // The recipient list (pages/campaigns.js recipientPicker). Loads everyone from
+  // /admin/campaigns/recipients, keeps the ticked ones in the hidden field as JSON.
+  function wireRecipientPicker(root, options) {
+    var list = root.querySelector("[data-pick-list]");
+    var field = root.querySelector("[data-pick-field]");
+    var search = root.querySelector("[data-pick-search]");
+    var shownText = root.querySelector("[data-pick-shown]");
+    var bar = (options.bar || root);
+    var countText = bar.querySelector("[data-pick-count]");
+    var scheduleBox = bar.querySelector("[data-pick-schedule]");
+    var submit = bar.querySelector("[data-pick-submit]");
+    var initial = null;
+    try { initial = root.getAttribute("data-picked") ? JSON.parse(root.getAttribute("data-picked")) : null; } catch (error) { initial = null; }
+    var people = [];
+    var picked = {};
+    var filter = "all";
+    var outlook = null;
+    var loaded = false;
+    var loading = null;
+
+    function matches(person) {
+      if (filter === "notes" && !person.notes) return false;
+      if (filter === "bought" && !person.lastOrderAt) return false;
+      if (filter === "picked" && !picked[person.email]) return false;
+      if (filter === "unpicked" && (picked[person.email] || person.unsubscribed)) return false;
+      var query = search.value.trim().toLowerCase();
+      return !query || (person.name || "").toLowerCase().indexOf(query) >= 0 || person.email.indexOf(query) >= 0;
+    }
+    function pickedList() {
+      return people.filter(function (person) { return picked[person.email]; });
+    }
+    function update() {
+      var chosen = pickedList();
+      field.value = JSON.stringify(chosen.map(function (person) { return { email: person.email, customerId: person.customerId }; }));
+      field.disabled = !loaded;
+      countText.textContent = chosen.length + (chosen.length === 1 ? " person" : " people") + " picked";
+      if (submit) submit.disabled = !loaded || !chosen.length;
+      var text = outlook ? scheduleText(projectDays(chosen.length, outlook), outlook.usage.today.limit) : "";
+      scheduleBox.textContent = text;
+      scheduleBox.hidden = !text;
+      var shown = 0;
+      people.forEach(function (person) {
+        var visible = matches(person);
+        person.row.hidden = !visible;
+        person.box.checked = Boolean(picked[person.email]);
+        if (visible) shown++;
+      });
+      shownText.textContent = "Showing " + shown + " of " + people.length;
+      var empty = list.querySelector(".camp-pick-empty");
+      if (empty) empty.hidden = shown > 0;
+      if (options.onChange) options.onChange(chosen);
+    }
+    function tag(text, extra) {
+      var span = document.createElement("span");
+      span.className = "camp-tag" + (extra ? " " + extra : "");
+      span.textContent = text;
+      return span;
+    }
+    function render() {
+      list.innerHTML = "";
+      people.forEach(function (person) {
+        var row = document.createElement("label");
+        row.className = "camp-pick-row" + (person.unsubscribed ? " is-off" : "");
+        var box = document.createElement("input");
+        box.type = "checkbox";
+        box.disabled = person.unsubscribed;
+        box.setAttribute("aria-label", person.name || person.email);
+        box.addEventListener("change", function () {
+          if (box.checked) picked[person.email] = true; else delete picked[person.email];
+          update();
+        });
+        var who = document.createElement("span");
+        who.className = "camp-pick-who";
+        var name = document.createElement("span");
+        name.className = "camp-pick-name";
+        name.textContent = person.name || person.email.split("@")[0];
+        var email = document.createElement("span");
+        email.className = "camp-pick-email";
+        email.textContent = person.email;
+        who.appendChild(name); who.appendChild(email);
+        var tags = document.createElement("span");
+        tags.className = "camp-pick-tags";
+        if (person.unsubscribed) tags.appendChild(tag("Unsubscribed", "camp-tag-off"));
+        if (person.notes) tags.appendChild(tag("Notes", "camp-tag-notes"));
+        if (person.lastOrderAt) {
+          var bought = new Date(person.lastOrderAt);
+          tags.appendChild(tag("Bought " + MONTHS[bought.getUTCMonth()] + " " + bought.getUTCFullYear()));
+        }
+        row.appendChild(box); row.appendChild(who); row.appendChild(tags);
+        person.row = row; person.box = box;
+        list.appendChild(row);
+      });
+      var empty = document.createElement("div");
+      empty.className = "camp-pick-empty";
+      empty.textContent = "No one matches. Try another search or filter.";
+      empty.hidden = true;
+      list.appendChild(empty);
+      root.querySelectorAll("[data-pick-filter]").forEach(function (chip) {
+        var key = chip.getAttribute("data-pick-filter");
+        var count = key === "notes" ? people.filter(function (p) { return p.notes; }).length
+          : key === "bought" ? people.filter(function (p) { return p.lastOrderAt; }).length : null;
+        if (count !== null && !chip.querySelector(".camp-chip-count")) {
+          var badge = document.createElement("span");
+          badge.className = "camp-chip-count";
+          badge.textContent = count;
+          chip.appendChild(badge);
+        }
+      });
+    }
+    function load() {
+      if (loaded || loading) return loading;
+      list.innerHTML = '<div class="camp-pick-loading"><span class="spinner" aria-hidden="true"></span> Loading your clients from Square…</div>';
+      loading = fetch(root.getAttribute("data-source"), { headers: { accept: "application/json" }, credentials: "same-origin" })
+        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok) throw new Error(result.data.message || "Couldn't load your clients.");
+          people = result.data.recipients || [];
+          outlook = result.data;
+          var start = initial ? initial.reduce(function (set, email) { set[email] = true; return set; }, {}) : null;
+          people.forEach(function (person) {
+            if (!person.unsubscribed && (!start || start[person.email])) picked[person.email] = true;
+          });
+          loaded = true;
+          render();
+          update();
+        })
+        .catch(function (error) {
+          loading = null;
+          list.innerHTML = "";
+          var box = document.createElement("div");
+          box.className = "camp-pick-empty";
+          box.textContent = (error.message || "Couldn't load your clients.") + " ";
+          var retry = document.createElement("button");
+          retry.type = "button";
+          retry.className = "camp-text-btn";
+          retry.textContent = "Try again";
+          retry.addEventListener("click", load);
+          box.appendChild(retry);
+          list.appendChild(box);
+          update();
+        });
+      return loading;
+    }
+
+    search.addEventListener("input", update);
+    search.addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
+    root.querySelectorAll("[data-pick-filter]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        filter = chip.getAttribute("data-pick-filter");
+        root.querySelectorAll("[data-pick-filter]").forEach(function (other) {
+          other.classList.toggle("on", other === chip);
+          other.setAttribute("aria-pressed", other === chip ? "true" : "false");
+        });
+        update();
+      });
+    });
+    function setShown(on) {
+      people.forEach(function (person) {
+        if (person.unsubscribed || !matches(person)) return;
+        if (on) picked[person.email] = true; else delete picked[person.email];
+      });
+      update();
+    }
+    root.querySelector("[data-pick-all]").addEventListener("click", function () { setShown(true); });
+    root.querySelector("[data-pick-none]").addEventListener("click", function () { setShown(false); });
+    update();
+    return { load: load, picked: pickedList };
   }
 
   function wireDraftForm() {
@@ -977,18 +1195,57 @@ export const ADMIN_CLIENT_JS = String.raw`
     if (!form) return;
     var busy = form.querySelector("[data-drafting]");
     var busyText = form.querySelector("[data-drafting-text]");
-    var button = form.querySelector("[data-draft-button]");
+    var writeStage = form.querySelector("[data-stage-write]");
+    var pickStage = form.querySelector("[data-stage-pick]");
+    var topic = form.querySelector("textarea[name=topic]");
+    var personalize = form.querySelector("[data-personalize]");
+    var costText = form.querySelector("[data-pick-cost]");
+    var stepItems = document.querySelectorAll("[data-steps] li");
+    var estimator = costEstimator();
+    var picker = wireRecipientPicker(form.querySelector("[data-recipient-picker]"), { bar: pickStage, onChange: showCost });
+    var button = pickStage.querySelector("[data-pick-submit]");
+
+    function showCost(chosen) {
+      if (!estimator) { costText.textContent = ""; return; }
+      var chars = topic.value.length;
+      var email = estimator.format(estimator.cost(chars, 0));
+      if (!personalize.checked) { costText.textContent = "· AI cost about " + email + " (one email for everyone)"; return; }
+      var withNotes = chosen.filter(function (person) { return person.notes; }).length;
+      costText.textContent = "· AI cost about " + email + (withNotes ? ", up to " + estimator.format(estimator.cost(chars, withNotes)) + " if all " + withNotes + " picked clients with notes relate" : "");
+    }
+    function showPersonal() {
+      form.querySelectorAll("[data-personal-only]").forEach(function (el) { el.hidden = !personalize.checked; });
+      showCost(picker.picked());
+    }
+    function setStage(stage) {
+      form.setAttribute("data-stage", stage);
+      writeStage.hidden = stage !== "write";
+      pickStage.hidden = stage !== "pick";
+      stepItems.forEach(function (item, index) {
+        item.className = index === (stage === "write" ? 0 : 1) ? "on" : index < (stage === "write" ? 0 : 1) ? "done" : "";
+      });
+      window.scrollTo(0, 0);
+      if (stage === "pick") { picker.load(); showCost(picker.picked()); }
+    }
+    personalize.addEventListener("change", showPersonal);
+    form.querySelector("[data-back-button]").addEventListener("click", function () { setStage("write"); });
+
     var messages = ["Writing the email…", "Reading client notes and purchases…", "Writing personal notes…", "Almost done…"];
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      if (form.getAttribute("data-stage") === "write") {
+        if (form.reportValidity()) setStage("pick");
+        return;
+      }
+      if (!picker.picked().length) return;
+      var steps = personalize.checked ? messages : ["Writing the email…", "Adding product cards…", "Almost done…"];
       button.disabled = true;
       busy.hidden = false;
       var step = 0;
-      busyText.textContent = messages[0];
+      busyText.textContent = steps[0];
       var timer = setInterval(function () {
-        step = Math.min(step + 1, messages.length - 1);
-        busyText.textContent = messages[step];
+        step = Math.min(step + 1, steps.length - 1);
+        busyText.textContent = steps[step];
       }, 9000);
       postForm(form)
         .then(function (result) {
@@ -1001,7 +1258,49 @@ export const ADMIN_CLIENT_JS = String.raw`
           button.disabled = false;
         });
     });
-    wireRecorder(form.querySelector("textarea[name=topic]"));
+    showPersonal();
+    wireRecorder(topic);
+  }
+
+  // "Who gets it" for a campaign in review: the same list, saved with a normal form post.
+  function wirePickForm() {
+    var form = document.querySelector("form[data-pick-form]");
+    if (!form) return;
+    wireRecipientPicker(form.querySelector("[data-recipient-picker]"), { bar: form }).load();
+    form.querySelector("[data-pick-search]").addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
+  }
+
+  // Ticking versions on the review screen to approve or reject several at once.
+  function wireBulkVersions() {
+    var form = document.querySelector("form[data-bulk-form]");
+    if (!form) return;
+    var items = Array.prototype.slice.call(document.querySelectorAll("[data-bulk-item]"));
+    var all = form.querySelector("[data-bulk-all]");
+    var label = form.querySelector("[data-bulk-label]");
+    var bar = form.querySelector("[data-bulk-bar]");
+    var count = form.querySelector("[data-bulk-count]");
+    var idle = count.textContent;
+    function update() {
+      var ticked = items.filter(function (item) { return item.checked; }).length;
+      all.checked = ticked > 0 && ticked === items.length;
+      all.indeterminate = ticked > 0 && ticked < items.length;
+      label.textContent = all.checked ? "Clear all" : "Select all";
+      bar.classList.toggle("has-picks", ticked > 0);
+      count.textContent = ticked ? ticked + " selected" : idle;
+    }
+    items.forEach(function (item) { item.addEventListener("change", update); });
+    all.addEventListener("change", function () {
+      items.forEach(function (item) { item.checked = all.checked; });
+      update();
+    });
+    form.querySelector("[data-bulk-pick]").addEventListener("click", function () {
+      items.forEach(function (item) { item.checked = item.getAttribute("data-status") === "review"; });
+      update();
+    });
+    form.addEventListener("submit", function () {
+      setTimeout(function () { form.querySelectorAll("[data-bulk-action]").forEach(function (b) { b.disabled = true; }); }, 0);
+    });
+    update();
   }
 
   // Records up to 90 seconds, then types it out with the server's speech-to-text and adds it to the text box.
@@ -1178,6 +1477,8 @@ export const ADMIN_CLIENT_JS = String.raw`
     wireUploadPage();
     wireCampaignLists();
     wireDraftForm();
+    wirePickForm();
+    wireBulkVersions();
     wireInlineEditor();
     wireProductEditing();
     wireCostEstimate();

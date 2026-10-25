@@ -1,11 +1,13 @@
 // Sending a campaign through Resend (Square has no API for its marketing
 // emails). Approving a campaign puts one email per client in a queue; the
 // scheduled run sends from that queue, at most EMAIL_DAILY_LIMIT a day (Resend's
-// free plan allows 100), so a long list goes out over the following days.
+// free plan allows 100 a day and 3,000 a month), so a long list goes out over
+// the following days.
 //
-// Everyone with an email in Square gets the email, except people who
-// unsubscribed (here or in Square). A client with an approved personal version
-// gets that; everyone else gets the shared version.
+// The people Laura picked get the email (everyone with an email in Square, for
+// campaigns from before she could pick), except people who unsubscribed (here
+// or in Square). A client with an approved personal version gets that;
+// everyone else gets the shared version.
 
 import { settings, SUPPORT_EMAIL } from "../../config.js";
 import { isConfigured, squareGet } from "../../square.js";
@@ -14,12 +16,21 @@ import { firstNameOf } from "./matching.js";
 import * as store from "./store.js";
 
 const DEFAULT_DAILY_LIMIT = 95;
+const DEFAULT_MONTHLY_LIMIT = 3000;
+// What Resend's free plan allows in a day, test emails and reminders included.
+export const PROVIDER_DAILY_LIMIT = 100;
 const BATCH_SIZE = 95; // Resend takes up to 100 emails in one request.
 const EMAIL_PATTERN = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/;
 
 export function dailyLimit(env) {
   const value = Number(env.EMAIL_DAILY_LIMIT);
   return Number.isInteger(value) && value > 0 ? value : DEFAULT_DAILY_LIMIT;
+}
+
+/** Resend's monthly allowance (3,000 on the free plan). */
+export function monthlyLimit(env) {
+  const value = Number(env.EMAIL_MONTHLY_LIMIT);
+  return Number.isInteger(value) && value > 0 ? value : DEFAULT_MONTHLY_LIMIT;
 }
 
 export function sendingConfigured(env) {
@@ -76,7 +87,7 @@ export async function verifyUnsubscribe(env, email, token) {
 
 // --- who gets it ---------------------------------------------------------------
 
-/** Everyone in Square with a usable email who hasn't unsubscribed there: [{ email, firstName, squareCustomerId }]. */
+/** Everyone in Square with a usable email who hasn't unsubscribed there: [{ email, firstName, name, squareCustomerId }]. */
 export async function loadSquareRecipients(env) {
   if (!isConfigured(env)) throw new Error("Square is not connected, so there is no client list to send to.");
   const byEmail = new Map();
@@ -87,7 +98,9 @@ export async function loadSquareRecipients(env) {
     for (const customer of payload.customers || []) {
       const email = String(customer.email_address || "").trim().toLowerCase();
       if (!EMAIL_PATTERN.test(email) || customer.preferences?.email_unsubscribed) continue;
-      if (!byEmail.has(email)) byEmail.set(email, { email, firstName: firstNameOf(customer.given_name), squareCustomerId: customer.id });
+      const name = [customer.given_name, customer.family_name].map((part) => String(part || "").trim()).filter(Boolean).join(" ")
+        || String(customer.company_name || "").trim();
+      if (!byEmail.has(email)) byEmail.set(email, { email, firstName: firstNameOf(customer.given_name), name, squareCustomerId: customer.id });
     }
     cursor = payload.cursor;
     pages += 1;
@@ -96,16 +109,47 @@ export async function loadSquareRecipients(env) {
 }
 
 /**
+ * Everyone Laura can pick for a campaign, by name: their Square email, and
+ * whether they have notes or bought something (from the client records).
+ * People who unsubscribed here are listed too, marked, so she sees why they're missing.
+ */
+export async function recipientChoices(env) {
+  const [recipients, { results: clients }, unsubscribed] = await Promise.all([
+    loadSquareRecipients(env),
+    env.CLIENT_NOTES_DB.prepare(
+      `SELECT c.id, c.name, c.square_customer_id,
+         (SELECT COUNT(*) FROM notes n WHERE n.client_id = c.id) AS note_count,
+         (SELECT MAX(o.ordered_at) FROM client_orders o WHERE o.client_id = c.id) AS last_order_at
+       FROM clients c WHERE c.square_customer_id IS NOT NULL`,
+    ).all(),
+    store.unsubscribedEmails(env),
+  ]);
+  const bySquareId = new Map(clients.map((client) => [client.square_customer_id, client]));
+  return recipients.map((recipient) => {
+    const client = bySquareId.get(recipient.squareCustomerId);
+    return {
+      email: recipient.email,
+      name: recipient.name || client?.name || "",
+      customerId: recipient.squareCustomerId,
+      notes: client?.note_count || 0,
+      lastOrderAt: client?.last_order_at || null,
+      unsubscribed: unsubscribed.has(recipient.email),
+    };
+  }).sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, "en", { sensitivity: "base" }));
+}
+
+/**
  * Who gets which version: an approved personal version for that client, else the shared one.
  * Pure, so it can be tested without Square or a database.
  */
-export function planSends({ recipients, versions, clients, unsubscribed }) {
+export function planSends({ recipients, versions, clients, unsubscribed, picked = null }) {
   const shared = versions.find((version) => version.isShared);
+  const only = picked ? new Set(picked) : null;
   const clientBySquareId = new Map(clients.filter((client) => client.square_customer_id).map((client) => [client.square_customer_id, client]));
   const personalByClient = new Map(versions.filter((version) => !version.isShared && version.status === "approved").map((version) => [version.client_id, version]));
   const sends = [];
   for (const recipient of recipients) {
-    if (unsubscribed.has(recipient.email)) continue;
+    if (unsubscribed.has(recipient.email) || (only && !only.has(recipient.email))) continue;
     const client = clientBySquareId.get(recipient.squareCustomerId) || null;
     const personal = client ? personalByClient.get(client.id) : null;
     sends.push({
@@ -121,7 +165,7 @@ export function planSends({ recipients, versions, clients, unsubscribed }) {
 
 /** Puts the approved campaign in the send queue. Returns { queued, personal }. */
 export async function queueCampaign(env, campaignId) {
-  const versions = await store.listVersions(env, campaignId);
+  const [campaign, versions] = await Promise.all([store.getCampaign(env, campaignId), store.listVersions(env, campaignId)]);
   const shared = versions.find((version) => version.isShared);
   if (!shared || shared.status !== "approved") throw new Error("Approve the email everyone else gets before sending.");
   const [recipients, { results: clients }, unsubscribed] = await Promise.all([
@@ -129,8 +173,10 @@ export async function queueCampaign(env, campaignId) {
     env.CLIENT_NOTES_DB.prepare("SELECT id, name, square_customer_id FROM clients").all(),
     store.unsubscribedEmails(env),
   ]);
-  const sends = planSends({ recipients, versions, clients, unsubscribed });
-  if (!sends.length) throw new Error("No one in Square has an email address to send to.");
+  const sends = planSends({ recipients, versions, clients, unsubscribed, picked: campaign?.audience.emails });
+  if (!sends.length) {
+    throw new Error(campaign?.audience.emails ? "None of the people picked can get this email (no email in Square, or unsubscribed)." : "No one in Square has an email address to send to.");
+  }
   await store.enqueueSends(env, campaignId, sends);
   await store.updateCampaign(env, campaignId, { status: "sending" });
   return { queued: sends.length, personal: sends.filter((send) => send.personal).length };
@@ -140,6 +186,74 @@ export async function queueCampaign(env, campaignId) {
 
 function utcDayStart(now) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+}
+
+function utcMonthStart(now) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
+/**
+ * How much of Resend's allowance is used. Days and months are UTC, like the
+ * sending limit. Test emails and reminders count, since Resend counts them.
+ */
+export async function usageSummary(env, { now = new Date() } = {}) {
+  const day = utcDayStart(now);
+  const month = utcMonthStart(now);
+  const [campaignToday, otherToday, campaignMonth, otherMonth, queued] = await Promise.all([
+    store.countSentSince(env, day), store.countOtherSentSince(env, day),
+    store.countSentSince(env, month), store.countOtherSentSince(env, month),
+    store.countQueued(env),
+  ]);
+  const nextDay = new Date(Date.parse(day) + 24 * 60 * 60 * 1000);
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return {
+    today: { sent: campaignToday + otherToday, campaign: campaignToday, other: otherToday, limit: PROVIDER_DAILY_LIMIT, campaignLimit: dailyLimit(env), resetsAt: nextDay.toISOString() },
+    month: { sent: campaignMonth + otherMonth, campaign: campaignMonth, other: otherMonth, limit: monthlyLimit(env), resetsAt: nextMonth.toISOString() },
+    queued,
+  };
+}
+
+/** Campaign emails that can still go out today, by the daily and monthly limits. */
+function roomToday(usage) {
+  return Math.max(0, Math.min(
+    usage.today.campaignLimit - usage.today.campaign,
+    usage.today.limit - usage.today.sent,
+    usage.month.limit - usage.month.sent,
+  ));
+}
+
+/**
+ * Which day each queued email goes out, if the scheduled run keeps sending as
+ * much as the limits allow. `queue` is [{ id, count }] in sending order (add
+ * a new campaign last to see when it would go). Pure, for testing and the picker.
+ * Returns [{ date: "YYYY-MM-DD" (UTC), total, parts: [{ id, count }] }].
+ */
+export function projectSchedule({ queue, usage, now = new Date(), maxDays = 120 }) {
+  const days = [];
+  const left = queue.map((entry) => ({ id: entry.id, count: entry.count })).filter((entry) => entry.count > 0);
+  let date = new Date(Date.parse(utcDayStart(now)));
+  let room = roomToday(usage);
+  let monthLeft = usage.month.limit - usage.month.sent;
+  for (let index = 0; index < maxDays && left.length; index += 1) {
+    if (index > 0) {
+      const previousMonth = date.getUTCMonth();
+      date = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+      if (date.getUTCMonth() !== previousMonth) monthLeft = usage.month.limit;
+      room = Math.max(0, Math.min(usage.today.campaignLimit, monthLeft));
+    }
+    const day = { date: date.toISOString().slice(0, 10), total: 0, parts: [] };
+    while (room > 0 && left.length) {
+      const take = Math.min(room, left[0].count);
+      day.parts.push({ id: left[0].id, count: take });
+      day.total += take;
+      room -= take;
+      monthLeft -= take;
+      left[0].count -= take;
+      if (!left[0].count) left.shift();
+    }
+    if (day.total) days.push(day);
+  }
+  return days;
 }
 
 /** The finished email for one queued send. */
@@ -173,9 +287,9 @@ export async function sendQueued(env, { now = new Date(), fetchImpl = fetch } = 
   const result = { sent: 0, failed: 0, skipped: 0, left: 0, reason: "" };
   if (!sendingConfigured(env)) return { ...result, reason: "not-configured" };
 
-  const sentToday = await store.countSentSince(env, utcDayStart(now));
-  const room = Math.min(dailyLimit(env) - sentToday, BATCH_SIZE);
-  if (room <= 0) return { ...result, reason: "daily-limit" };
+  const usage = await usageSummary(env, { now });
+  const room = Math.min(roomToday(usage), BATCH_SIZE);
+  if (room <= 0) return { ...result, reason: usage.month.sent >= usage.month.limit ? "monthly-limit" : "daily-limit" };
 
   const queued = await store.nextQueued(env, room);
   if (!queued.length) return { ...result, reason: "empty" };
@@ -272,7 +386,7 @@ async function applyMarks(env, marks, now) {
 }
 
 /** A test email of one version to Laura, so she can see it in a real inbox. */
-export async function sendTestEmail(env, { campaign, version, to, fetchImpl = fetch }) {
+export async function sendTestEmail(env, { campaign, version, to, fetchImpl = fetch, now = new Date() }) {
   if (!sendingConfigured(env)) throw new Error("Email sending isn't set up yet (RESEND_API_KEY and CAMPAIGN_FROM_EMAIL).");
   const firstName = version.isShared ? "" : firstNameOf(version.client_name);
   const message = buildMessage({
@@ -288,6 +402,7 @@ export async function sendTestEmail(env, { campaign, version, to, fetchImpl = fe
     const payload = await response.json().catch(() => ({}));
     throw new Error(`Resend said no (${response.status}): ${String(payload.message || "").slice(0, 200)}`);
   }
+  await store.recordOtherSend(env, "test", now);
 }
 
 /** About how many people a campaign goes to. Read from Square at most every 6 hours; null if it can't be read. */

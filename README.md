@@ -322,8 +322,17 @@ out through [Resend](https://resend.com).
 
 1. **Write.** Type the week's idea, or tap the microphone and say it. The
    recording is typed out by Workers AI (Whisper, the `AI` binding) and
-   added to the text; the audio is never stored.
-2. **Find clients.** Claude writes one shared email in Laura's voice (the
+   added to the text; the audio is never stored. A switch, **Personal notes
+   for related clients**, is on by default; off, there's one email for
+   everybody and no client matching at all.
+2. **Pick who gets it.** A checklist of everyone in Square with an email,
+   all ticked to start, with search and filters (has notes, bought from the
+   shop, picked, not picked). People who unsubscribed show greyed out. When
+   the pick is more than the day's sending room, it says which days the rest
+   go out. Only the people picked get the email, and the AI only reads the
+   notes of picked clients. "Change who gets it" on the review screen
+   reopens the list (no redraft: anyone added gets the shared email).
+3. **Drafting.** Claude writes one shared email in Laura's voice (the
    guide is in `src/admin/campaigns/voice.js`; update it as she posts), plus
    a list of words to look for. Every client's notes and stored purchases
    are searched for those words, and only clients with a hit are sent to
@@ -332,7 +341,7 @@ out through [Resend](https://resend.com).
    clients get one. Personal notes never name
    medications, pregnancy, allergies or diagnoses, and stay gentle for
    clients flagged as sensitive.
-3. **Review.** Every version (the shared one and each personal one) is
+4. **Review.** Every version (the shared one and each personal one) is
    approved, edited, or rejected and redrafted with Laura's feedback. The
    email in the preview is the editor, with no Edit step: she clicks
    anything in it and types, including the subject and inbox preview line
@@ -342,13 +351,22 @@ out through [Resend](https://resend.com).
    there's a P.S. (for everyone, or just one client) and the button to show.
    Changes save as she types and keep the version's approval, since they're
    her own words. They're checked against her voice guide as she goes. On a
-   phone the versions and the preview are two tabs.
-4. **Send.** Everyone in Square with an email address gets it, except
-   people who unsubscribed (here or in Square). Clients with an approved
-   personal version get that; everyone else gets the shared email.
-   Emails are queued and sent by the scheduled run every 15 minutes, at
-   most `EMAIL_DAILY_LIMIT` a day (95, under Resend's free 100), so a
-   longer list finishes the next day.
+   phone the versions and the preview are two tabs. Each version in the
+   list has a checkbox, so several can be approved or rejected at once.
+5. **Send.** The people picked get it, except people who unsubscribed
+   (here or in Square). Clients with an approved personal version get
+   that; everyone else gets the shared email. Emails are queued and sent by
+   the scheduled run every 15 minutes, at most `EMAIL_DAILY_LIMIT` a day
+   (95, under Resend's free 100) and `EMAIL_MONTHLY_LIMIT` a month (3,000),
+   counting test emails and reminders, so a longer list finishes over the
+   next days.
+
+**Scheduled** (`/admin/campaigns/scheduled`, under Email campaigns) shows
+Resend usage as two bars (today out of 100, this month out of 3,000), what
+goes out on which day, and per campaign how many were sent, delivered,
+opened, bounced or failed, plus the latest emails with their delivery time.
+Delivery and open times come from Resend's webhook at
+`/email/resend-webhook` (signed; see setup).
 
 **Cost.** The new-email page estimates the AI cost before drafting,
 measured from the real prompts and the shop's products and client notes.
@@ -376,6 +394,15 @@ campaign was already started that day.
    under `[vars]` in `wrangler.toml`. Replies go to `SUPPORT_EMAIL`.
 4. `npx wrangler deploy`, which also turns on the `AI` binding and the
    15-minute cron trigger.
+5. Run migration `0009_campaign_audience.sql` before deploying the
+   recipient picker and Scheduled page:
+   `npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0009_campaign_audience.sql`
+6. For delivery tracking, add a webhook in Resend (Webhooks) pointing at
+   `https://skinbylauralo.com/email/resend-webhook` with the
+   `email.delivered`, `email.delivery_delayed`, `email.bounced`,
+   `email.complained`, `email.opened` and `email.clicked` events, then
+   `npx wrangler secret put RESEND_WEBHOOK_SECRET` with its signing secret.
+   Opens are only reported if open tracking is on for the domain in Resend.
 
 ## Not built (deliberately)
 

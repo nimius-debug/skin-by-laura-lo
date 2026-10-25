@@ -2,9 +2,11 @@ import { createD1, schemaMigrations } from "./helpers/d1-sqlite.mjs";
 import { contentProducts, renderEmail } from "../src/admin/campaigns/email-template.js";
 import { buildProfile, pickCandidates, scoreProfile } from "../src/admin/campaigns/matching.js";
 import * as store from "../src/admin/campaigns/store.js";
-import { buildMessage, planSends, sendQueued, unsubscribeUrl, verifyUnsubscribe } from "../src/admin/campaigns/sending.js";
+import { buildMessage, planSends, projectSchedule, sendQueued, sendTestEmail, unsubscribeUrl, usageSummary, verifyUnsubscribe } from "../src/admin/campaigns/sending.js";
 import { localTime, maybeRemind, reminderDue } from "../src/admin/campaigns/schedule.js";
-import { applyEdits, handleCampaignRoute, handleUnsubscribe, weekSummary } from "../src/admin/campaigns/routes.js";
+import { applyEdits, handleCampaignRoute, handleUnsubscribe, pickedRecipients, weekSummary } from "../src/admin/campaigns/routes.js";
+import { handleResendWebhook, verifySignature } from "../src/admin/campaigns/webhook.js";
+import { scheduleSentence } from "../src/admin/pages/campaigns.js";
 import { draftCampaign, namedInTopic, productCard, redraftPersonal, sharedProductCards } from "../src/admin/campaigns/drafting.js";
 import { addSubscription, listSubscriptions, notifyPhones } from "../src/admin/campaigns/push.js";
 import { costHistory, costOf, estimateCampaign, estimateInputs, formatCost } from "../src/admin/campaigns/cost.js";
@@ -457,6 +459,187 @@ async function freshEnv(extra = {}) {
   } finally {
     globalThis.fetch = realFetch;
   }
+}
+
+
+// --- picking who gets it ----------------------------------------------------------------
+{
+  const versions = [{ id: "shared", isShared: true, status: "approved" }];
+  const recipients = [
+    { email: "maya@example.com", firstName: "Maya", squareCustomerId: "sq1" },
+    { email: "bo@example.com", firstName: "Bo", squareCustomerId: "sq2" },
+    { email: "gone@example.com", firstName: "G", squareCustomerId: "sq3" },
+  ];
+  const plan = planSends({ recipients, versions, clients: [], unsubscribed: new Set(["gone@example.com"]), picked: ["maya@example.com", "gone@example.com"] });
+  check("only the people Laura picked are sent to, and an unsubscribe still wins", plan.map((send) => send.email), ["maya@example.com"]);
+
+  const form = new FormData();
+  form.set("recipients", JSON.stringify([{ email: " Maya@Example.com ", customerId: "sq1" }, { email: "maya@example.com" }, { email: "not an email" }, { email: "bo@example.com" }]));
+  check("the picked list is cleaned: lower case, no repeats, no bad addresses",
+    pickedRecipients(form), [{ email: "maya@example.com", customerId: "sq1" }, { email: "bo@example.com", customerId: null }]);
+  check("a form without the list (no script) means everyone", pickedRecipients(new FormData()), null);
+  check("an old campaign with no audience goes to everyone, with personal notes on", store.audienceFrom("{}"), { personalize: true, emails: null });
+}
+
+// --- the daily and monthly limits, and when emails go out ------------------------------------
+{
+  const usage = (todayCampaign, todayOther, month) => ({
+    today: { sent: todayCampaign + todayOther, campaign: todayCampaign, other: todayOther, limit: 100, campaignLimit: 95 },
+    month: { sent: month, limit: 3000 },
+  });
+  const now = new Date("2026-10-25T15:00:00Z");
+  const days = projectSchedule({ queue: [{ id: "a", count: 30 }, { id: "b", count: 142 }], usage: usage(20, 2, 400), now });
+  check("today uses what's left of the 95, then 95 a day; a campaign queued behind another waits its turn",
+    days.map((day) => [day.date, day.total, day.parts.map((part) => `${part.id}:${part.count}`)]),
+    [["2026-10-25", 75, ["a:30", "b:45"]], ["2026-10-26", 95, ["b:95"]], ["2026-10-27", 2, ["b:2"]]]);
+  check("test emails and reminders count toward Resend's 100 a day",
+    projectSchedule({ queue: [{ id: "a", count: 50 }], usage: usage(80, 15, 400), now })[0].total, 5);
+  const monthEnd = projectSchedule({ queue: [{ id: "a", count: 200 }], usage: usage(0, 0, 2950), now: new Date("2026-10-30T10:00:00Z") });
+  check("the monthly limit holds sending back until the new month",
+    monthEnd.map((day) => [day.date, day.total]), [["2026-10-30", 50], ["2026-11-01", 95], ["2026-11-02", 55]]);
+
+  check("the picker's sentence says what goes today and what's scheduled",
+    scheduleSentence([{ date: "2026-10-25", count: 95 }, { date: "2026-10-26", count: 47 }], "2026-10-25"),
+    "Resend's free plan sends 100 emails a day, so they go out 95 today and 47 on Mon, Oct 26.");
+  check("everything today needs no warning", scheduleSentence([{ date: "2026-10-25", count: 40 }], "2026-10-25"), "All 40 go out today.");
+
+  const env = await freshEnv({ EMAIL_MONTHLY_LIMIT: "100" });
+  const campaignId = await store.createCampaign(env, { topic: "t", goal: "news", content, usage: {}, versions: [] });
+  const [shared] = await store.listVersions(env, campaignId);
+  await store.enqueueSends(env, campaignId, Array.from({ length: 30 }, (_, index) => ({ versionId: shared.id, clientId: null, email: `p${index}@example.com`, firstName: "" })));
+  for (let index = 0; index < 90; index += 1) await store.recordOtherSend(env, "test", new Date("2026-10-02T10:00:00Z"));
+  const ok = async (url, init) => new Response(JSON.stringify({ data: JSON.parse(init.body).map((_, index) => ({ id: `m_${index}` })) }), { status: 200 });
+  const sent = await sendQueued(env, { now: new Date("2026-10-25T15:00:00Z"), fetchImpl: ok });
+  check("sending stops at the monthly limit, counting test emails", [sent.sent, sent.left], [10, 20]);
+  check("once the month is used up it waits", (await sendQueued(env, { now: new Date("2026-10-25T15:15:00Z"), fetchImpl: ok })).reason, "monthly-limit");
+  const summary = await usageSummary(env, { now: new Date("2026-10-25T15:15:00Z") });
+  check("the usage bars count campaign emails and other emails, for the day and the month",
+    [summary.today.campaign, summary.today.other, summary.month.sent, summary.month.limit, summary.queued], [10, 0, 100, 100, 20]);
+  await sendTestEmail(env, { campaign: await store.getCampaign(env, campaignId), version: shared, to: "laura@example.com", fetchImpl: async () => new Response("{}"), now: new Date("2026-10-25T16:00:00Z") });
+  check("a test email is counted too", (await usageSummary(env, { now: new Date("2026-10-25T16:00:00Z") })).today.other, 1);
+}
+
+// --- one email for everyone, and drafting only for the people picked ---------------------------
+{
+  const env = await freshEnv({ ANTHROPIC_API_KEY: "sk-test" });
+  const db = env.CLIENT_NOTES_DB;
+  await db.prepare("INSERT INTO clients (id, name, square_customer_id) VALUES ('c1', 'Maya Rivers', 'sq1'), ('c3', 'Ana Cruz', 'sq3')").run();
+  await db.prepare("INSERT INTO notes (id, client_id, note_date, summary, extracted_text, confidence, source) VALUES ('n1', 'c1', '2026-09-01', 'PIH after breakouts', '', 'high', 'square'), ('n3', 'c3', '2026-09-03', 'Dark spots on cheeks', '', 'high', 'square')").run();
+  const requests = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    requests.push(body);
+    const prompt = body.messages[0].content;
+    const reply = prompt.includes("<client ref=")
+      ? { versions: [{ ref: "c1", related: true, reason: "Notes: PIH", personalNote: "Hi.", productName: "", productNote: "" }] }
+      : { subject: "S", preheader: "P", eyebrow: "E", headline: "H", paragraphs: ["One."], tipsTitle: "", tips: [], skipProducts: true, products: [], matchTerms: ["PIH", "dark spots"] };
+    return new Response(JSON.stringify({ stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 }, content: [{ type: "text", text: JSON.stringify(reply) }] }), { status: 200 });
+  };
+  try {
+    const one = await draftCampaign(env, { topic: "Pigmentation this week", goal: "book", personalize: false, recipients: [{ email: "maya@example.com", customerId: "sq1" }] });
+    check("with personal notes off, only the shared email is written", [requests.length, (await store.listVersions(env, one)).length], [1, 1]);
+    check("the campaign remembers who was picked and that it's one email", (await store.getCampaign(env, one)).audience, { personalize: false, emails: ["maya@example.com"] });
+    requests.length = 0;
+    await draftCampaign(env, { topic: "Pigmentation this week", goal: "book", recipients: [{ email: "maya@example.com", customerId: "sq1" }] });
+    const personalPrompt = requests[1].messages[0].content;
+    check("the AI only reads the notes of clients who were picked", [personalPrompt.includes('first_name="Maya"'), personalPrompt.includes('first_name="Ana"')], [true, false]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+// --- bulk approve and reject, recipients and the Scheduled page --------------------------------
+{
+  const env = await freshEnv();
+  const db = env.CLIENT_NOTES_DB;
+  await db.prepare("INSERT INTO clients (id, name, square_customer_id) VALUES ('c1', 'Maya Rivers', 'sq1'), ('c2', 'Bo Lane', 'sq2')").run();
+  const campaignId = await store.createCampaign(env, {
+    topic: "pigmentation", goal: "book", content, usage: {}, audience: { personalize: true, emails: ["maya@example.com", "bo@example.com"] },
+    versions: [
+      { clientId: "c1", reason: "r1", personal: { personalNote: "Hi Maya." } },
+      { clientId: "c2", reason: "r2", personal: { personalNote: "Hi Bo." } },
+    ],
+  });
+  const route = (path, init) => {
+    const url = new URL(`https://x.test${path}`);
+    return handleCampaignRoute(new Request(url, init), env, url, url.pathname.split("/").filter(Boolean), init?.method || "GET");
+  };
+  const page = await (await route(`/admin/campaigns/${campaignId}`)).text();
+  check("the review list has a box on each version and an Approve / Reject bar",
+    [(page.match(/data-bulk-item/g) || []).length, page.includes('value="approve"'), page.includes('form="bulk-versions"')], [3, true, true]);
+  check("the review screen says who it goes to, with a link to change it",
+    [page.includes("Goes to 2 people you picked."), page.includes(`/admin/campaigns/${campaignId}/recipients`)], [true, true]);
+
+  const [shared, maya, bo] = await store.listVersions(env, campaignId);
+  const bulk = new FormData();
+  bulk.set("action", "approve");
+  for (const id of [shared.id, bo.id, "version_from_elsewhere"]) bulk.append("ids", id);
+  const done = await route(`/admin/campaigns/${campaignId}/versions/bulk`, { method: "POST", body: bulk });
+  check("bulk approve changes only the ticked versions of this campaign",
+    [(await store.listVersions(env, campaignId)).map((version) => version.status), new URL(done.headers.get("location"), "https://x.test").searchParams.get("notice")],
+    [["approved", "review", "approved"], "Approved 2 versions."]);
+  const reject = new FormData();
+  reject.set("action", "reject");
+  reject.append("ids", maya.id);
+  await route(`/admin/campaigns/${campaignId}/versions/bulk`, { method: "POST", body: reject });
+  check("bulk reject works the same way", (await store.getVersion(env, maya.id)).status, "rejected");
+
+  const ready = await (await route(`/admin/campaigns/${campaignId}`)).text();
+  check("once approved, Send says how many people were picked", [ready.includes("Goes to 2 people you picked"), ready.includes(">Send</button>")], [true, true]);
+
+  const save = new FormData();
+  save.set("recipients", JSON.stringify([{ email: "bo@example.com", customerId: "sq2" }]));
+  await route(`/admin/campaigns/${campaignId}/recipients`, { method: "POST", body: save });
+  check("changing who gets it keeps personal notes on and saves the new list", (await store.getCampaign(env, campaignId)).audience, { personalize: true, emails: ["bo@example.com"] });
+  const pickerPage = await (await route(`/admin/campaigns/${campaignId}/recipients`)).text();
+  check("the change page starts with the saved picks", pickerPage.includes("data-picked=\"[&quot;bo@example.com&quot;]\""), true);
+
+  await store.enqueueSends(env, campaignId, [
+    { versionId: shared.id, clientId: "c2", email: "bo@example.com", firstName: "Bo" },
+    { versionId: shared.id, clientId: null, email: "x@example.com", firstName: "X" },
+  ]);
+  await store.updateCampaign(env, campaignId, { status: "sending" });
+  await db.prepare("UPDATE email_sends SET status = 'sent', sent_at = '2026-10-25T14:00:00.000Z', provider_id = 're_bo' WHERE email = 'bo@example.com'").run();
+
+  const secret = `whsec_${Buffer.from("test-secret-bytes").toString("base64")}`;
+  const hookEnv = { ...env, RESEND_WEBHOOK_SECRET: secret };
+  const nowMs = Date.parse("2026-10-25T14:05:00Z");
+  const sign = async (id, timestamp, body) => {
+    const key = await crypto.subtle.importKey("raw", Buffer.from("test-secret-bytes"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return `v1,${Buffer.from(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${id}.${timestamp}.${body}`))).toString("base64")}`;
+  };
+  const hook = async (event, { tamper = false } = {}) => {
+    const body = JSON.stringify(event);
+    const timestamp = String(Math.floor(nowMs / 1000));
+    const signature = await sign("msg_1", timestamp, body);
+    return handleResendWebhook(new Request("https://x.test/email/resend-webhook", {
+      method: "POST", body: tamper ? body.replace("delivered", "bounced") : body,
+      headers: { "svix-id": "msg_1", "svix-timestamp": timestamp, "svix-signature": signature },
+    }), hookEnv, { now: nowMs });
+  };
+  check("a webhook with a bad signature is refused", (await hook({ type: "email.delivered", data: { email_id: "re_bo" } }, { tamper: true })).status, 401);
+  check("without the secret every webhook is refused",
+    (await handleResendWebhook(new Request("https://x.test/h", { method: "POST", body: "{}" }), env)).status, 401);
+  await hook({ type: "email.delivered", created_at: "2026-10-25T14:01:00.000Z", data: { email_id: "re_bo", to: ["bo@example.com"] } });
+  await hook({ type: "email.opened", created_at: "2026-10-25T14:03:00.000Z", data: { email_id: "re_bo" } });
+  await hook({ type: "email.delivery_delayed", created_at: "2026-10-25T14:04:00.000Z", data: { email_id: "re_bo" } });
+  const tracked = await db.prepare("SELECT delivery_status, delivered_at, opened_at FROM email_sends WHERE email = 'bo@example.com'").first();
+  check("delivered and opened are recorded, and a late event never moves an email back",
+    [tracked.delivery_status, tracked.delivered_at, tracked.opened_at], ["opened", "2026-10-25T14:01:00.000Z", "2026-10-25T14:03:00.000Z"]);
+  check("a send without Resend's id is found by its campaign tag and address",
+    [(await (await hook({ type: "email.bounced", data: { email_id: "re_unknown", to: ["X <x@example.com>"], tags: { campaign: campaignId } } })).text()),
+      (await db.prepare("SELECT delivery_status FROM email_sends WHERE email = 'x@example.com'").first()).delivery_status], ["Updated", "bounced"]);
+  check("the signature check accepts a rotated secret's second signature",
+    await verifySignature({ secret, id: "a", timestamp: String(Math.floor(nowMs / 1000)), signature: `v1,wrong ${await sign("a", String(Math.floor(nowMs / 1000)), "{}")}`, body: "{}", now: nowMs }), true);
+
+  const scheduledHtml = await (await route("/admin/campaigns/scheduled")).text();
+  check("the Scheduled page shows the usage bars, what's coming up and how each email did",
+    [scheduledHtml.includes("Resend free plan"), scheduledHtml.includes("This month"), scheduledHtml.includes("Coming up"), scheduledHtml.includes("How they did"), scheduledHtml.includes("bo@example.com")],
+    [true, true, true, true, true]);
+  check("without the webhook secret it explains how to turn delivery tracking on", scheduledHtml.includes("RESEND_WEBHOOK_SECRET"), true);
+  const trackedHtml = await (await handleCampaignRoute(new Request("https://x.test/admin/campaigns/scheduled"), hookEnv, new URL("https://x.test/admin/campaigns/scheduled"), ["admin", "campaigns", "scheduled"], "GET")).text();
+  check("with tracking on it shows delivered and opened", [trackedHtml.includes("Delivery tracking is off"), trackedHtml.includes(">Opened<")], [false, true]);
 }
 
 console.log(failures === 0 ? "\nAll admin-campaigns tests passed." : `\n${failures} FAILURE(S)`);

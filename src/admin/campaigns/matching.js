@@ -27,6 +27,7 @@ export function buildProfile({ client, notes, purchases }) {
   const noteTexts = notes.map((note) => ({ date: note.note_date, text: noteText(note) })).filter((note) => note.text);
   return {
     clientId: client.id,
+    squareCustomerId: client.square_customer_id || null,
     name: client.name,
     firstName: firstNameOf(client.name),
     notes,
