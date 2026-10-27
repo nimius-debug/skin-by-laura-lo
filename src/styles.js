@@ -66,6 +66,39 @@ h1 em, h2 em { font-weight: 400; font-style: italic; color: var(--clay); }
 .on-dark .stars, .site-footer .stars, .results-callout .stars { color: var(--brass); }
 
 .announcement { min-height: 34px; padding: 8px 24px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--ink); color: var(--on-dark); font-size: 11px; letter-spacing: .11em; text-transform: uppercase; text-align: center; }
+/* Sale banner (src/promo.js). Everyday sales are brass; Halloween ones are a
+   night-sky band with pumpkin accents. Vanilla on night is 15:1, pumpkin 7.4:1. */
+.promo { --promo-bg: var(--brass); --promo-fg: var(--ink); --promo-accent: var(--ink); position: relative; display: flex; height: 38px; background: var(--promo-bg); color: var(--promo-fg); overflow: hidden; }
+.promo-spooky { --promo-bg: #1d1726; --promo-fg: var(--on-dark); --promo-accent: #f08a3c; background: radial-gradient(circle at 12% 30%, rgba(240,138,60,.16), transparent 32%), radial-gradient(circle at 78% 70%, rgba(150,110,200,.18), transparent 36%), var(--promo-bg); border-bottom: 1px solid rgba(240,138,60,.35); }
+.promo-link { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+.promo-marquee { display: block; width: 100%; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+.promo-track { display: inline-flex; width: max-content; animation: promo-scroll 70s linear infinite; will-change: transform; }
+.promo-run { display: inline-flex; align-items: center; }
+.promo-run > * { flex: 0 0 auto; }
+.promo-run strong { font-weight: 700; color: var(--promo-accent); }
+.promo-run em { font-family: var(--font-serif); font-style: italic; font-size: 14px; letter-spacing: .02em; text-transform: none; }
+.promo-icon { display: inline-flex; align-items: center; margin-inline: 22px; color: var(--promo-accent); }
+.promo-icon svg { display: block; }
+.promo-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.promo-spooky .promo-icon-bat svg { animation: promo-flap 1.6s ease-in-out infinite; }
+.promo-cta { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid currentColor; border-radius: 999px; font-weight: 650; color: var(--promo-accent); }
+.promo-link:hover .promo-cta, .promo-link:focus-visible .promo-cta { background: var(--promo-accent); color: var(--promo-bg); }
+.promo-link:focus-visible { outline: 2px solid var(--promo-accent); outline-offset: -4px; }
+.promo:focus-within .promo-track, .promo.is-paused .promo-track { animation-play-state: paused; }
+@media (hover: hover) { .promo:hover .promo-track { animation-play-state: paused; } }
+.promo-static { display: none; width: 100%; padding-inline: 16px; align-items: center; justify-content: safe center; gap: 8px; overflow: hidden; }
+.promo-static .promo-icon { margin: 0; }
+.promo-static .promo-cta { padding: 2px 8px; }
+.promo-pause { flex: 0 0 auto; width: 38px; display: grid; place-items: center; border: 0; border-left: 1px solid color-mix(in srgb, var(--promo-fg) 22%, transparent); background: var(--promo-bg); color: var(--promo-fg); cursor: pointer; }
+.promo-pause:focus-visible { outline: 2px solid var(--promo-accent); outline-offset: -4px; }
+.promo-pause-icon { width: 9px; height: 10px; border-inline: 3px solid currentColor; }
+.promo.is-paused .promo-pause-icon { width: 0; height: 0; border-inline: 0; border-block: 5px solid transparent; border-left: 8px solid currentColor; margin-left: 2px; }
+@keyframes promo-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes promo-flap { 0%, 100% { transform: scaleY(1) translateY(0); } 50% { transform: scaleY(.55) translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) {
+  .promo-marquee, .promo-pause { display: none !important; }
+  .promo-static { display: flex; }
+}
 .site-header { height: 88px; padding: 0 44px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border-bottom: 1px solid var(--line); background: rgba(241,234,218,.93); backdrop-filter: blur(18px); position: sticky; top: 0; z-index: 40; }
 .brand { display: block; width: 150px; line-height: 0; }
 .brand-logo { display: block; width: 100%; height: auto; }
@@ -858,6 +891,7 @@ html.result-viewer-open { overflow: hidden; }
     box-shadow: 0 24px 50px rgba(27,33,24,.14);
   }
   .site-header nav.nav-open { display: flex; }
+  .promo ~ .site-header nav { inset-block-start: 160px; max-height: calc(100dvh - 160px); }
   .site-header nav a { width: 100%; padding: 15px 0; border-bottom: 1px solid var(--line); }
   .site-header nav .cart-link { justify-content: space-between; }
   .hero { min-height: auto; grid-template-columns: 1fr; padding-top: 85px; }
@@ -884,6 +918,14 @@ html.result-viewer-open { overflow: hidden; }
   .site-header { height: 74px; }
   .brand { width: 128px; }
   .site-header nav { inset-block-start: 108px; }
+  .promo { height: 34px; }
+  .promo-link { font-size: 10px; letter-spacing: .12em; }
+  .promo-run em { font-size: 13px; }
+  .promo-icon { margin-inline: 16px; }
+  .promo-track { animation-duration: 60s; }
+  .promo-pause { width: 34px; }
+  .promo-static-until { display: none; }
+  .promo ~ .site-header nav { inset-block-start: 142px; max-height: calc(100dvh - 142px); }
   .hero { padding-top: 58px; padding-bottom: 60px; }
   h1 { font-size: 58px; }
   .hero-lede { font-size: 16px; }
