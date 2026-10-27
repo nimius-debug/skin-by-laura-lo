@@ -199,8 +199,8 @@ ${raw(APP_HEAD)}
       <button type="button" class="nb-tool" id="nb-photo" aria-label="Add a photo">${icon(ICONS.photo)}</button>
       <input type="file" id="nb-photo-input" accept="image/*" multiple hidden />
       <span class="nb-sep" aria-hidden="true"></span>
-      <button type="button" class="nb-tool" id="nb-zoom-out" aria-label="Zoom out" disabled>${icon(ICONS.minus)}</button>
-      <button type="button" class="nb-tool nb-zoom-level" id="nb-zoom-reset" aria-label="Back to 100%">100%</button>
+      <button type="button" class="nb-tool" id="nb-zoom-out" aria-label="Zoom out">${icon(ICONS.minus)}</button>
+      <button type="button" class="nb-tool nb-zoom-level" id="nb-zoom-reset" aria-label="Show the whole page">100%</button>
       <button type="button" class="nb-tool" id="nb-zoom-in" aria-label="Zoom in">${icon(ICONS.plus)}</button>
     </div>
 
