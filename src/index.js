@@ -2,14 +2,27 @@ import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO } from "./
 import { getCatalog, indexVariations, isConfigured, createPaymentLink } from "./square.js";
 import { page, htmlResponse, jsonResponse } from "./layout.js";
 import { STYLES } from "./styles.js";
+import { FORM_STYLES } from "./form-styles.js";
 import { CLIENT_JS } from "./client/cart.js";
+import { FORMS_JS } from "./client/forms.js";
+import { formPage, formThanksPage, formsIndexPage } from "./pages/forms.js";
+import { formBySlug } from "./forms/definitions.js";
+import { readSubmission } from "./forms/engine.js";
+import { saveSubmission } from "./admin/forms.js";
 import { homePage } from "./pages/home.js";
 import { shopPage } from "./pages/shop.js";
 import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
+import { relatedProductsFor } from "./related-products.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
+import { handleAdminRequest } from "./admin/routes.js";
+import { deleteStaleDrafts } from "./admin/db.js";
+import { handleUnsubscribe } from "./admin/campaigns/routes.js";
+import { handleResendWebhook } from "./admin/campaigns/webhook.js";
+import { runScheduled } from "./admin/campaigns/schedule.js";
+import { runNoteReminders } from "./admin/note-reminders.js";
 
 const MAX_QTY = 10;
 const MAX_LINES = 50;
@@ -23,6 +36,31 @@ const LEGACY_REDIRECTS = new Map([
   ["/terms-conditions", "/terms"],
   ["/privacy-policy", "/privacy"],
   ["/checkout/success", "/thank-you"],
+]);
+
+// WordPress and Square generated different slugs for a handful of the same
+// products. Preserve bookmarked/search-indexed URLs after the domain cutover.
+// Products that used to contain multiple choices return to the shop so a
+// visitor can choose the correct shade or size instead of being misdirected.
+const LEGACY_PRODUCT_REDIRECTS = new Map([
+  ["/product/3d-cell-repair-boost", "/product/dermagarden-3d-cell-repair-boost"],
+  ["/product/brilliant-tone", "/product/glymed-brilliant-tone"],
+  ["/product/dermo-essential-moisture-rx-recharging-cream", "/product/moisture-rx-recharge"],
+  ["/product/homme-serum", "/product/desembre-homme-spirulina-all-in-one-solution"],
+  ["/product/hydrating-enzyme-masque", "/product/hydrating-mask"],
+  ["/product/krx-active-31-revitalizing-eye-cream-2", "/product/krx-active-31-revitalizing-eye-cream"],
+  ["/product/krx-all-day-glow-serum", "/product/krx-all-day-glow-vitamin-serum"],
+  ["/product/krx-aqua-cream", "/product/krx-aquageltm-cream"],
+  ["/product/krx-clear-prevent-anti-toner", "/product/krx-clear-prevent-anti-acne-toner"],
+  ["/product/krx-skin-filter-tinted-sunscreen-spf-50-pa", "/shop"],
+  ["/product/krx-soba-cream", "/product/soba-calm-cream"],
+  ["/product/magic-molecule-hypochlorous-acid-spray", "/shop"],
+  ["/product/mixi-clean-gel-cleanser", "/product/desembre-egf-waterdrop"],
+  ["/product/mixi-clear-plex-5-2", "/product/mixi-clear-plex-5"],
+  ["/product/mixi-mandelic-11-serum", "/product/mixi-mandelic-acid-11"],
+  ["/product/mixi-mandelic-15-serum", "/product/mixi-mandelic-acid-15"],
+  ["/product/mixi-mandelic-5-serum", "/product/mixi-mandelic-acid-5"],
+  ["/product/mixi-mandelic-8-serum", "/product/mixi-mandelic-acid-8"],
 ]);
 
 const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -153,21 +191,96 @@ async function handleCheckout(request, env, cfg, url) {
   }
 }
 
+// A client form is a few KB; anything far bigger isn't one.
+const MAX_FORM_BYTES = 64 * 1024;
+// Sent faster than a person could read the first step: almost certainly a bot.
+const MIN_FORM_MS = 4000;
+
+async function handleFormSubmission(request, env, cfg, slug) {
+  const form = formBySlug(slug);
+  if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+  if (Number(request.headers.get("content-length") || 0) > MAX_FORM_BYTES) {
+    return new Response("That form is too large to send.", { status: 413 });
+  }
+  const data = await request.formData().catch(() => null);
+  if (!data) return new Response("We couldn't read that form. Please go back and try again.", { status: 400 });
+
+  const thanks = `/forms/${form.slug}/thanks`;
+  // The hidden "website" box and the start time catch most bots. They get the
+  // thank-you page, so there is nothing to learn from, but nothing is saved.
+  const started = Number(data.get("started"));
+  if (String(data.get("website") || "") || (started && Date.now() - started < MIN_FORM_MS)) {
+    return redirect(thanks, 303);
+  }
+
+  const { answers, errors } = readSubmission(form, data);
+  if (Object.keys(errors).length) {
+    return htmlResponse(page({ title: form.title, body: formPage({ form, answers, errors }), cfg, current: "/forms" }), { status: 422 });
+  }
+  if (!env.CLIENT_NOTES_DB) {
+    console.error("A client form arrived but CLIENT_NOTES_DB isn't bound.");
+    return new Response("Forms can't be received right now. Please try again later, or email Laura.", { status: 503 });
+  }
+  await saveSubmission(env, form, answers);
+  // Only her first name goes in the address, for the thank-you line.
+  const firstName = (answers.full_name || "").split(/\s+/)[0];
+  return redirect(`${thanks}?name=${encodeURIComponent(firstName)}`, 303);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const cfg = settings(env);
     let path = url.pathname;
 
+    // Production has one canonical origin. Keep workers.dev usable for safe
+    // previews, but collapse www and plain HTTP in a single permanent redirect
+    // once the real hostname is routed to this Worker.
+    const canonicalOrigin = new URL(cfg.siteUrl);
+    const isProductionHost = url.hostname === canonicalOrigin.hostname
+      || url.hostname === `www.${canonicalOrigin.hostname}`;
+    if (isProductionHost && url.origin !== canonicalOrigin.origin) {
+      const cleanPath = path.length > 1 ? path.replace(/\/+$/, "") : path;
+      return redirect(`${canonicalOrigin.origin}${cleanPath || "/"}${url.search}`);
+    }
+
     // Normalise trailing slashes so old WordPress links resolve.
     if (path.length > 1 && path.endsWith("/")) {
       const stripped = path.replace(/\/+$/, "") || "/";
+      const legacyProduct = LEGACY_PRODUCT_REDIRECTS.get(stripped);
+      if (legacyProduct) return redirect(legacyProduct + url.search);
+      if (stripped.startsWith("/product-category/")) return redirect("/shop" + url.search);
+      const legacy = LEGACY_REDIRECTS.get(stripped);
+      if (legacy && legacy !== stripped) return redirect(legacy + url.search);
       return redirect(stripped + url.search);
     }
 
+    // -------------------------------------------------------------- admin
+    // A separate, internal tool for client consultation notes. Must sit
+    // behind Cloudflare Access in production — see README. Kept out of the
+    // storefront's own page()/layout.js shell entirely: different audience,
+    // no cart, no header/footer.
+    if (path === "/admin" || path.startsWith("/admin/")) {
+      return handleAdminRequest(request, env, url);
+    }
+    // A short address to type on the iPad when adding the admin to its Home Screen.
+    if (path === "/ipad") {
+      return new Response(null, { status: 302, headers: { location: "/admin", "cache-control": "no-store" } });
+    }
+
+    // Unsubscribe links in the client emails. Public: the link itself is signed.
+    if (path === "/email/unsubscribe") {
+      return handleUnsubscribe(request, env, url);
+    }
+    // Resend's delivery events for campaign emails. Public: each request is signed.
+    if (path === "/email/resend-webhook") {
+      return handleResendWebhook(request, env);
+    }
+
     // ------------------------------------------------------------- assets
-    if (path === "/assets/styles.css") return asset(STYLES, "text/css; charset=utf-8");
+    if (path === "/assets/styles.css") return asset(STYLES + FORM_STYLES, "text/css; charset=utf-8");
     if (path === "/assets/cart.js") return asset(CLIENT_JS, "text/javascript; charset=utf-8");
+    if (path === "/assets/forms.js") return asset(FORMS_JS, "text/javascript; charset=utf-8");
     if (path === "/favicon.svg") return asset(FAVICON, "image/svg+xml");
     if (path === "/robots.txt") {
       return asset(`User-agent: *\nAllow: /\nSitemap: ${cfg.siteUrl}/sitemap.xml\n`, "text/plain; charset=utf-8");
@@ -182,9 +295,17 @@ export default {
       return handleCheckout(request, env, cfg, url);
     }
 
+    // -------------------------------------------------------- client forms
+    const formMatch = path.match(/^\/forms\/([a-z0-9-]+)(\/thanks)?$/);
+    if (formMatch && request.method === "POST" && !formMatch[2]) {
+      return handleFormSubmission(request, env, cfg, formMatch[1]);
+    }
+
     // ------------------------------------------------------------ legacy
     if (path === "/booking" || path.startsWith("/booking/")) return redirect(BOOKING_URL, 302);
     if (path.startsWith("/product-category/")) return redirect("/shop");
+    const legacyProduct = LEGACY_PRODUCT_REDIRECTS.get(path);
+    if (legacyProduct) return redirect(legacyProduct + url.search);
     const legacy = LEGACY_REDIRECTS.get(path);
     if (legacy && legacy !== path) return redirect(legacy);
 
@@ -222,9 +343,7 @@ export default {
         }), { status: 404 });
       }
 
-      const related = products
-        .filter((entry) => entry.category === product.category && entry.slug !== product.slug)
-        .slice(0, 3);
+      const related = relatedProductsFor(product, products);
 
       const jsonLd = {
         "@context": "https://schema.org",
@@ -264,6 +383,25 @@ export default {
       return htmlResponse(page({
         title: "Thank you", body: thankYouPage(), cfg, canonical,
         description: "Your order is confirmed.",
+      }));
+    }
+
+    if (path === "/forms") {
+      return htmlResponse(page({
+        title: "Client forms", body: formsIndexPage(), cfg, current: "/forms", canonical,
+        description: "Intake forms to fill out before your appointment with Laura Lo.",
+      }));
+    }
+
+    if (formMatch) {
+      const form = formBySlug(formMatch[1]);
+      if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+      if (formMatch[2]) {
+        const firstName = (url.searchParams.get("name") || "").split(/\s+/)[0].slice(0, 40);
+        return htmlResponse(page({ title: "Thank you", body: formThanksPage({ form, firstName }), cfg, current: "/forms", canonical }));
+      }
+      return htmlResponse(page({
+        title: form.title, body: formPage({ form }), cfg, current: "/forms", canonical, description: form.description,
       }));
     }
 
@@ -308,5 +446,15 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
     }
 
     return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+  },
+
+  // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails
+  // within the daily limit, the Tuesday/Thursday reminders, and the 10 am
+  // notification listing clients whose visit still has no note. Also clears note drafts
+  // nobody saved.
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduled(env, new Date(controller.scheduledTime)));
+    ctx.waitUntil(runNoteReminders(env, new Date(controller.scheduledTime)).catch((error) => console.error("Missing-note reminders failed:", error.message)));
+    ctx.waitUntil(deleteStaleDrafts(env).catch((error) => console.error("Clearing old drafts failed:", error.message)));
   },
 };

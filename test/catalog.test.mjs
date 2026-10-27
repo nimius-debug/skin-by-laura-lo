@@ -41,8 +41,13 @@ const CATALOG_PAGE_1 = {
         variations: [{ id: "VAR_F1", item_variation_data: { pricing_type: "VARIABLE_PRICING" } }] } },
     // Slug collision with ITEM_A.
     { id: "ITEM_GHIJKL", type: "ITEM", item_data: { name: "Mixi Clean", ecom_visibility: "VISIBLE",
+        reporting_category: { id: "CAT_CLEAN" },
         variations: [{ id: "VAR_G1", item_variation_data: { pricing_type: "FIXED_PRICING",
           price_money: { amount: 3400, currency: "USD" } } }] } },
+    // No category assigned at all — must be hidden by default (HIDE_UNCATEGORIZED).
+    { id: "ITEM_K", type: "ITEM", item_data: { name: "No Category Product", ecom_visibility: "VISIBLE",
+        variations: [{ id: "VAR_K1", item_variation_data: { pricing_type: "FIXED_PRICING",
+          price_money: { amount: 2000, currency: "USD" } } }] } },
     // Draft treatment bundle — REGULAR but not published online, must be dropped.
     { id: "ITEM_H", type: "ITEM", item_data: { name: "Spicule Peel Series",
         variations: [{ id: "VAR_H1", item_variation_data: { pricing_type: "FIXED_PRICING",
@@ -79,6 +84,13 @@ const INVENTORY = {
   ],
 };
 
+// Alphabetically last, but the best seller by units sold — should jump to
+// the front. Everything else has no matching row (zero sales) and must keep
+// its existing alphabetical order relative to each other.
+const SALES_REPORT = {
+  data: [{ "ProductMixReport.item_name": "Sold Out Toner", "ProductMixReport.items_sold_quantity": 10 }],
+};
+
 let calls = [];
 let page = 0;
 globalThis.fetch = async (url, options) => {
@@ -93,6 +105,8 @@ globalThis.fetch = async (url, options) => {
     data = body.cursor === "PAGE2" ? CATALOG_PAGE_2 : (page++, CATALOG_PAGE_1);
   } else if (path === "/v2/inventory/counts/batch-retrieve") {
     data = INVENTORY;
+  } else if (path === "/reporting/v1/load") {
+    data = SALES_REPORT;
   } else {
     throw new Error("unexpected path " + path);
   }
@@ -112,8 +126,8 @@ function check(label, actual, expected) {
 }
 
 check("drops archived / services / drafts / gift cards / shipping / variable-priced", products.length, 4);
-check("product names sorted", products.map(p => p.name),
-  ["KrX Mela Défense Serum", "Mixi Clean", "Mixi Clean", "Sold Out Toner"]);
+check("best seller sorts first, zero-sales items keep alphabetical order", products.map(p => p.name),
+  ["Sold Out Toner", "KrX Mela Défense Serum", "Mixi Clean", "Mixi Clean"]);
 
 const mela = products.find(p => p.id === "ITEM_B");
 check("slug from accented name", mela.slug, "krx-mela-defense-serum");
@@ -132,9 +146,13 @@ check("price in cents", clean.priceCents, 3400);
 const soldOut = products.find(p => p.id === "ITEM_C");
 check("tracked with 0 on hand is sold out", soldOut.available, false);
 check("category via legacy category_id", soldOut.category, "Toners");
+check("only product with sales in its category gets the best-seller badge", soldOut.bestSeller, true);
+check("no sales in the window means no best-seller badge", mela.bestSeller, false);
 
 const collision = products.find(p => p.id === "ITEM_GHIJKL");
 check("slug collision disambiguated", collision.slug, "mixi-clean-item-g");
+
+check("hideUncategorized (default on) drops a product with no category", products.some(p => p.id === "ITEM_K"), false);
 
 check("paginated: two item catalog calls", calls.filter(c => c === "items").length, 2);
 check("no sale means regular price", [clean.regularPriceCents, clean.sale], [3400, null]);
@@ -146,6 +164,12 @@ check("index maps to owning product", index.get("VAR_B2").product.name, "KrX Mel
 // hideSoldOut
 const hidden = await getCatalog(env, { ...cfg, hideSoldOut: true }, { force: true });
 check("hideSoldOut removes sold-out item", hidden.some(p => p.id === "ITEM_C"), false);
+
+// hideUncategorized: false
+const uncategorizedShown = await getCatalog(env, { ...cfg, hideUncategorized: false }, { force: true });
+const noCategoryProduct = uncategorizedShown.find(p => p.id === "ITEM_K");
+check("hideUncategorized: false shows it again", Boolean(noCategoryProduct), true);
+check("...labelled with the uncategorized placeholder", noCategoryProduct?.category, "Skincare");
 
 console.log(failures === 0 ? "\nAll catalog tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

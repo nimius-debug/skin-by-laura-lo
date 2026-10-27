@@ -18,7 +18,7 @@ const CATALOG = {
     item("MASK2", "Sheet Masks", 6000, "CAT_MASKS"),
     item("SERUM", "Serum", 7000, "CAT_SERUMS"),
     item("TONER", "Toner", 3000, "CAT_TONERS"),
-    item("BALM", "Balm", 2000, null),
+    item("BALM", "Balm", 2000, "CAT_TONERS"),
   ],
   related_objects: [
     { id: "CAT_MASKS", type: "CATEGORY", category_data: { name: "Masks" } },

@@ -4,6 +4,8 @@
 
 export const BOOKING_URL =
   "https://book.squareup.com/appointments/rlfhvfyu6b6ltd/location/L8PR20K5XBXVQ";
+export const VIRTUAL_CONSULTATION_URL =
+  `${BOOKING_URL}/services/AIT25JGUYHWL7HC36TOB6JEJ`;
 export const SKIN_AUDIT_URL = "https://audit.skinbylauralo.com/";
 export const EGIFT_URL = "https://app.squareup.com/gift/MLPQV9JRB2FHB/order";
 export const INSTAGRAM_URL = "https://www.instagram.com/skinbylauralo/";
@@ -85,7 +87,7 @@ export function settings(env = {}) {
   const thresholdCents = num(env.FREE_SHIPPING_THRESHOLD_CENTS, 10000);
 
   return {
-    siteUrl: env.SITE_URL || "https://test.skinbylauralo.com",
+    siteUrl: env.SITE_URL || "https://skinbylauralo.com",
     shippingEnabled,
     shippingFeeCents: feeCents,
     freeShippingThresholdCents: thresholdCents,
@@ -94,6 +96,16 @@ export function settings(env = {}) {
     pickupPrepHours: num(env.PICKUP_PREP_HOURS, 24),
     catalogTtlSeconds: num(env.CATALOG_TTL_SECONDS, 120),
     hideSoldOut: bool(env.HIDE_SOLD_OUT, false),
+    // A product with no Square category assigned still needs somewhere to
+    // live, so it's labelled with a placeholder rather than dropped — but
+    // that makes it easy to forget to actually categorize. Hiding it from
+    // the site entirely (default on) surfaces the gap instead of quietly
+    // shipping an uncategorized product to customers.
+    hideUncategorized: bool(env.HIDE_UNCATEGORIZED, true),
+    // How long a best-seller ranking stays cached before Square is asked
+    // again. Sales data moves slowly, so this is hours, not seconds — kept
+    // far higher than CATALOG_TTL_SECONDS on purpose.
+    salesRankTtlSeconds: num(env.SALES_RANK_TTL_SECONDS, 21600), // 6 hours
     // Square sale start/end dates are studio wall-clock times.
     timeZone: env.STORE_TIMEZONE || "America/New_York",
   };

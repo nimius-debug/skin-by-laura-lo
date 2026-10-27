@@ -4,6 +4,11 @@
 // and asks Square to create a hosted checkout link. It never stores an order,
 // and it never accepts a price from the browser.
 
+import { salesRankFor, applySalesRank, topSellerSlugs } from "./sales-rank.js";
+
+// How many top sellers get a "Best seller" badge, within each category.
+const BEST_SELLER_BADGE_COUNT = 2;
+
 const SQUARE_VERSION = "2026-08-19";
 
 function apiBase(env) {
@@ -17,17 +22,7 @@ export function isConfigured(env) {
   return Boolean(env.SQUARE_ACCESS_TOKEN && env.SQUARE_LOCATION_ID);
 }
 
-async function squareFetch(env, path, body) {
-  const response = await fetch(`${apiBase(env)}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-      "Square-Version": SQUARE_VERSION,
-    },
-    body: JSON.stringify(body),
-  });
-
+async function parseSquareResponse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const detail = (payload.errors || [])
@@ -39,6 +34,34 @@ async function squareFetch(env, path, body) {
     throw error;
   }
   return payload;
+}
+
+export async function squareFetch(env, path, body) {
+  const response = await fetch(`${apiBase(env)}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+      "Square-Version": SQUARE_VERSION,
+    },
+    body: JSON.stringify(body),
+  });
+  return parseSquareResponse(response);
+}
+
+/** For Square's GET-style list endpoints (bookings, customers), which take query params rather than a JSON body. */
+export async function squareGet(env, path, params = {}) {
+  const url = new URL(`${apiBase(env)}${path}`);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+  }
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      "Square-Version": SQUARE_VERSION,
+    },
+  });
+  return parseSquareResponse(response);
 }
 
 function slugify(value) {
@@ -285,6 +308,13 @@ function bestSale(sales, ids, priceCents, productSets) {
 // Square has no product_type for these, so name is the only signal.
 const NON_RETAIL_NAME = /^gift ?card\b|^flat shipping\b/i;
 
+// Shown as a filter pill so an uncategorized product still has somewhere to
+// live, but it isn't a real Square category — nothing to do with the
+// product beyond "nobody's categorized it yet." Exported so code that scores
+// products by shared category (src/related-products.js) can tell the
+// difference and not treat two uncategorized products as alike.
+export const UNCATEGORIZED_LABEL = "Skincare";
+
 function categoryIdsFor(item) {
   const data = item.item_data || {};
   return [
@@ -299,7 +329,7 @@ function categoryNameFor(item, categories) {
     const name = categories.get(id);
     if (name) return name;
   }
-  return "Skincare";
+  return UNCATEGORIZED_LABEL;
 }
 
 /**
@@ -362,6 +392,9 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
     const available = variations.some((variation) => variation.inStock);
     if (cfg.hideSoldOut && !available) continue;
 
+    const category = categoryNameFor(item, categories);
+    if (cfg.hideUncategorized && category === UNCATEGORIZED_LABEL) continue;
+
     const imageIds = [
       ...(Array.isArray(data.image_ids) ? data.image_ids : []),
       ...(data.image_id ? [data.image_id] : []),
@@ -385,7 +418,7 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
       id: item.id,
       slug,
       name: data.name || "Untitled",
-      category: categoryNameFor(item, categories),
+      category,
       description,
       // Keep Square's rich description so the product page can recover its
       // paragraphs, lists and authored section labels. It is parsed into a
@@ -449,7 +482,16 @@ export async function getCatalog(env, cfg, { force = false } = {}) {
     console.error("Square pricing rule lookup failed, showing regular prices:", error.message);
   }
 
-  const products = normalize(raw, stock, cfg, sales);
+  let products = normalize(raw, stock, cfg, sales);
+
+  // Best-sellers first, within the existing alphabetical order; a nicety
+  // like stock, so a failure here still leaves a fully working shop.
+  const salesRank = await salesRankFor(env, cfg.salesRankTtlSeconds, { force });
+  products = applySalesRank(products, salesRank);
+
+  const bestSellerSlugs = topSellerSlugs(products, salesRank, BEST_SELLER_BADGE_COUNT);
+  for (const product of products) product.bestSeller = bestSellerSlugs.has(product.slug);
+
   if (cfg.catalogTtlSeconds > 0) {
     memo = { expires: now + cfg.catalogTtlSeconds * 1000, products };
   }

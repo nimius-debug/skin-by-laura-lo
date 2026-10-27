@@ -6,10 +6,12 @@ const CATALOG = {
       ecom_visibility: "VISIBLE",
       variations: [{ id: "V1", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 3400, currency: "USD" }, track_inventory: false } }] } },
-    { id: "I2", type: "ITEM", item_data: { name: "Serum", ecom_visibility: "VISIBLE",
+    { id: "I2", type: "ITEM", item_data: { name: "Serum", reporting_category: { id: "C1" },
+      ecom_visibility: "VISIBLE",
       variations: [{ id: "V2", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 7000, currency: "USD" }, track_inventory: false } }] } },
-    { id: "I3", type: "ITEM", item_data: { name: "Gone", ecom_visibility: "VISIBLE",
+    { id: "I3", type: "ITEM", item_data: { name: "Gone", reporting_category: { id: "C1" },
+      ecom_visibility: "VISIBLE",
       variations: [{ id: "V3", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 1000, currency: "USD" }, track_inventory: true } }] } },
   ],
@@ -30,6 +32,7 @@ globalThis.fetch = async (url, options) => {
     lastLinkBody = body;
     return json({ payment_link: { url: "https://square.link/u/TEST" } });
   }
+  if (path === "/reporting/v1/load") return json({ data: [] });
   throw new Error("unexpected " + path);
 };
 function json(data, status = 200) {
