@@ -699,6 +699,19 @@ export function scheduledPage({ usage, days, campaigns, stats, recent, now, trac
   `;
 }
 
+/** Shown when the code is newer than the database: the migration to run. */
+export function migrationNeededPage() {
+  return html`
+    <h1 class="page-title">Email campaigns</h1>
+    <div class="card camp-setup">
+      <div class="section-label">Database update needed</div>
+      <p>This part of Email campaigns needs a database update that hasn't been run yet. Run this once, then reload:</p>
+      <pre class="camp-migration"><code>npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0009_campaign_audience.sql</code></pre>
+      <p class="camp-muted">Emails already queued keep sending in the meantime.</p>
+    </div>
+  `;
+}
+
 // --- Unsubscribe (public) ------------------------------------------------------
 
 export function unsubscribePage({ state, email = "", token = "" }) {

@@ -369,6 +369,8 @@ const CAMPAIGN_STYLES = `
 const CAMPAIGN_AUDIENCE_STYLES = `
 /* These blocks set their own display, which would otherwise beat the hidden attribute. */
 .camp-drafting[hidden], .camp-new-grid[hidden], .camp-pick-card[hidden], .camp-pick-row[hidden], .camp-pick-empty[hidden], .camp-how li[hidden] { display: none; }
+.camp-migration { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #E8CFA0; font-size: 12.5px; white-space: pre-wrap; word-break: break-all; }
+.camp-setup p { margin: 0; font-size: 14px; line-height: 1.5; }
 .camp-section-tabs { display: inline-flex; align-self: flex-start; gap: 4px; padding: 3px; border-radius: 10px; background: #EFE5D8; }
 .camp-section-tabs a { min-height: 36px; padding: 0 16px; display: flex; align-items: center; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--ink-soft); }
 .camp-section-tabs a.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(42,36,31,.12); }

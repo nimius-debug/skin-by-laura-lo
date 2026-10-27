@@ -149,16 +149,33 @@ export async function countSentSince(env, sinceIso) {
   return row?.n || 0;
 }
 
-/** Test emails and reminders sent since `sinceIso`, which Resend counts too. */
-export async function countOtherSentSince(env, sinceIso) {
-  const row = await env.CLIENT_NOTES_DB.prepare("SELECT COUNT(*) AS n FROM email_other_sends WHERE sent_at >= ?").bind(sinceIso).first();
-  return row?.n || 0;
+/** Whether an error is D1 saying a table or column from a migration isn't there yet. */
+export function isMissingSchema(error) {
+  return /no such (table|column)|has no column named/i.test(String(error?.message || ""));
 }
 
-/** Notes an email sent outside a campaign (kind: test | reminder). */
+/**
+ * Test emails and reminders sent since `sinceIso`, which Resend counts too.
+ * 0 until migration 0009 has run, so sending never stops over a missing table.
+ */
+export async function countOtherSentSince(env, sinceIso) {
+  try {
+    const row = await env.CLIENT_NOTES_DB.prepare("SELECT COUNT(*) AS n FROM email_other_sends WHERE sent_at >= ?").bind(sinceIso).first();
+    return row?.n || 0;
+  } catch (error) {
+    if (isMissingSchema(error)) return 0;
+    throw error;
+  }
+}
+
+/** Notes an email sent outside a campaign (kind: test | reminder). Skipped until migration 0009 has run. */
 export async function recordOtherSend(env, kind, now = new Date()) {
-  await env.CLIENT_NOTES_DB.prepare("INSERT INTO email_other_sends (id, kind, sent_at) VALUES (?, ?, ?)")
-    .bind(newId("othersend"), kind, now.toISOString()).run();
+  try {
+    await env.CLIENT_NOTES_DB.prepare("INSERT INTO email_other_sends (id, kind, sent_at) VALUES (?, ?, ?)")
+      .bind(newId("othersend"), kind, now.toISOString()).run();
+  } catch (error) {
+    if (!isMissingSchema(error)) throw error;
+  }
 }
 
 /** Queued emails per campaign, in the order they go out: [{ campaign_id, n, topic, eyebrow }]. */
