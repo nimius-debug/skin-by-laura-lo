@@ -50,7 +50,8 @@ export const NOTEBOOK_JS = String.raw`
   var LAYOUT = 2;
   var HIGHLIGHT = "#E9C46A";
   var ERASE_RADIUS = 12;
-  var MIN_ZOOM = 1;
+  // 100% is the page as wide as the screen allows. Below it whole pages fit on the screen.
+  var MIN_ZOOM = 0.4;
   var MAX_ZOOM = 2.5;
   // Canvas pixels per page unit at most. Higher zoom is drawn slightly soft rather than risk
   // the large canvases iPad Safari refuses to keep in memory.
@@ -364,6 +365,13 @@ export const NOTEBOOK_JS = String.raw`
     view.canvas.height = Math.round(PAGE_H * backing);
     view.scale = view.canvas.width / PAGE_W;
     if (livePage === index) livePage = -1;
+    // The live canvas left on this page from the last stroke would keep its old size and, zoomed
+    // out, stick out past the page and make the screen scroll sideways.
+    if (liveCanvas.parentNode === view.canvas.parentNode) {
+      clearLive();
+      liveCanvas.style.width = view.canvas.style.width;
+      liveCanvas.style.height = view.canvas.style.height;
+    }
     renderPage(index);
     if (selectedPhoto) placePhotoBox();
   }
@@ -786,27 +794,45 @@ export const NOTEBOOK_JS = String.raw`
   var zoomLabel = document.getElementById("nb-zoom-reset");
 
   // Zoom to the given level, keeping the point under (x, y) on screen where it is. Pages are re-drawn at
-  // the new size, so writing stays sharp.
+  // the new size, so writing stays sharp. The point is held as a spot on a page, since the gaps between
+  // pages don't grow and shrink with them.
   function setZoom(zoom, x, y) {
     zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(zoom * 100) / 100));
     var box = scroller.getBoundingClientRect();
-    var ax = x === undefined ? box.width / 2 : x - box.left;
-    var ay = y === undefined ? box.height / 2 : y - box.top;
-    var ratio = zoom / state.zoom;
-    var left = (scroller.scrollLeft + ax) * ratio - ax;
-    var top = (scroller.scrollTop + ay) * ratio - ay;
+    var ax = x === undefined ? box.left + box.width / 2 : x;
+    var ay = y === undefined ? box.top + box.height / 2 : y;
+    var anchor = 0;
+    pageViews.forEach(function (view, index) { if (view.canvas.getBoundingClientRect().top <= ay) anchor = index; });
+    var before = pageViews[anchor].canvas.getBoundingClientRect();
+    var fx = (ax - before.left) / before.width;
+    var fy = (ay - before.top) / before.height;
     state.zoom = zoom;
     pageViews.forEach(function (_, index) { sizePage(index); });
-    scroller.scrollLeft = left;
-    scroller.scrollTop = top;
+    var after = pageViews[anchor].canvas.getBoundingClientRect();
+    scroller.scrollLeft += after.left + fx * after.width - ax;
+    scroller.scrollTop += after.top + fy * after.height - ay;
     zoomLabel.textContent = Math.round(zoom * 100) + "%";
+    zoomLabel.setAttribute("aria-label", zoom === 1 ? "Show the whole page" : "Back to 100%");
     document.getElementById("nb-zoom-out").disabled = zoom <= MIN_ZOOM;
     document.getElementById("nb-zoom-in").disabled = zoom >= MAX_ZOOM;
+    updatePageCount();
+  }
+
+  // Small enough that the page in view fits on the screen below the tools, and lined up there.
+  function showWholePage() {
+    var page = pageInView().page;
+    var tools = scroller.querySelector(".nb-tools");
+    var room = scroller.clientHeight - (tools ? tools.offsetHeight + 12 : 0) - 32;
+    var fit = Math.floor(room / (baseWidth() * PAGE_H / PAGE_W) * 100) / 100;
+    setZoom(Math.min(1, fit));
+    var top = pageViews[page].canvas.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    scroller.scrollTop += top - (tools ? tools.offsetHeight + 12 : 0) - 16;
   }
 
   document.getElementById("nb-zoom-in").addEventListener("click", function () { setZoom(state.zoom + 0.25); });
   document.getElementById("nb-zoom-out").addEventListener("click", function () { setZoom(state.zoom - 0.25); });
-  zoomLabel.addEventListener("click", function () { setZoom(1); });
+  // At 100% the label shows the whole page; anywhere else it goes back to 100%.
+  zoomLabel.addEventListener("click", function () { if (state.zoom === 1) showWholePage(); else setZoom(1); });
 
   // Two fingers pinch the pages, not the whole app. While pinching the pages are just stretched
   // (cheap), then re-drawn at the new size when the fingers lift.
