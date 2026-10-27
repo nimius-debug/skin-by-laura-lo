@@ -222,7 +222,13 @@ export const CLIENT_JS = String.raw`
       for (var i = 0; i < siblings.length; i++) siblings[i].classList.remove("active");
       choice.classList.add("active");
       if (addButton) addButton.setAttribute("data-add-to-cart", id);
-      if (priceDisplay && variations[id]) priceDisplay.textContent = variations[id].price;
+      // price is server-built markup from catalog numbers only.
+      if (priceDisplay && variations[id]) priceDisplay.innerHTML = variations[id].price;
+      var saleDisplay = document.querySelector("[data-sale-display]");
+      if (saleDisplay && variations[id]) {
+        saleDisplay.textContent = variations[id].sale;
+        saleDisplay.hidden = !variations[id].sale;
+      }
     });
   }
 
@@ -771,7 +777,12 @@ export const CLIENT_JS = String.raw`
     function lineFor(item) {
       var entry = catalog && catalog[item.id];
       if (!entry) return null;
-      return { item: item, entry: entry, total: entry.priceCents * item.qty };
+      return {
+        item: item,
+        entry: entry,
+        total: entry.priceCents * item.qty,
+        regularTotal: (entry.regularPriceCents || entry.priceCents) * item.qty,
+      };
     }
 
     function render() {
@@ -807,7 +818,12 @@ export const CLIENT_JS = String.raw`
               "</div>" +
             "</div>" +
             '<div class="cart-item-end">' +
-              "<strong>" + money(line.total) + "</strong>" +
+              "<strong>" +
+                (line.regularTotal > line.total
+                  ? '<s class="price-regular">' + money(line.regularTotal) + "</s> "
+                  : "") +
+                money(line.total) +
+              "</strong>" +
               '<button type="button" data-line-remove="' + escapeAttr(line.item.id) + '">Remove</button>' +
             "</div>" +
           "</div>";

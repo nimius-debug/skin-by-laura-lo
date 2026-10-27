@@ -45,7 +45,10 @@ export function productCard({ name, products, siteUrl, label, note = "" }) {
     note,
     url: product ? `${siteUrl}/product/${product.slug}` : "",
     image: product?.image || "",
-    price: Number.isFinite(product?.priceCents) ? formatMoney(product.priceCents) : "",
+    // Regular price: an email outlives a Square sale, so it never quotes one.
+    price: Number.isFinite(product?.regularPriceCents ?? product?.priceCents)
+      ? formatMoney(product.regularPriceCents ?? product.priceCents)
+      : "",
   };
 }
 

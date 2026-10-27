@@ -277,6 +277,10 @@ html.result-viewer-open { overflow: hidden; }
 .product-image-fallback { width: 100%; height: 100%; display: grid; place-items: center; padding: 12%; text-align: center; background: var(--panel-product); font-family: var(--font-serif); font-size: 13px; font-style: italic; color: var(--muted); }
 .product-badge { position: absolute; z-index: 2; top: 14px; left: 14px; padding: 7px 9px; background: var(--brass); color: var(--ink); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .product-badge-soldout { background: var(--ink); color: var(--on-dark); border: 0; }
+.product-badge-sale { background: var(--clay-deep); color: var(--on-dark); }
+.price-regular { color: var(--muted); font-weight: 400; text-decoration-thickness: 1px; }
+.price-sale { color: var(--clay-deep); }
+.product-price .price-regular { display: block; text-align: right; font-size: .9em; }
 .product-badge-bestseller { left: auto; right: 14px; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--ink); }
 .product-quick { border: 1px solid var(--line); }
 .product-quick { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 14px; text-align: center; background: rgba(241,234,218,.94); color: var(--ink); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; transform: translateY(70px); transition: transform .3s ease; }
@@ -573,6 +577,9 @@ html.result-viewer-open { overflow: hidden; }
 .product-details .eyebrow { margin-bottom: 14px; }
 .product-details h1 { margin-bottom: 17px; font-size: clamp(52px, 6vw, 78px); line-height: .96; }
 .product-detail-price { margin-bottom: 28px; font-size: 15px; letter-spacing: .04em; }
+.product-detail-price .price-regular { margin-right: 8px; }
+.product-sale-note { margin: -20px 0 28px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--clay-deep); }
+.product-sale-note[hidden] { display: none; }
 .product-detail-short { margin-bottom: 18px; font-family: var(--font-serif); font-size: 25px; line-height: 1.3; color: var(--clay-deep); }
 .product-description { margin: 34px 0 0; display: block; color: var(--muted); font-size: 14px; line-height: 1.75; }
 .product-overview-intro { margin-bottom: 24px; display: grid; gap: 17px; }
@@ -904,6 +911,7 @@ html.result-viewer-open { overflow: hidden; }
   .product-info { display: block; }
   .product-info h3 { font-size: 16px; }
   .product-price { margin-top: 7px; }
+  .product-price .price-regular { display: inline; margin-right: 6px; }
   .product-quick { display: none; }
   /* Routine tiles have no other affordance marking them as tappable (unlike
      a shop card, which just navigates) — keep their "View routine" label

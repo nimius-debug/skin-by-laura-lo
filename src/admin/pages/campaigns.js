@@ -327,7 +327,9 @@ function productFields(campaign) {
 function shopForSearch(shop) {
   return JSON.stringify(shop.map((product) => ({
     name: product.name,
-    price: Number.isFinite(product.priceCents) ? formatMoney(product.priceCents) : "",
+    price: Number.isFinite(product.regularPriceCents ?? product.priceCents)
+      ? formatMoney(product.regularPriceCents ?? product.priceCents)
+      : "",
     image: product.image || "",
   })));
 }
