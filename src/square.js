@@ -245,12 +245,27 @@ function activeSales(pricing, { locationId, now, timeZone }) {
       discountId: discount.id,
       name: (dd.name || "Sale").trim(),
       ...offer,
+      lastDay: lastDayOf(data),
       matchSetId: data.match_products_id,
       excludeSetId: data.exclude_products_id || null,
     });
   }
 
   return sales;
+}
+
+/**
+ * The last calendar day a sale runs, in studio time, or null if open-ended.
+ * The dashboard stores "ends Nov 2" as valid_until 2026-11-02 00:00:00, which
+ * activeSales treats as over at that midnight, so the last full day is Nov 1.
+ */
+function lastDayOf(data) {
+  if (!data.valid_until_date) return null;
+  const time = data.valid_until_local_time || "23:59:59";
+  if (time > "00:00:00") return data.valid_until_date;
+  const day = new Date(`${data.valid_until_date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - 1);
+  return day.toISOString().slice(0, 10);
 }
 
 /**
@@ -301,6 +316,7 @@ function bestSale(sales, ids, priceCents, productSets) {
     name: sale.name,
     label: saleLabel(sale),
     kind: sale.kind,
+    lastDay: sale.lastDay,
     offCents,
   };
 }

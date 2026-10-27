@@ -3,10 +3,11 @@ import {
   BOOKING_URL, EGIFT_URL, INSTAGRAM_URL, SUPPORT_EMAIL, STUDIO,
 } from "./config.js";
 import { FORMS } from "./forms/definitions.js";
+import { promoBanner } from "./promo.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261023-client-forms";
+const ASSET_VERSION = "20261027-sale-banner";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -22,9 +23,10 @@ function announcement(cfg) {
   `;
 }
 
-function header(cfg, current) {
+function header(cfg, current, promo) {
   const mark = (path) => (current === path ? raw(' aria-current="page"') : "");
   return html`
+    ${promoBanner(promo)}
     <div class="announcement">${announcement(cfg)}</div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="Skin by Laura Lo home">
@@ -94,7 +96,7 @@ function footer() {
  * Wrap page content in the full document shell.
  * `head` accepts pre-escaped markup for page-specific meta/JSON-LD.
  */
-export function page({ title, description, body, cfg, current = "", head = "", canonical = "" }) {
+export function page({ title, description, body, cfg, current = "", head = "", canonical = "", promo = null }) {
   const fullTitle = title
     ? `${title} · Skin by Laura Lo`
     : "Skin by Laura Lo · Tampa esthetician & Korean-infused facials";
@@ -117,7 +119,7 @@ ${typeof head === "string" ? raw(head) : head}
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-${header(cfg, current)}
+${header(cfg, current, promo)}
 <main id="main">${body}</main>
 ${footer()}
 <script src="/assets/cart.js?v=${ASSET_VERSION}" defer></script>

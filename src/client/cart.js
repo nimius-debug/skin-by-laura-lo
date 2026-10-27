@@ -79,8 +79,16 @@ export const CLIENT_JS = String.raw`
     var button = document.querySelector(".menu-button");
     var nav = document.getElementById("primary-nav");
     if (!button || !nav) return;
+    var header = document.querySelector(".site-header");
     button.addEventListener("click", function () {
       var open = nav.classList.toggle("nav-open");
+      // Drop the menu from wherever the header sits now: below the sale and
+      // shipping bars at the top of the page, or at the very top once scrolled.
+      if (open && header) {
+        var top = Math.max(0, Math.round(header.getBoundingClientRect().bottom));
+        nav.style.top = top + "px";
+        nav.style.maxHeight = "calc(100dvh - " + top + "px)";
+      }
       button.setAttribute("aria-expanded", open ? "true" : "false");
     });
     nav.addEventListener("click", function (event) {
@@ -450,6 +458,15 @@ export const CLIENT_JS = String.raw`
 
     if (search) search.addEventListener("input", apply);
 
+    // /shop?category=Masks (the sale banner's link) opens on that category.
+    var wanted = new URLSearchParams(window.location.search).get("category");
+    if (wanted) {
+      var match = pills.filter(function (pill) {
+        return pill.getAttribute("data-filter").toLowerCase() === wanted.toLowerCase();
+      })[0];
+      if (match) match.click();
+    }
+
     var reset = document.querySelector("[data-shop-reset]");
     if (reset) reset.addEventListener("click", function () {
       if (search) search.value = "";
@@ -458,6 +475,21 @@ export const CLIENT_JS = String.raw`
       if (routinesPill) routinesPill.classList.remove("active");
       if (pills[0]) pills[0].classList.add("active");
       showProducts();
+    });
+  }
+
+  /* ----------------------------------------------------------- sale banner */
+
+  // The banner scrolls on its own, so it needs a way to stop it (WCAG 2.2.2).
+  // Hover and focus pause it too; reduced-motion visitors get a still line.
+  function initPromo() {
+    var promo = document.querySelector("[data-promo]");
+    var pause = promo && promo.querySelector("[data-promo-pause]");
+    if (!pause) return;
+    pause.hidden = false;
+    pause.addEventListener("click", function () {
+      var paused = promo.classList.toggle("is-paused");
+      pause.setAttribute("aria-pressed", paused ? "true" : "false");
     });
   }
 
@@ -968,6 +1000,7 @@ export const CLIENT_JS = String.raw`
   function init() {
     paintCount();
     initNav();
+    initPromo();
     initAddButtons();
     initProductPage();
     initProductGallery();

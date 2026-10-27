@@ -14,6 +14,7 @@ import { shopPage } from "./pages/shop.js";
 import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
 import { relatedProductsFor } from "./related-products.js";
+import { salePromo } from "./promo.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
@@ -315,18 +316,22 @@ export default {
     }
 
     const canonical = `${cfg.siteUrl}${path === "/" ? "" : path}`;
+    // The sale banner rides on the same cached catalog the shop reads, so it
+    // starts and stops with the sale in Square.
+    const catalog = await loadCatalog(env, cfg);
+    const promo = salePromo(catalog.products);
 
     if (path === "/") {
-      const { products } = await loadCatalog(env, cfg);
-      return htmlResponse(page({
+      const { products } = catalog;
+      return htmlResponse(page({ promo,
         body: homePage({ products, cfg }), cfg, current: "/", canonical,
         description: "Korean-infused facials, acne guidance and curated home care from a licensed esthetician in Tampa, Florida.",
       }), { cacheSeconds: 60 });
     }
 
     if (path === "/shop") {
-      const { products, connected } = await loadCatalog(env, cfg);
-      return htmlResponse(page({
+      const { products, connected } = catalog;
+      return htmlResponse(page({ promo,
         title: "Shop", body: shopPage({ products, connected }), cfg, current: "/shop", canonical,
         description: "Barrier-first skincare hand-picked by Laura Lo, shipped nationwide or collected in Tampa.",
       }), { cacheSeconds: 60 });
@@ -334,11 +339,11 @@ export default {
 
     if (path.startsWith("/product/")) {
       const slug = decodeURIComponent(path.slice("/product/".length));
-      const { products } = await loadCatalog(env, cfg);
+      const { products } = catalog;
       const product = products.find((entry) => entry.slug === slug);
 
       if (!product) {
-        return htmlResponse(page({
+        return htmlResponse(page({ promo,
           title: "Not found", body: notFoundPage(), cfg,
         }), { status: 404 });
       }
@@ -363,7 +368,7 @@ export default {
         },
       };
 
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: product.name,
         description: product.description ? product.description.slice(0, 155) : `${product.name} — ${product.category} from Skin by Laura Lo.`,
         body: productPage({ product, related, cfg }),
@@ -373,21 +378,21 @@ export default {
     }
 
     if (path === "/cart") {
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: "Your bag", body: cartPage({ cfg }), cfg, current: "/cart", canonical,
         description: "Review your bag and check out securely with Square.",
       }));
     }
 
     if (path === "/thank-you") {
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: "Thank you", body: thankYouPage(), cfg, canonical,
         description: "Your order is confirmed.",
       }));
     }
 
     if (path === "/forms") {
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: "Client forms", body: formsIndexPage(), cfg, current: "/forms", canonical,
         description: "Intake forms to fill out before your appointment with Laura Lo.",
       }));
@@ -395,32 +400,32 @@ export default {
 
     if (formMatch) {
       const form = formBySlug(formMatch[1]);
-      if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+      if (!form) return htmlResponse(page({ promo, title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
       if (formMatch[2]) {
         const firstName = (url.searchParams.get("name") || "").split(/\s+/)[0].slice(0, 40);
-        return htmlResponse(page({ title: "Thank you", body: formThanksPage({ form, firstName }), cfg, current: "/forms", canonical }));
+        return htmlResponse(page({ promo, title: "Thank you", body: formThanksPage({ form, firstName }), cfg, current: "/forms", canonical }));
       }
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: form.title, body: formPage({ form }), cfg, current: "/forms", canonical, description: form.description,
       }));
     }
 
     if (path === "/about") {
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: "About", body: aboutPage(), cfg, current: "/about", canonical,
         description: "Laura Lo is a licensed esthetician in Tampa working with Korean-infused, barrier-first treatment methods.",
       }), { cacheSeconds: 300 });
     }
 
     if (path === "/treatments") {
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: "Treatments", body: treatmentsPage(), cfg, current: "/treatments", canonical,
         description: "Korean-infused facials, acne guidance, brows and lashes, and virtual consults in Tampa, Florida.",
       }), { cacheSeconds: 300 });
     }
 
     if (path === "/gallery") {
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: "Gallery", body: galleryPage(), cfg, current: "/gallery", canonical,
         description: "Before and after results from treatments at Skin by Laura Lo.",
       }), { cacheSeconds: 300 });
@@ -428,14 +433,14 @@ export default {
 
     if (path === "/terms" || path === "/privacy") {
       const kind = path.slice(1);
-      return htmlResponse(page({
+      return htmlResponse(page({ promo,
         title: kind === "terms" ? "Terms & Conditions" : "Privacy Policy",
         body: legalPage({ kind, cfg }), cfg, canonical,
       }), { cacheSeconds: 300 });
     }
 
     if (path === "/sitemap.xml") {
-      const { products } = await loadCatalog(env, cfg);
+      const { products } = catalog;
       const paths = ["/", "/about", "/treatments", "/shop", "/gallery", "/terms", "/privacy"]
         .concat(products.map((product) => `/product/${product.slug}`));
       const body = `<?xml version="1.0" encoding="UTF-8"?>
@@ -445,7 +450,7 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
       return asset(body, "application/xml; charset=utf-8");
     }
 
-    return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+    return htmlResponse(page({ promo, title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
   },
 
   // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails
