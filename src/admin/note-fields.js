@@ -36,6 +36,37 @@ export function cleanFields(input) {
   return fields;
 }
 
+/**
+ * The words typed on an iPad or computer note page, as sent with it: [{ page, section, text }],
+ * where section is the printed heading the words sit under (null on a continued page). Anything
+ * else is dropped, so a bad copy never stops the note being read.
+ */
+export function cleanTyped(value) {
+  let list;
+  try {
+    list = typeof value === "string" ? JSON.parse(value) : value;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((item) => item && Number.isInteger(item.page) && item.page >= 0 && typeof item.text === "string" && item.text.trim())
+    .slice(0, 200)
+    .map((item) => ({ page: item.page, section: NOTE_FIELDS.includes(item.section) ? item.section : null, text: item.text.trim().slice(0, 4000) }));
+}
+
+/** Typed words as sections, for when they can't be read with the page: a continued page's go under the last heading used. */
+export function typedFields(typed) {
+  const parts = {};
+  let last = "Notes / remarks";
+  for (const item of typed) {
+    const section = item.section || last;
+    last = section;
+    (parts[section] ||= []).push(item.text);
+  }
+  return cleanFields(Object.fromEntries(Object.entries(parts).map(([name, texts]) => [name, texts.join("\n")])));
+}
+
 /** The sections as one line each, for prompts and the plain-text copy of a note. */
 export function fieldsAsText(fields) {
   return Object.entries(fields)

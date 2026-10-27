@@ -27,6 +27,8 @@ const ICONS = {
   minus: '<path d="M5 12h14"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   page: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 9v6M9 12h6"/>',
+  text: '<path d="M5 7V5h14v2"/><path d="M12 5v14"/><path d="M9 19h6"/>',
+  move: '<path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
   photo: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="m21 16-5-5-8 8"/>',
   size: '<path d="M4 7h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.2"/><path d="M4 17.5h16" stroke-width="3.6"/>',
 };
@@ -74,11 +76,27 @@ button { font: inherit; color: inherit; }
 .nb-photo-handle { position: absolute; right: -14px; bottom: -14px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 3px solid #FFFFFF; cursor: nwse-resize; }
 .nb-photo-handle::before { content: ""; position: absolute; inset: -10px; }
 .nb-photo-remove { position: absolute; top: -52px; right: 0; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 0; background: var(--ink); color: #FFF8F2; font-weight: 600; font-size: 14px; cursor: pointer; }
+/* A typed text box being written in: the words sit on the ruled lines, the same size as on the page. */
+.nb-pages[data-mode="text"] canvas { cursor: text; }
+.nb-text-box { position: absolute; z-index: 2; border-radius: 4px; outline: 1.5px dashed var(--accent); outline-offset: 5px; }
+.nb-text-input { display: block; width: 100%; margin: 0; padding: 0; border: 0; outline: 0; background: transparent; resize: none; overflow: hidden; font-family: 'Work Sans', system-ui, sans-serif; font-weight: 400;
+  white-space: pre-wrap; overflow-wrap: break-word; caret-color: var(--accent); -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+.nb-text-bar { position: absolute; left: -6px; right: -6px; bottom: calc(100% + 10px); display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.nb-text-bar > * { pointer-events: auto; }
+.nb-text-move, .nb-text-remove { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 10px; font-weight: 600; font-size: 14px; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+.nb-text-move { background: #FFFFFF; color: var(--ink); border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(42,36,31,.12); cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+.nb-text-move:active { cursor: grabbing; }
+.nb-text-move svg { width: 16px; height: 16px; }
+.nb-text-remove { border: 0; background: var(--ink); color: #FFF8F2; cursor: pointer; }
+.nb-text-width { position: absolute; right: -19px; top: 50%; width: 12px; height: 30px; margin-top: -15px; border-radius: 6px; background: var(--accent); border: 2px solid #FFFFFF; cursor: ew-resize; touch-action: none; }
+.nb-text-width::before { content: ""; position: absolute; inset: -10px; }
+.nb-hint { margin: 10px auto 0; padding: 8px 14px; border-radius: 999px; background: rgba(255,253,248,.9); border: 1px solid var(--line); color: var(--ink-soft); font-size: 14px; text-align: center; max-width: calc(100% - 24px); }
+.nb-hint kbd { font: 600 12px 'Work Sans', system-ui, sans-serif; padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: #FFFFFF; color: var(--ink); }
 .nb-live { position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 4px; }
 /* Fingers scroll the page natively; the script stops the Pencil (and a resting palm) from scrolling. */
 .nb-page canvas { display: block; border-radius: 4px; box-shadow: 0 2px 14px rgba(42,36,31,.12); touch-action: pan-x pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .nb-zoom-level { width: auto; min-width: 56px; padding: 0 6px; font-size: 14px; font-weight: 600; }
-.nb-tools, .nb-banner, .nb-foot { position: sticky; left: 0; }
+.nb-tools, .nb-banner, .nb-hint, .nb-foot { position: sticky; left: 0; }
 .nb-foot { display: flex; justify-content: center; padding: 0 16px calc(120px + env(safe-area-inset-bottom)); }
 /* A blank page to tap, the width of the pages above it. */
 .nb-add-tile { width: var(--page-w, 100%); max-width: calc(100vw - 32px); min-height: 120px; border: 2px dashed #CDBFAE; border-radius: 6px; background: rgba(255,253,248,.55); color: var(--ink-soft); font-size: 16px; font-weight: 600;
@@ -176,7 +194,7 @@ ${raw(APP_HEAD)}
 <div class="nb" id="notebook" data-client-id="${client.id}" data-client-name="${client.name}" data-note-id="${editing?.id || ""}" data-note-date="${editing?.note_date || ""}">
   <header class="nb-top">
     <a class="nb-back" href="/admin/clients/${client.id}" aria-label="Back to ${client.name}">${icon(ICONS.back)}<span class="nb-back-label">${client.name}</span></a>
-    <div class="nb-title"><strong>${title}</strong><span>${editing ? "Change it with Apple Pencil" : "Write with Apple Pencil"}</span></div>
+    <div class="nb-title"><strong>${title}</strong><span id="nb-subtitle">${editing ? "Change it with Apple Pencil" : "Write with Apple Pencil"}</span></div>
     <div class="nb-actions">
       <span class="nb-status" id="nb-status" role="status" aria-live="polite"></span>
       <button type="button" class="nb-btn nb-btn-primary" id="nb-done">Done</button>
@@ -185,9 +203,10 @@ ${raw(APP_HEAD)}
 
   <main class="nb-scroll" id="nb-scroll">
     <div class="nb-tools" role="toolbar" aria-label="Pencil tools">
-      <button type="button" class="nb-tool" data-tool="pen" aria-pressed="true" aria-label="Pen">${icon(ICONS.pen)}</button>
+      <button type="button" class="nb-tool" data-tool="pen" aria-pressed="true" aria-label="Pen" title="Pen (P)">${icon(ICONS.pen)}</button>
       <button type="button" class="nb-tool" data-tool="highlighter" aria-pressed="false" aria-label="Highlighter">${icon(ICONS.highlighter)}</button>
       <button type="button" class="nb-tool" data-tool="eraser" aria-pressed="false" aria-label="Eraser">${icon(ICONS.eraser)}</button>
+      <button type="button" class="nb-tool" data-tool="text" aria-pressed="false" aria-label="Type text" title="Type text (T)">${icon(ICONS.text)}</button>
       <span class="nb-sep" aria-hidden="true"></span>
       ${INKS.map((ink, index) => html`<button type="button" class="nb-tool" data-color="${ink.color}" aria-pressed="${index === 0 ? "true" : "false"}" aria-label="Ink: ${ink.name}" style="color: ${ink.color}"><span class="nb-swatch" style="background: ${ink.color}"></span></button>`)}
       <span class="nb-sep" aria-hidden="true"></span>
@@ -204,6 +223,8 @@ ${raw(APP_HEAD)}
       <button type="button" class="nb-tool" id="nb-zoom-in" aria-label="Zoom in">${icon(ICONS.plus)}</button>
     </div>
 
+    <p class="nb-hint" id="nb-text-hint" hidden></p>
+
     <div class="nb-banner" id="nb-restored" hidden>
       <span>Picked up your unsent note from <span id="nb-restored-when"></span>.</span>
       <button type="button" class="nb-btn nb-btn-quiet" id="nb-start-over">Start over</button>
@@ -216,10 +237,19 @@ ${raw(APP_HEAD)}
   </main>
 
   <div class="nb-page-count" id="nb-page-count" aria-live="polite" hidden></div>
+
+  <div class="nb-text-box" id="nb-text-box" hidden>
+    <div class="nb-text-bar">
+      <span class="nb-text-move" id="nb-text-move" title="Drag to move">${icon(ICONS.move)}Move</span>
+      <button type="button" class="nb-text-remove" id="nb-text-remove">Remove</button>
+    </div>
+    <textarea class="nb-text-input" id="nb-text-input" rows="1" aria-label="Typed text" spellcheck="true" autocapitalize="sentences"></textarea>
+    <span class="nb-text-width" id="nb-text-width" title="Drag to change the width" aria-hidden="true"></span>
+  </div>
   ${lastVisitBody(lastNote)}
 
   <div class="nb-overlay nb-busy" id="nb-busy" hidden>
-    <div class="nb-busy-card" role="status"><div class="nb-spinner" aria-hidden="true"></div>Reading your handwriting…</div>
+    <div class="nb-busy-card" role="status"><div class="nb-spinner" aria-hidden="true"></div><span id="nb-busy-label">Reading your handwriting…</span></div>
   </div>
 
   <div class="nb-overlay nb-review" id="nb-review" hidden role="dialog" aria-modal="true" aria-labelledby="nb-review-title">
@@ -232,7 +262,7 @@ ${raw(APP_HEAD)}
       <div class="nb-preview" id="nb-preview" aria-label="Your handwriting"></div>
       <div class="nb-form">
         <h1 id="nb-review-title">${client.name}</h1>
-        <p>Read from your handwriting. Fix any word, then save. Your handwriting is kept with the note.</p>
+        <p>Read from your page. Fix any word, then save. The page is kept with the note.</p>
         <ul class="nb-unclear" id="nb-unclear" hidden></ul>
         <label class="nb-field">Date<input type="date" id="nb-date" /></label>
         ${NOTE_FIELDS.map((name) => html`<label class="nb-field">${name}<textarea rows="3" data-field="${name}"></textarea></label>`)}
@@ -265,7 +295,7 @@ export function noteEditPage({ client, note, fields }) {
           </label>
         `)}
         <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: center;">
-          ${note.ink_key ? html`<a href="/admin/clients/${client.id}/write?note=${note.id}" style="margin-right: auto; font-size: 14px;">Edit the handwriting on the iPad</a>` : ""}
+          ${note.ink_key ? html`<a href="/admin/clients/${client.id}/write?note=${note.id}" style="margin-right: auto; font-size: 14px;">Edit the note page</a>` : ""}
           <a href="/admin/clients/${client.id}" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary">Save</button>
         </div>

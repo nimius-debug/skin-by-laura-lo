@@ -2,8 +2,9 @@
 // dependencies, like client.js.
 //
 // The Apple Pencil draws; a finger only scrolls, so a resting palm never leaves marks. A mouse
-// draws too, so the screen can be tried on a computer. Strokes are kept as points (with pen
-// pressure) rather than pixels, so undo and the eraser work on whole strokes.
+// draws too, and the Text tool types onto the page, so a note can be taken on a computer when the
+// iPad isn't at hand. Strokes are kept as points (with pen pressure) rather than pixels, so undo
+// and the eraser work on whole strokes.
 //
 // Every change is saved to IndexedDB on this iPad straight away, so a dropped connection or a
 // closed app loses nothing. That copy is deleted once the note is saved to the dashboard.
@@ -68,6 +69,16 @@ export const NOTEBOOK_JS = String.raw`
   var PEN_SIZES = [{ name: "Fine", scale: 0.7 }, { name: "Medium", scale: 1 }, { name: "Bold", scale: 1.6 }];
   // With finger drawing on, a touch this wide is a resting hand, not a fingertip.
   var PALM_RADIUS = 30;
+  // Typed text sits on the ruled lines: one line of text per ruled line, its letters resting on it.
+  var TEXT_SIZE = 19;
+  var TEXT_FONT = "400 " + TEXT_SIZE + "px 'Work Sans', system-ui, sans-serif";
+  var TEXT_BASELINE = 25;   // from the top of a line's row
+  var TEXT_LEFT = 56;       // the margin the printed headings start at
+  var MIN_TEXT_W = 120;
+  var MAX_TEXTS = 200;
+  // A computer (no touch screen, a mouse): the page starts on the Text tool and says "computer".
+  var desktop = !(navigator.maxTouchPoints > 0) && !!(window.matchMedia && window.matchMedia("(pointer: fine)").matches);
+  var DEVICE = desktop ? "computer" : "iPad";
 
   var state = {
     pages: [[]],          // one list of strokes per page
@@ -81,6 +92,7 @@ export const NOTEBOOK_JS = String.raw`
     zoom: 1,
     layout: LAYOUT,       // which headings are printed (see LAYOUTS)
     images: [],           // photos on the pages: { id, page, x, y, w, h } in page units
+    texts: [],            // typed text boxes: { id, page, x, y, w, text, color } in page units; y is the top of the first line
   };
   // Each photo's JPEG, and the decoded picture once it's ready to draw, by id.
   var photoData = {};
@@ -306,6 +318,7 @@ export const NOTEBOOK_JS = String.raw`
         ctx.fillRect(image.x, image.y, image.w, image.h);
       }
     });
+    drawTexts(ctx, index);
     state.pages[index].forEach(function (stroke) { drawStroke(ctx, stroke); });
   }
 
@@ -374,6 +387,7 @@ export const NOTEBOOK_JS = String.raw`
     }
     renderPage(index);
     if (selectedPhoto) placePhotoBox();
+    if (editing && textById(editing.id) && textById(editing.id).page === index) placeTextBox();
   }
 
   function baseWidth() {
@@ -386,7 +400,7 @@ export const NOTEBOOK_JS = String.raw`
     wrap.className = "nb-page";
     var canvas = document.createElement("canvas");
     canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", "Note page " + (index + 1) + ". Write with Apple Pencil.");
+    canvas.setAttribute("aria-label", "Note page " + (index + 1) + (desktop ? ". Click to type, or draw with the mouse." : ". Write with Apple Pencil."));
     wrap.appendChild(canvas);
     pagesBox.appendChild(wrap);
     // Until the observer says otherwise, the first pages and a newly added one are on screen.
@@ -410,6 +424,7 @@ export const NOTEBOOK_JS = String.raw`
   }, { root: scroller, rootMargin: "150% 0px" }) : null;
 
   function buildPages() {
+    dropEdit();
     if (nearWatch) nearWatch.disconnect();
     pagesBox.innerHTML = "";
     pageViews = [];
@@ -491,6 +506,8 @@ export const NOTEBOOK_JS = String.raw`
   function wirePointer(canvas, index) {
     var live = null;
     var erased = null;
+    // A Text tool click, until it lifts.
+    var textTap = null;
 
     // iPad Safari scrolls for any touch, the Pencil included. Stop it only for the Pencil and while
     // the Pencil is writing. Every finger touch is left to Safari so it scrolls natively, with
@@ -527,6 +544,14 @@ export const NOTEBOOK_JS = String.raw`
       if (event.pointerType === "touch" && (!state.fingerDraws || event.width > PALM_RADIUS * 2)) return;
       if (event.pointerType === "mouse" && event.button !== 0) return;
       event.preventDefault();
+      // Clicking away from the box being typed in puts it down. With the Text tool, the click (once
+      // lifted, so the keyboard may open) types at that spot or opens the words already there.
+      var wasEditing = !!editing;
+      finishEdit();
+      if (state.tool === "text") {
+        textTap = { x: event.clientX, y: event.clientY, point: toPage(canvas, event), wasEditing: wasEditing };
+        return;
+      }
       try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* a pointer that has already lifted */ }
       if (event.pointerType === "pen") { penDown = true; penSeen = Date.now(); }
       touchStroke = event.pointerType === "touch" ? cancelTouch : null;
@@ -563,6 +588,15 @@ export const NOTEBOOK_JS = String.raw`
         if (!event.isPrimary) return;
         touchStroke = null;
       }
+      if (textTap) {
+        var tapped = textTap;
+        textTap = null;
+        if (event.type !== "pointerup" || Math.abs(event.clientX - tapped.x) > 8 || Math.abs(event.clientY - tapped.y) > 8) return;
+        var box = textAt(index, tapped.point);
+        if (box) startEdit(box.id);
+        else if (!tapped.wasEditing) newText(index, tapped.point);
+        return;
+      }
       if (erased) {
         if (erased.length) record({ type: "erase", page: index, strokes: erased });
         erased = null;
@@ -591,6 +625,7 @@ export const NOTEBOOK_JS = String.raw`
 
   function applyUndo(action) {
     if (action.type.indexOf("photo") === 0) { undoPhoto(action, true); return; }
+    if (action.type === "text") { applyText(action, action.from); return; }
     var strokes = state.pages[action.page];
     if (action.type === "add") {
       var at = strokes.lastIndexOf(action.stroke);
@@ -603,6 +638,7 @@ export const NOTEBOOK_JS = String.raw`
 
   function applyRedo(action) {
     if (action.type.indexOf("photo") === 0) { undoPhoto(action, false); return; }
+    if (action.type === "text") { applyText(action, action.to); return; }
     var strokes = state.pages[action.page];
     if (action.type === "add") {
       strokes.push(action.stroke);
@@ -650,18 +686,22 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function hasInk() {
-    return state.images.length > 0 || state.pages.some(function (strokes) { return strokes.length > 0; });
+    return state.images.length > 0 || hasTyping() || state.pages.some(function (strokes) { return strokes.length > 0; });
+  }
+
+  function hasTyping() {
+    return state.texts.some(function (box) { return box.text.trim(); });
   }
 
   function saveLocal() {
     var record = { clientId: draftKey, clientName: clientName, noteId: noteId || null, date: state.date, layout: state.layout, pages: state.pages,
-      images: state.images, photos: photoData, savedPhotos: savedPhotos, updatedAt: Date.now() };
+      images: state.images, texts: state.texts, photos: photoData, savedPhotos: savedPhotos, updatedAt: Date.now() };
     return withStore("readwrite", function (store) {
       return hasInk() ? store.put(record) : store.delete(draftKey);
     }).then(function () {
-      setStatus(hasInk() ? "Saved on this iPad" : "", "good");
+      setStatus(hasInk() ? "Saved on this " + DEVICE : "", "good");
     }).catch(function () {
-      setStatus("Couldn't save on this iPad. Tap Done soon.", "warn");
+      setStatus("Couldn't save on this " + DEVICE + ". Tap Done soon.", "warn");
     });
   }
 
@@ -683,15 +723,22 @@ export const NOTEBOOK_JS = String.raw`
   /* --------------------------------------------------------------- tools */
 
   function pickTool(tool) {
+    if (tool !== "text") finishEdit();
     state.tool = tool;
     document.querySelectorAll("[data-tool]").forEach(function (button) {
       button.setAttribute("aria-pressed", String(button.getAttribute("data-tool") === tool));
     });
+    pagesBox.setAttribute("data-mode", tool);
+    updateHint();
   }
 
   function pickColor(color) {
     state.color = color;
-    if (state.tool !== "pen") pickTool("pen");
+    // Typing: the colour is for the words, in the box being typed in too.
+    if (editing) {
+      var box = textById(editing.id);
+      if (box) { box.color = color; placeTextBox(); }
+    } else if (state.tool !== "pen" && state.tool !== "text") pickTool("pen");
     document.querySelectorAll("[data-color]").forEach(function (button) {
       button.setAttribute("aria-pressed", String(button.getAttribute("data-color") === color));
     });
@@ -705,6 +752,7 @@ export const NOTEBOOK_JS = String.raw`
   });
 
   function undo() {
+    finishEdit();
     var action = state.undo.pop();
     if (!action) return false;
     applyUndo(action);
@@ -715,6 +763,7 @@ export const NOTEBOOK_JS = String.raw`
     return true;
   }
   function redo() {
+    finishEdit();
     var action = state.redo.pop();
     if (!action) return false;
     applyRedo(action);
@@ -1126,7 +1175,7 @@ export const NOTEBOOK_JS = String.raw`
   // A finger tap (no scroll) on a photo selects it; a tap elsewhere puts it down.
   var photoTap = null;
   pagesBox.addEventListener("pointerdown", function (event) {
-    if (event.target.closest && event.target.closest(".nb-photo-box")) return;
+    if (event.target.closest && event.target.closest(".nb-photo-box, .nb-text-box")) return;
     if (event.pointerType === "pen" || state.fingerDraws && event.pointerType === "touch") { if (event.pointerType === "pen") deselectPhoto(); return; }
     photoTap = { x: event.clientX, y: event.clientY, at: Date.now(), top: scroller.scrollTop, target: event.target };
   }, true);
@@ -1137,6 +1186,15 @@ export const NOTEBOOK_JS = String.raw`
     if (Math.abs(event.clientX - tap.x) > 10 || Math.abs(event.clientY - tap.y) > 10 || Date.now() - tap.at > 500 || Math.abs(scroller.scrollTop - tap.top) > 4) return;
     var index = -1;
     pageViews.forEach(function (view, i) { if (view.canvas === tap.target) index = i; });
+    // A finger tap on typed words opens them to change; with the Text tool, anywhere types.
+    if (event.pointerType === "touch") {
+      var point = index === -1 ? null : toPage(pageViews[index].canvas, event);
+      var box = point && textAt(index, point);
+      if (box) { startEdit(box.id); return; }
+      if (editing) { finishEdit(); return; }
+      if (point && state.tool === "text") { newText(index, point); return; }
+    }
+    if (event.pointerType === "mouse" && state.tool === "text") return;
     var image = index === -1 ? null : photoAt(index, toPage(pageViews[index].canvas, event));
     if (image && event.pointerType !== "mouse") selectPhoto(image.id);
     else if (image && event.pointerType === "mouse" && state.tool !== "pen" && state.tool !== "highlighter") selectPhoto(image.id);
@@ -1144,6 +1202,328 @@ export const NOTEBOOK_JS = String.raw`
   }, true);
   // Touches that become a scroll never send pointerup.
   pagesBox.addEventListener("pointercancel", function () { photoTap = null; }, true);
+
+  /* ---------------------------------------------------------- typed text */
+
+  // The Text tool: click or tap the page and type. The words sit on the ruled lines, are drawn
+  // onto the page like her writing (so the reading and the kept page include them), and can be
+  // opened again to change, move, widen or remove. While a box is being typed in, its words are
+  // shown in a text field over the page instead.
+
+  var textBox = document.getElementById("nb-text-box");
+  var textInput = document.getElementById("nb-text-input");
+  var textHint = document.getElementById("nb-text-hint");
+  var measureCtx = document.createElement("canvas").getContext("2d");
+  // The box being typed in: { id, before } (before is how it was, or null for a new box).
+  var editing = null;
+
+  function textById(id) {
+    for (var i = 0; i < state.texts.length; i += 1) if (state.texts[i].id === id) return state.texts[i];
+    return null;
+  }
+
+  function newTextId() {
+    return "txt_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  /** A box's words broken into the lines they fill at its width, as the page draws them. */
+  function textLines(box) {
+    measureCtx.font = TEXT_FONT;
+    var lines = [];
+    box.text.split("\n").forEach(function (paragraph) {
+      var line = "";
+      paragraph.split(" ").forEach(function (word) {
+        var next = line ? line + " " + word : word;
+        if (!line || measureCtx.measureText(next).width <= box.w) { line = next; } else { lines.push(line); line = word; }
+        // A word longer than the box breaks where it reaches the edge.
+        while (line.length > 1 && measureCtx.measureText(line).width > box.w) {
+          var cut = line.length - 1;
+          while (cut > 1 && measureCtx.measureText(line.slice(0, cut)).width > box.w) cut -= 1;
+          lines.push(line.slice(0, cut));
+          line = line.slice(cut);
+        }
+      });
+      lines.push(line);
+    });
+    return lines;
+  }
+
+  function textHeight(box) {
+    return Math.max(1, textLines(box).length) * LINE_GAP;
+  }
+
+  function drawTexts(ctx, index) {
+    state.texts.forEach(function (box) {
+      if (box.page !== index || (editing && editing.id === box.id)) return;
+      ctx.save();
+      ctx.font = TEXT_FONT;
+      ctx.fillStyle = box.color;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      textLines(box).forEach(function (line, i) { ctx.fillText(line, box.x, box.y + i * LINE_GAP + TEXT_BASELINE); });
+      ctx.restore();
+    });
+  }
+
+  /** The typed box under a point (page units) on a page, topmost first. */
+  function textAt(index, point) {
+    for (var i = state.texts.length - 1; i >= 0; i -= 1) {
+      var box = state.texts[i];
+      if (box.page === index && point[0] >= box.x - 8 && point[0] <= box.x + box.w + 8 && point[1] >= box.y - 4 && point[1] <= box.y + textHeight(box) + 4) return box;
+    }
+    return null;
+  }
+
+  /** The top of the line's row that a point is on, skipping lines a printed heading sits on. */
+  function rowTop(index, y) {
+    var last = FIRST_LINE + Math.floor((PAGE_H - 24 - FIRST_LINE) / LINE_GAP) * LINE_GAP;
+    var line = FIRST_LINE + Math.max(0, Math.ceil((y - FIRST_LINE) / LINE_GAP)) * LINE_GAP;
+    if (index === 0) {
+      (LAYOUTS[state.layout] || LAYOUTS[LAYOUT]).forEach(function (section) {
+        if (Math.abs(section.y - line) < 8) line += LINE_GAP;
+      });
+    }
+    return Math.min(line, last) - LINE_GAP;
+  }
+
+  function snapshot(box) {
+    return box ? { page: box.page, x: box.x, y: box.y, w: box.w, text: box.text, color: box.color } : null;
+  }
+
+  function newText(index, point) {
+    if (locked) return;
+    if (state.texts.length >= MAX_TEXTS) { setStatus("A note can have up to " + MAX_TEXTS + " text boxes.", "warn"); return; }
+    // Near the left margin it lines up with the headings; the box reaches to the right margin.
+    var x = point[0] < TEXT_LEFT + 60 ? TEXT_LEFT : Math.round(point[0]);
+    x = Math.max(24, Math.min(PAGE_W - TEXT_LEFT - MIN_TEXT_W, x));
+    var box = { id: newTextId(), page: index, x: x, y: rowTop(index, point[1]), w: PAGE_W - TEXT_LEFT - x, text: "", color: state.color };
+    state.texts.push(box);
+    editing = { id: box.id, before: null };
+    showEditor();
+  }
+
+  function startEdit(id) {
+    if (locked || !textById(id)) return;
+    if (editing && editing.id === id) { textInput.focus(); return; }
+    finishEdit();
+    editing = { id: id, before: snapshot(textById(id)) };
+    showEditor();
+    renderPage(textById(id).page);
+  }
+
+  function showEditor() {
+    var box = textById(editing.id);
+    editing.openedAt = Date.now();
+    textInput.value = box.text;
+    textBox.hidden = false;
+    placeTextBox();
+    deselectPhoto();
+    updateHint();
+    try { textInput.focus({ preventScroll: true }); } catch (error) { textInput.focus(); }
+    var end = textInput.value.length;
+    try { textInput.setSelectionRange(end, end); } catch (error) { /* not yet focusable */ }
+  }
+
+  /** Lay the text field over its box at the page's current size, as tall as its words. */
+  function placeTextBox() {
+    var box = editing && textById(editing.id);
+    var view = box && pageViews[box.page];
+    if (!view) return;
+    var k = parseFloat(view.canvas.style.width) / PAGE_W;
+    textBox.style.left = box.x * k + "px";
+    textBox.style.top = box.y * k + "px";
+    textBox.style.width = box.w * k + "px";
+    textInput.style.fontSize = TEXT_SIZE * k + "px";
+    textInput.style.lineHeight = LINE_GAP * k + "px";
+    textInput.style.color = box.color;
+    // The browser sets a line's letters a little higher in its row than the page does.
+    textInput.style.paddingTop = (TEXT_BASELINE - (LINE_GAP + TEXT_SIZE * 0.69) / 2 + TEXT_SIZE * 0.08) * k + "px";
+    textInput.style.height = "0px";
+    var rows = Math.max(textHeight(box) / LINE_GAP, Math.round(textInput.scrollHeight / (LINE_GAP * k)));
+    textInput.style.height = rows * LINE_GAP * k + "px";
+    if (textBox.parentNode !== view.canvas.parentNode) {
+      var focused = document.activeElement === textInput;
+      view.canvas.parentNode.appendChild(textBox);
+      if (focused) textInput.focus({ preventScroll: true });
+    }
+  }
+
+  /** Put the box down: its words go onto the page, and an empty box is taken away. */
+  function finishEdit() {
+    if (!editing) return;
+    var done = editing;
+    editing = null;
+    var box = textById(done.id);
+    textBox.hidden = true;
+    if (document.activeElement === textInput) textInput.blur();
+    if (!box) return;
+    box.text = box.text.replace(/\s+$/, "");
+    var at = state.texts.indexOf(box);
+    if (!box.text.trim()) state.texts.splice(at, 1);
+    var after = snapshot(textById(done.id));
+    renderPage(box.page);
+    updateHint();
+    if (JSON.stringify(done.before) !== JSON.stringify(after)) record({ type: "text", id: done.id, at: at, from: done.before, to: after });
+    else updateUndoButtons();
+  }
+
+  /** Stop typing without keeping a change in the undo list (the pages are being replaced). */
+  function dropEdit() {
+    if (!editing) return;
+    editing = null;
+    textBox.hidden = true;
+    if (document.activeElement === textInput) textInput.blur();
+  }
+
+  function applyText(action, to) {
+    dropEdit();
+    var box = textById(action.id);
+    var pages = [];
+    if (box) pages.push(box.page);
+    if (!to) {
+      state.texts = state.texts.filter(function (item) { return item.id !== action.id; });
+    } else if (box) {
+      box.page = to.page; box.x = to.x; box.y = to.y; box.w = to.w; box.text = to.text; box.color = to.color;
+    } else {
+      box = { id: action.id, page: to.page, x: to.x, y: to.y, w: to.w, text: to.text, color: to.color };
+      state.texts.splice(Math.min(action.at, state.texts.length), 0, box);
+    }
+    if (to) pages.push(to.page);
+    pages.forEach(renderPage);
+    updateHint();
+  }
+
+  textInput.addEventListener("input", function () {
+    var box = editing && textById(editing.id);
+    if (!box) return;
+    box.text = textInput.value;
+    placeTextBox();
+    changed();
+  });
+  textInput.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" || (event.key === "Enter" && (event.metaKey || event.ctrlKey))) {
+      event.preventDefault();
+      finishEdit();
+    }
+  });
+  // Clicking somewhere else on the screen puts the box down (not switching to another window).
+  textInput.addEventListener("blur", function () {
+    var id = editing && editing.id;
+    setTimeout(function () {
+      if (editing && editing.id === id && document.activeElement !== textInput && document.hasFocus()) finishEdit();
+    }, 0);
+  });
+  document.getElementById("nb-text-remove").addEventListener("click", function () {
+    var box = editing && textById(editing.id);
+    if (!box) return;
+    box.text = "";
+    finishEdit();
+    setStatus("Text removed. Undo brings it back.", "");
+  });
+  // After a tap the browser sends a pretend mouse press to the page, which would take the cursor
+  // straight back out of the box the tap just opened.
+  pagesBox.addEventListener("mousedown", function (event) {
+    if (editing && Date.now() - editing.openedAt < 700 && !event.target.closest(".nb-text-box")) event.preventDefault();
+  }, true);
+  // Toolbar clicks keep the cursor in the box, so a colour can be picked mid-sentence.
+  document.querySelector(".nb-tools").addEventListener("mousedown", function (event) {
+    if (editing && event.target.closest("[data-color], #nb-zoom-in, #nb-zoom-out, #nb-zoom-reset")) event.preventDefault();
+  });
+
+  // Drag Move to move the box (it settles onto the nearest line), or the side handle to widen it.
+  var textDrag = null;
+  function startTextDrag(event, widen) {
+    var box = editing && textById(editing.id);
+    if (!box) return;
+    event.preventDefault();
+    event.stopPropagation();
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch (error) { /* already lifted */ }
+    var k = parseFloat(pageViews[box.page].canvas.style.width) / PAGE_W;
+    textDrag = { k: k, sx: event.clientX, sy: event.clientY, from: { x: box.x, y: box.y, w: box.w }, widen: widen };
+  }
+  function moveTextDrag(event) {
+    var box = textDrag && editing && textById(editing.id);
+    if (!box) return;
+    var dx = (event.clientX - textDrag.sx) / textDrag.k;
+    var dy = (event.clientY - textDrag.sy) / textDrag.k;
+    if (textDrag.widen) {
+      box.w = Math.round(Math.max(MIN_TEXT_W, Math.min(PAGE_W - 16 - box.x, textDrag.from.w + dx)));
+    } else {
+      box.x = Math.round(Math.max(8, Math.min(PAGE_W - 8 - box.w, textDrag.from.x + dx)));
+      box.y = Math.round(Math.max(0, Math.min(PAGE_H - LINE_GAP - 24, textDrag.from.y + dy)));
+    }
+    placeTextBox();
+  }
+  function endTextDrag() {
+    var box = textDrag && editing && textById(editing.id);
+    var drag = textDrag;
+    textDrag = null;
+    if (!box) return;
+    if (!drag.widen) {
+      var line = FIRST_LINE + Math.max(0, Math.round((box.y + LINE_GAP - FIRST_LINE) / LINE_GAP)) * LINE_GAP;
+      box.y = Math.min(line - LINE_GAP, PAGE_H - LINE_GAP - 24);
+    }
+    placeTextBox();
+    changed();
+    textInput.focus({ preventScroll: true });
+  }
+  [["nb-text-move", false], ["nb-text-width", true]].forEach(function (handle) {
+    var el = document.getElementById(handle[0]);
+    el.addEventListener("pointerdown", function (event) { startTextDrag(event, handle[1]); });
+    el.addEventListener("pointermove", moveTextDrag);
+    el.addEventListener("pointerup", endTextDrag);
+    el.addEventListener("pointercancel", endTextDrag);
+    // Keeps the cursor in the box.
+    el.addEventListener("mousedown", function (event) { event.preventDefault(); });
+  });
+
+  // A first-time pointer to the Text tool, until the page has words on it.
+  function updateHint() {
+    if (!textHint) return;
+    var show = state.tool === "text" && !editing && !state.texts.length && !locked;
+    if (show && !textHint.childNodes.length) {
+      textHint.innerHTML = desktop
+        ? "Click a line on the page and start typing. <kbd>Esc</kbd> when you're done with a box."
+        : "Tap a line on the page to type.";
+    }
+    textHint.hidden = !show;
+  }
+
+  // Keys on a computer: T types, P draws, E erases, and Cmd or Ctrl + Z undoes (with Shift, redoes).
+  document.addEventListener("keydown", function (event) {
+    var target = event.target;
+    if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable)) return;
+    if (!review.hidden || event.altKey) return;
+    var key = event.key.toLowerCase();
+    if ((event.metaKey || event.ctrlKey) && (key === "z" || key === "y")) {
+      event.preventDefault();
+      if (key === "y" || event.shiftKey) redo(); else undo();
+      return;
+    }
+    if (event.metaKey || event.ctrlKey) return;
+    var tools = { t: "text", p: "pen", e: "eraser", h: "highlighter" };
+    if (tools[key]) { event.preventDefault(); pickTool(tools[key]); }
+  });
+
+  // Leaving the page soon after typing: keep the last words.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden" && saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveLocal(); }
+  });
+
+  /** The words typed on the pages being sent, in reading order, with the heading each sits under. */
+  function typedToSend(indexes) {
+    var headings = LAYOUTS[state.layout] || LAYOUTS[LAYOUT];
+    return state.texts.filter(function (box) { return box.text.trim() && indexes.indexOf(box.page) !== -1; })
+      .slice().sort(function (a, b) { return a.page - b.page || a.y - b.y || a.x - b.x; })
+      .map(function (box) {
+        var section = null;
+        if (box.page === 0) {
+          section = headings[0].label;
+          headings.forEach(function (heading) { if (heading.y <= box.y + LINE_GAP) section = heading.label; });
+        }
+        return { page: indexes.indexOf(box.page), section: section, text: box.text };
+      });
+  }
 
   /* ------------------------------------------------------ done and review */
 
@@ -1178,7 +1558,10 @@ export const NOTEBOOK_JS = String.raw`
 
   function pagesToSend() {
     // Always the first page; later pages only if something is written or placed on them.
-    return state.pages.map(function (strokes, index) { return index === 0 || strokes.length || pagePhotos(index).length ? index : -1; })
+    return state.pages.map(function (strokes, index) {
+      var typedHere = state.texts.some(function (box) { return box.page === index && box.text.trim(); });
+      return index === 0 || strokes.length || pagePhotos(index).length || typedHere ? index : -1;
+    })
       .filter(function (index) { return index !== -1; });
   }
 
@@ -1192,6 +1575,7 @@ export const NOTEBOOK_JS = String.raw`
 
   function done() {
     if (sending) return;
+    finishEdit();
     if (locked) {
       openSaved();
       return;
@@ -1203,6 +1587,9 @@ export const NOTEBOOK_JS = String.raw`
     clearTimeout(saveTimer);
     saveLocal();
     sending = true;
+    var busyLabel = document.getElementById("nb-busy-label");
+    var inked = state.pages.some(function (strokes) { return strokes.length; });
+    if (busyLabel) busyLabel.textContent = inked ? "Reading your handwriting…" : "Reading your note…";
     showBusy(true);
     var timedOut = false;
     var controller = window.AbortController ? new AbortController() : null;
@@ -1220,7 +1607,12 @@ export const NOTEBOOK_JS = String.raw`
       photos.forEach(function (image) {
         if (!savedPhotos[image.id] && photoData[image.id]) form.append("image", photoData[image.id], image.id);
       });
-      form.append("strokes", JSON.stringify({ v: 1, layout: state.layout, width: PAGE_W, height: PAGE_H, pages: indexes.map(function (index) { return state.pages[index]; }), images: photos }));
+      var texts = state.texts.filter(function (box) { return box.text.trim() && indexes.indexOf(box.page) !== -1; }).map(function (box) {
+        return { id: box.id, page: indexes.indexOf(box.page), x: box.x, y: box.y, w: box.w, text: box.text, color: box.color };
+      });
+      form.append("strokes", JSON.stringify({ v: 1, layout: state.layout, width: PAGE_W, height: PAGE_H, pages: indexes.map(function (index) { return state.pages[index]; }), images: photos, texts: texts }));
+      var typed = typedToSend(indexes);
+      if (typed.length) form.append("typed", JSON.stringify(typed));
       form.append("date", state.date);
       if (noteId) form.append("note", noteId);
       // Done tapped again: the server can throw the earlier reading away.
@@ -1232,12 +1624,12 @@ export const NOTEBOOK_JS = String.raw`
         .then(function (result) {
           finished();
           if (result.response.status === 401) {
-            setStatus("You've been signed out. This note is safe on this iPad.", "warn",
+            setStatus("You've been signed out. This note is safe on this " + DEVICE + ".", "warn",
               { href: "/admin/login?next=" + encodeURIComponent(location.pathname + location.search), label: "Log in" });
             return;
           }
           if (!result.response.ok) {
-            setStatus(result.body.message || "Couldn't send it. It's safe on this iPad; try Done again.", "warn");
+            setStatus(result.body.message || "Couldn't send it. It's safe on this " + DEVICE + "; try Done again.", "warn");
             return;
           }
           openReview(result.body, blobs);
@@ -1245,8 +1637,8 @@ export const NOTEBOOK_JS = String.raw`
     }).catch(function () {
       finished();
       setStatus(timedOut
-        ? "Reading took too long. The note is safe on this iPad; tap Done to try again."
-        : "No connection. The note is safe on this iPad; tap Done when you're back online.", "warn");
+        ? "Reading took too long. The note is safe on this " + DEVICE + "; tap Done to try again."
+        : "No connection. The note is safe on this " + DEVICE + "; tap Done when you're back online.", "warn");
     });
   }
 
@@ -1321,7 +1713,7 @@ export const NOTEBOOK_JS = String.raw`
       saving(false);
       reviewError.textContent = error && error.message && error.message !== "Failed to fetch" && error.message !== "Load failed"
         ? error.message
-        : "No connection. The note is still safe on this iPad; try again when you're back online.";
+        : "No connection. The note is still safe on this " + DEVICE + "; try again when you're back online.";
     });
   }
 
@@ -1363,6 +1755,7 @@ export const NOTEBOOK_JS = String.raw`
         clearLocal();
         state.pages = ink.pages;
         state.layout = ink.layout || 1;
+        state.texts = savedTexts(ink);
         useSavedPhotos(ink);
         state.date = /^\d{4}-\d{2}-\d{2}$/.test(noteDate) ? noteDate : localToday();
         buildPages();
@@ -1374,6 +1767,7 @@ export const NOTEBOOK_JS = String.raw`
     state.pages = [[]];
     state.layout = LAYOUT;
     state.images = [];
+    state.texts = [];
     photoData = {};
     photoPics = {};
     deselectPhoto();
@@ -1397,7 +1791,16 @@ export const NOTEBOOK_JS = String.raw`
     });
   }
 
-  /** A saved note's ink ({ pages, layout, images }), or null if it can't be read. */
+  /** The typed boxes kept with a saved note or an unsent copy (none on notes from before typing). */
+  function savedTexts(ink) {
+    return Array.isArray(ink.texts) ? ink.texts.filter(function (box) {
+      return box && typeof box.text === "string" && Number.isInteger(box.page) && box.page < ink.pages.length;
+    }).map(function (box) {
+      return { id: box.id || newTextId(), page: box.page, x: Number(box.x) || TEXT_LEFT, y: Number(box.y) || 0, w: Number(box.w) || PAGE_W - 2 * TEXT_LEFT, text: box.text, color: box.color || "#2B3A55" };
+    }) : [];
+  }
+
+  /** A saved note's ink ({ pages, layout, images, texts }), or null if it can't be read. */
   function loadSaved() {
     return fetch("/admin/notes/" + encodeURIComponent(noteId) + "/ink", { credentials: "same-origin" })
       .then(function (response) { return response.ok ? response.json() : null; })
@@ -1406,10 +1809,11 @@ export const NOTEBOOK_JS = String.raw`
   }
 
   function begin(saved) {
-    if (saved && Array.isArray(saved.pages) && (saved.pages.some(function (strokes) { return strokes.length; }) || (saved.images && saved.images.length))) {
+    if (saved && Array.isArray(saved.pages) && (saved.pages.some(function (strokes) { return strokes.length; }) || (saved.images && saved.images.length) || savedTexts(saved).length)) {
       state.pages = saved.pages;
       state.layout = saved.layout || 1;
       state.images = Array.isArray(saved.images) ? saved.images : [];
+      state.texts = savedTexts(saved);
       photoData = saved.photos || {};
       savedPhotos = saved.savedPhotos || {};
       state.images.forEach(function (image) { showPhoto(image.id); });
@@ -1417,11 +1821,12 @@ export const NOTEBOOK_JS = String.raw`
       var when = new Date(saved.updatedAt || Date.now());
       document.getElementById("nb-restored-when").textContent = when.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
       banner.hidden = false;
-      setStatus("Saved on this iPad", "good");
+      setStatus("Saved on this " + DEVICE, "good");
       if (noteId) startOver.textContent = "Undo my changes";
     }
     buildPages();
     updateUndoButtons();
+    updateHint();
   }
 
   // Opening a saved note: its strokes come from the dashboard. Until they arrive the page stays
@@ -1439,9 +1844,16 @@ export const NOTEBOOK_JS = String.raw`
       state.pages = ink.pages;
       // Notes written before "Outside products" keep the four headings they were written on.
       state.layout = ink.layout || 1;
+      state.texts = savedTexts(ink);
       useSavedPhotos(ink);
       begin(null);
     });
+  }
+
+  if (desktop) {
+    var subtitle = document.getElementById("nb-subtitle");
+    if (subtitle) subtitle.textContent = noteId ? "Type or draw to change it" : "Type or draw with the mouse";
+    pickTool("text");
   }
 
   loadLocal().then(function (saved) {

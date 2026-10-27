@@ -17,7 +17,7 @@ import { uploadPage } from "./pages/upload.js";
 import * as db from "./db.js";
 import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
 import { extractNoteEntries, readInkNote, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
-import { cleanFields, fieldsAsText, noteFields, NOTE_FIELDS } from "./note-fields.js";
+import { cleanFields, cleanTyped, fieldsAsText, noteFields, typedFields, NOTE_FIELDS } from "./note-fields.js";
 import { notebookPage, noteEditPage } from "./pages/notebook.js";
 import { todaysAppointments } from "./today.js";
 import { remindersOn, setRemindersOn, visitsNeedingNotes } from "./note-reminders.js";
@@ -409,11 +409,13 @@ async function handleInkRead(request, env, clientId) {
     await env.NOTES_BUCKET.put(imageKeys[image.id], uploads.get(image.id));
   }
 
-  // Changing a saved note: if the reading fails, the review starts from what was saved, not blank.
-  let reading = { fields: savedFields || {}, summary: "", confidence: "low", unclear: [] };
+  // Words she typed on the page. If the reading fails, a new note's review starts from them; a
+  // changed note's starts from what was saved, not blank.
+  const typed = cleanTyped(form.get("typed"));
+  let reading = { fields: savedFields || typedFields(typed), summary: "", confidence: "low", unclear: [] };
   let readFailed = false;
   try {
-    reading = await readInkNote(env, pages, { current: savedFields });
+    reading = await readInkNote(env, pages, { current: savedFields, typed });
   } catch (error) {
     console.error("Reading handwriting failed:", error.message);
     readFailed = true;
@@ -428,7 +430,9 @@ async function handleInkRead(request, env, clientId) {
     draftId,
     reading,
     readFailed,
-    message: readFailed ? "The handwriting couldn't be read just now. Type the key points, or save it as it is; your handwriting is kept either way." : undefined,
+    message: !readFailed ? undefined
+      : typed.length && !savedFields ? "The page couldn't be read just now, so your typed words are filled in as you typed them. Add any handwriting, or save it as it is."
+      : "The handwriting couldn't be read just now. Type the key points, or save it as it is; your handwriting is kept either way.",
   });
 }
 

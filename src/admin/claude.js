@@ -112,12 +112,13 @@ export function planNoteEntries(responseText) {
   }));
 }
 
-const INK_PROMPT = `You are reading a client consultation note a licensed esthetician just handwrote on an iPad with an Apple Pencil. The page has printed section headings: ${NOTE_FIELDS.join(", ")}. Her handwriting under each heading belongs to that section. Later pages, if any, continue the note.
+const INK_PROMPT = `You are reading a client consultation note a licensed esthetician just handwrote on an iPad with an Apple Pencil. The page has printed section headings: ${NOTE_FIELDS.join(", ")}. Her handwriting under each heading belongs to that section. Later pages, if any, continue the note. She may have typed some or all of it instead (when she took the note on a computer); typed words are given to you exactly, and belong to the section they sit under just like handwriting.
 
 "Outside products" is what the client uses that doesn't come from the esthetician's shop: other brands, drugstore products, or prescriptions such as tretinoin, written as she wrote them. Notes written before that heading was added have only the other four headings; if a heading isn't printed on the page, leave that section out.
 
 Rules:
 - Transcribe what she wrote, section by section, keeping her own words, abbreviations and line breaks (one line per written line). Don't add advice or anything she didn't write.
+- Typed words go in word for word, in the section they're listed under, in order with any handwriting there. Don't mark typed words unclear.
 - Leave a section out if nothing is written under it.
 - Mark words you genuinely can't read as [illegible]. List each spot you weren't sure about in "unclear", as a short question she can answer by looking at her page (for example: "Was it 3x week or 2x week?").
 - "confidence" is "low" if any of it was hard to read, otherwise "high".
@@ -144,13 +145,17 @@ This note was saved before, and she has now changed the handwriting. Its section
  * note's sections when she is changing one, so her typed corrections are kept. Gives up after
  * `timeoutMs`, so the iPad's "Reading…" never waits forever; she can then type it or save it as is.
  */
-export async function readInkNote(env, pages, { current = null, timeoutMs = INK_READ_TIMEOUT_MS } = {}) {
+export async function readInkNote(env, pages, { current = null, typed = [], timeoutMs = INK_READ_TIMEOUT_MS } = {}) {
   if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
   const content = [];
   const saved = current ? NOTE_FIELDS.filter((name) => current[name]) : [];
   if (saved.length) {
     content.push({ type: "text", text: `The note's sections as currently saved:\n\n${saved.map((name) => `${name}:\n${current[name]}`).join("\n\n")}` });
+  }
+  if (typed.length) {
+    const lines = typed.map((item) => `Page ${item.page + 1}, ${item.section ? `under "${item.section}"` : "continued page"}:\n${item.text}`);
+    content.push({ type: "text", text: `Typed on the page (exactly as typed; it also shows on the page images):\n\n${lines.join("\n\n")}` });
   }
   pages.forEach((page, index) => {
     content.push({ type: "text", text: `Page ${index + 1}:` });

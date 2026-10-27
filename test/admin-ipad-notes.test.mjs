@@ -3,7 +3,7 @@
 import { createD1, schemaMigrations } from "./helpers/d1-sqlite.mjs";
 import { handleAdminRequest, safeNext } from "../src/admin/routes.js";
 import { createSessionToken, sessionCookie } from "../src/admin/auth.js";
-import { noteFields, cleanFields, fieldsAsText } from "../src/admin/note-fields.js";
+import { noteFields, cleanFields, fieldsAsText, cleanTyped, typedFields } from "../src/admin/note-fields.js";
 import { planInkReading, readInkNote, summaryPrompt } from "../src/admin/claude.js";
 import { noteText } from "../src/admin/safety.js";
 import { NOTEBOOK_JS } from "../src/admin/notebook-client.js";
@@ -46,6 +46,26 @@ function fakeBucket() {
   check("sections read as one line each", fieldsAsText({ "Treatment type": "a\nb", "Notes / remarks": "c" }), "Treatment type: a / b | Notes / remarks: c");
   check("the safety check reads an iPad note's remarks", noteText(ipad), "allergic to lavender");
   check("the AI insight reads an iPad note's sections", summaryPrompt({ client: { name: "Maya" }, notes: [{ ...ipad, note_date: "2026-10-23" }] }).includes("- 2026-10-23: Treatment type: Clear peel | Notes / remarks: allergic to lavender"), true);
+}
+
+// --- words typed on the page -----------------------------------------------------------
+{
+  const typed = cleanTyped(JSON.stringify([
+    { page: 0, section: "Treatment type", text: " Hydrafacial  " },
+    { page: 0, section: "Made up", text: "goes nowhere" },
+    { page: 0, section: "Outside products", text: "tretinoin 0.025%" },
+    { page: 1, section: null, text: "more on tret" },
+    { page: -1, section: "Treatment type", text: "bad page" },
+    { page: 0, section: "Treatment type", text: "   " },
+  ]));
+  check("typed words keep their page and known heading, trimmed, dropping bad ones", typed, [
+    { page: 0, section: "Treatment type", text: "Hydrafacial" },
+    { page: 0, section: null, text: "goes nowhere" },
+    { page: 0, section: "Outside products", text: "tretinoin 0.025%" },
+    { page: 1, section: null, text: "more on tret" },
+  ]);
+  check("a broken typed list is just empty", [cleanTyped("{oops"), cleanTyped(undefined), cleanTyped("{}")], [[], [], []]);
+  check("typed words become sections; a continued page's go under the last heading", typedFields(typed), { "Treatment type": "Hydrafacial\ngoes nowhere", "Outside products": "tretinoin 0.025%\nmore on tret" });
 }
 
 // --- reading Claude's reply ----------------------------------------------------------
@@ -146,6 +166,27 @@ function claudeReplies(text) {
   const row = await d1.prepare("SELECT * FROM notes WHERE id = ?").bind(saved.noteId).first();
   check("after her edits, her words are the summary", row.summary, "Treatment type: Dermaplane + LED | Possible treatments: carboxy");
   check("a date that isn't a date is saved as undated, never guessed", row.note_date, null);
+}
+
+{
+  // Typed on a computer: Claude is given the exact words with their headings.
+  let sentBody = null;
+  globalThis.fetch = async (url, init) => {
+    sentBody = JSON.parse(init.body);
+    return new Response(JSON.stringify({ content: [{ type: "text", text: JSON.stringify({ fields: { "Outside products": "CeraVe cleanser" }, summary: "Uses CeraVe.", confidence: "high", unclear: [] }) }] }), { status: 200 });
+  };
+  const typedForm = inkForm({ strokes: JSON.stringify({ v: 1, layout: 2, pages: [[]], texts: [{ id: "txt_1", page: 0, x: 56, y: 830, w: 700, text: "CeraVe cleanser", color: "#2B3A55" }] }) });
+  typedForm.append("typed", JSON.stringify([{ page: 0, section: "Outside products", text: "CeraVe cleanser" }]));
+  const typedRead = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: typedForm })).json();
+  const sentText = sentBody.messages[0].content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
+  check("typed words are sent to Claude exactly, with their heading", [sentText.includes('Page 1, under "Outside products":\nCeraVe cleanser'), sentBody.system.includes("word for word"), typedRead.reading.fields], [true, true, { "Outside products": "CeraVe cleanser" }]);
+  check("a typed-only note keeps its text boxes with the page", JSON.parse(new TextDecoder().decode(bucket.objects.get(`drafts/${typedRead.draftId}/ink.json`))).texts[0].text, "CeraVe cleanser");
+
+  globalThis.fetch = async () => { throw new Error("network down"); };
+  const offline = inkForm({ strokes: JSON.stringify({ v: 1, layout: 2, pages: [[]] }) });
+  offline.append("typed", JSON.stringify([{ page: 0, section: "Treatment type", text: "Peel" }, { page: 0, section: "Notes / remarks", text: "loves it" }]));
+  const failed = await (await call("/admin/clients/client_maya/ink", { method: "POST", body: offline })).json();
+  check("if the reading fails, her typed words fill the sections as typed", [failed.readFailed, failed.reading.fields, failed.message.includes("typed words are filled in")], [true, { "Treatment type": "Peel", "Notes / remarks": "loves it" }, true]);
 }
 
 {
