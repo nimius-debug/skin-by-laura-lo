@@ -68,6 +68,7 @@ async function handleCatalogApi(env, cfg) {
         slug: product.slug,
         image: product.image,
         priceCents: variation.priceCents,
+        regularPriceCents: variation.regularPriceCents,
         inStock: variation.inStock,
       };
     }
@@ -125,7 +126,7 @@ async function handleCheckout(request, env, cfg, url) {
       return jsonResponse({ message: `${match.product.name} just sold out. Please remove it to continue.` }, 409);
     }
 
-    lineItems.push({ variationId: id, quantity });
+    lineItems.push({ variationId: id, quantity, sale: match.variation.sale });
     // Priced from the catalog, never from the browser.
     subtotalCents += match.variation.priceCents * quantity;
   }

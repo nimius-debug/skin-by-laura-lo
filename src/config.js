@@ -94,6 +94,8 @@ export function settings(env = {}) {
     pickupPrepHours: num(env.PICKUP_PREP_HOURS, 24),
     catalogTtlSeconds: num(env.CATALOG_TTL_SECONDS, 120),
     hideSoldOut: bool(env.HIDE_SOLD_OUT, false),
+    // Square sale start/end dates are studio wall-clock times.
+    timeZone: env.STORE_TIMEZONE || "America/New_York",
   };
 }
 
@@ -111,4 +113,11 @@ export function shippingFeeFor(subtotalCents, cfg) {
 
 export function formatMoney(cents) {
   return `$${(Math.round(cents) / 100).toFixed(2)}`;
+}
+
+/** Price markup: the sale price with the regular price struck out, or just the price. */
+export function priceMarkup(priceCents, regularPriceCents) {
+  if (!(regularPriceCents > priceCents)) return formatMoney(priceCents);
+  return `<s class="price-regular"><span class="sr-only">Regular price </span>${formatMoney(regularPriceCents)}</s> ` +
+    `<span class="price-sale"><span class="sr-only">Sale price </span>${formatMoney(priceCents)}</span>`;
 }

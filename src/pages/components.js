@@ -1,5 +1,5 @@
-import { html } from "../html.js";
-import { formatMoney } from "../config.js";
+import { html, raw } from "../html.js";
+import { formatMoney, priceMarkup } from "../config.js";
 
 /** Shared product tile used on the homepage, shop grid and related rails. */
 export function productCard(product, { showShort = false, showAdd = false } = {}) {
@@ -10,7 +10,9 @@ export function productCard(product, { showShort = false, showAdd = false } = {}
     <article class="product-card">
       <a href="/product/${product.slug}" aria-label="${product.name}, ${formatMoney(product.priceCents)}">
         <div class="product-image-wrap">
-          ${soldOut ? html`<span class="product-badge product-badge-soldout">Sold out</span>` : ""}
+          ${soldOut
+            ? html`<span class="product-badge product-badge-soldout">Sold out</span>`
+            : product.sale ? html`<span class="product-badge product-badge-sale">${product.sale.label}</span>` : ""}
           ${product.image
             ? html`<img src="${product.image}" alt="${product.name}" loading="lazy" width="420" height="490" />`
             : html`<div class="product-image-fallback">${product.name}</div>`}
@@ -24,7 +26,7 @@ export function productCard(product, { showShort = false, showAdd = false } = {}
               ? html`<p class="product-short">${product.description.slice(0, 96)}${product.description.length > 96 ? "…" : ""}</p>`
               : ""}
           </div>
-          <p class="product-price">${formatMoney(product.priceCents)}</p>
+          <p class="product-price">${raw(priceMarkup(product.priceCents, product.regularPriceCents))}</p>
         </div>
       </a>
       ${showAdd

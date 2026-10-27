@@ -20,7 +20,9 @@ let lastLinkBody = null;
 globalThis.fetch = async (url, options) => {
   const path = new URL(url).pathname;
   const body = options?.body ? JSON.parse(options.body) : {};
-  if (path === "/v2/catalog/search") return json(CATALOG);
+  if (path === "/v2/catalog/search") {
+    return json(body.object_types.includes("PRICING_RULE") ? { objects: [] } : CATALOG);
+  }
   if (path === "/v2/inventory/counts/batch-retrieve") {
     return json({ counts: [{ catalog_object_id: "V3", state: "IN_STOCK", quantity: "0" }] });
   }
@@ -62,6 +64,7 @@ check("returns Square URL", r.data.url, "https://square.link/u/TEST");
 check("line item uses catalog id", lastLinkBody.order.line_items, [{ catalog_object_id: "V1", quantity: "1" }]);
 check("no price sent to Square", "base_price_money" in lastLinkBody.order.line_items[0], false);
 check("auto taxes on", lastLinkBody.order.pricing_options.auto_apply_taxes, true);
+check("no sale, no discounts", "discounts" in lastLinkBody.order, false);
 check("shipping fee charged under threshold", lastLinkBody.checkout_options.shipping_fee.charge.amount, 1000);
 check("asks for shipping address", lastLinkBody.checkout_options.ask_for_shipping_address, true);
 check("redirects to thank-you", lastLinkBody.checkout_options.redirect_url, "https://test.skinbylauralo.com/thank-you");

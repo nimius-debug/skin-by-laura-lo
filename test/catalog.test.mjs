@@ -86,7 +86,10 @@ globalThis.fetch = async (url, options) => {
   calls.push(path);
   const body = JSON.parse(options.body);
   let data;
-  if (path === "/v2/catalog/search") {
+  if (path === "/v2/catalog/search" && body.object_types.includes("PRICING_RULE")) {
+    data = { objects: [] };
+  } else if (path === "/v2/catalog/search") {
+    calls.push("items");
     data = body.cursor === "PAGE2" ? CATALOG_PAGE_2 : (page++, CATALOG_PAGE_1);
   } else if (path === "/v2/inventory/counts/batch-retrieve") {
     data = INVENTORY;
@@ -133,7 +136,8 @@ check("category via legacy category_id", soldOut.category, "Toners");
 const collision = products.find(p => p.id === "ITEM_GHIJKL");
 check("slug collision disambiguated", collision.slug, "mixi-clean-item-g");
 
-check("paginated: two catalog calls", calls.filter(c => c.includes("catalog")).length, 2);
+check("paginated: two item catalog calls", calls.filter(c => c === "items").length, 2);
+check("no sale means regular price", [clean.regularPriceCents, clean.sale], [3400, null]);
 
 const index = indexVariations(products);
 check("variation index covers all", index.size, 5);
