@@ -8,12 +8,14 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "test": "node test/catalog.test.mjs && node test/checkout.test.mjs && node test/hero-orbit.test.mjs && node test/layout.test.mjs && node test/product-overview.test.mjs && node test/product-insight.test.mjs && node test/product-gallery.test.mjs",
+    "test": "node test/admin-notes.test.mjs && node test/admin-auth.test.mjs && node test/admin-safety.test.mjs && node test/admin-summary-cache.test.mjs && node test/admin-purchases.test.mjs && node test/admin-app.test.mjs && node --no-warnings test/client-forms.test.mjs && node --no-warnings test/admin-session.test.mjs && node --no-warnings test/admin-campaigns.test.mjs && node --no-warnings test/admin-ipad-notes.test.mjs && node --no-warnings test/admin-note-reminders.test.mjs && node test/catalog.test.mjs && node test/checkout.test.mjs && node test/domain.test.mjs && node test/hero-orbit.test.mjs && node test/hero-viewer.test.mjs && node test/layout.test.mjs && node test/product-overview.test.mjs && node test/product-insight.test.mjs && node test/product-gallery.test.mjs && node test/related-products.test.mjs && node test/sales-rank.test.mjs && node test/admin-outside-products.test.mjs && node test/admin-ink-images.test.mjs && node test/sales.test.mjs && node test/promo.test.mjs",
     "square:locations": "node scripts/square-locations.mjs",
     "square:ingredients": "node scripts/dump-ingredients.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.42.0"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }
-

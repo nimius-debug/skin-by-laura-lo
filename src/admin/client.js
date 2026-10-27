@@ -1,0 +1,1490 @@
+// Admin client script. Plain ES2020, no build step, no dependencies — same
+// house style as the storefront's own client/cart.js.
+
+export const ADMIN_CLIENT_JS = String.raw`
+(function () {
+  "use strict";
+
+  /* ------------------------------------------- unsent notes on this iPad */
+
+  // The writing screen keeps each unsent note in IndexedDB until it's saved. Only read them here:
+  // if the database doesn't exist yet, opening it must not create it (the writing screen does that).
+  function readUnsentNotes() {
+    return new Promise(function (resolve) {
+      if (!window.indexedDB) { resolve([]); return; }
+      var request;
+      try { request = indexedDB.open("laura-notes"); } catch (error) { resolve([]); return; }
+      request.onupgradeneeded = function () { request.transaction.abort(); };
+      request.onerror = function () { resolve([]); };
+      request.onblocked = function () { resolve([]); };
+      request.onsuccess = function () {
+        var db = request.result;
+        try {
+          if (!db.objectStoreNames.contains("drafts")) { db.close(); resolve([]); return; }
+          var all = db.transaction("drafts", "readonly").objectStore("drafts").getAll();
+          all.onsuccess = function () {
+            db.close();
+            resolve((all.result || []).filter(function (note) {
+              return note && note.clientId && Array.isArray(note.pages) && note.pages.some(function (strokes) { return strokes && strokes.length; });
+            }));
+          };
+          all.onerror = function () { db.close(); resolve([]); };
+        } catch (error) {
+          db.close();
+          resolve([]);
+        }
+      };
+    });
+  }
+
+  function unsentLink(note) {
+    // The key is "<client id>" for a new note, or "<client id>:<note id>" when changing a saved one.
+    var parts = String(note.clientId).split(":");
+    var clientId = parts[0];
+    var noteId = note.noteId || parts[1] || "";
+    return { clientId: clientId, noteId: noteId, href: "/admin/clients/" + encodeURIComponent(clientId) + "/write" + (noteId ? "?note=" + encodeURIComponent(noteId) : "") };
+  }
+
+  function wireUnsentNotes() {
+    var card = document.getElementById("unsent-notes");
+    var writeButtons = document.querySelectorAll(".write-note-btn[data-write-client]");
+    if (!card && !writeButtons.length) return;
+    readUnsentNotes().then(function (notes) {
+      if (!notes.length) return;
+      // On a client's page, a note already started for her reads "Resume note".
+      writeButtons.forEach(function (button) {
+        var id = button.getAttribute("data-write-client");
+        var waiting = notes.some(function (note) { return note.clientId === id; });
+        if (waiting) button.textContent = "Resume note";
+      });
+      if (!card) return;
+      var list = document.getElementById("unsent-list");
+      notes.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).forEach(function (note) {
+        var link = unsentLink(note);
+        var row = document.createElement("li");
+        row.className = "unsent-row";
+        var who = document.createElement("span");
+        who.className = "unsent-who";
+        who.textContent = note.clientName || "A client";
+        var when = document.createElement("span");
+        when.className = "unsent-when";
+        var changed = note.updatedAt ? new Date(note.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+        when.textContent = (link.noteId ? "Changes to a saved note" : "New note") + (changed ? " · last changed " + changed : "");
+        who.appendChild(when);
+        var resume = document.createElement("a");
+        resume.className = "btn btn-primary today-write";
+        resume.href = link.href;
+        resume.textContent = "Resume";
+        row.appendChild(who);
+        row.appendChild(resume);
+        list.appendChild(row);
+      });
+      card.hidden = false;
+    });
+  }
+
+  /* --------------------------------------------------------- clients page */
+
+  function wireClientsPage() {
+    var search = document.getElementById("client-search");
+    var rows = document.querySelectorAll("[data-client-href]");
+    if (search) {
+      search.addEventListener("input", function () {
+        var needle = search.value.trim().toLowerCase();
+        rows.forEach(function (row) {
+          var name = row.getAttribute("data-name") || "";
+          row.style.display = name.indexOf(needle) === -1 ? "none" : "";
+        });
+      });
+    }
+    rows.forEach(function (row) {
+      row.addEventListener("click", function () {
+        window.location.href = row.getAttribute("data-client-href");
+      });
+    });
+
+    var syncBtn = document.getElementById("sync-btn");
+    var status = document.getElementById("sync-status");
+    if (syncBtn) {
+      syncBtn.addEventListener("click", function () {
+        syncBtn.disabled = true;
+        if (status) status.textContent = "Syncing with Square — this can take a little while for a few years of bookings...";
+        fetch("/admin/sync", { method: "POST" })
+          .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+          .then(function (result) {
+            if (!result.ok) {
+              if (status) status.textContent = result.data.message || "Sync failed.";
+              syncBtn.disabled = false;
+              return;
+            }
+            if (status) status.textContent = "Found " + result.data.clientsFound + " client(s), imported " + result.data.notesImported + " note(s) from Square" + (result.data.formsLinked ? ", linked " + result.data.formsLinked + " form(s)" : "") + ". Reloading...";
+            window.location.reload();
+          })
+          .catch(function () {
+            if (status) status.textContent = "Sync failed — check your connection and try again.";
+            syncBtn.disabled = false;
+          });
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------ forms page */
+
+  // "Copy link" next to each form, to paste into a booking confirmation or a text.
+  function wireFormLinks() {
+    document.querySelectorAll("[data-copy-link]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var link = btn.getAttribute("data-copy-link");
+        var done = function () {
+          btn.textContent = "Copied";
+          setTimeout(function () { btn.textContent = "Copy link"; }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(done, function () { selectSource(btn); });
+        } else {
+          selectSource(btn);
+        }
+      });
+    });
+    function selectSource(btn) {
+      var input = btn.parentNode.querySelector("[data-copy-source]");
+      if (input) { input.focus(); input.select(); }
+    }
+  }
+
+  /* --------------------------------------------------- client profile page */
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+
+  function insightSection(title, content) {
+    var wrap = el("div", "insight-section");
+    wrap.appendChild(el("h3", "", title));
+    wrap.appendChild(content);
+    return wrap;
+  }
+
+  /* Builds the AI summary from its structured parts. Text comes in through
+     textContent only, so nothing the model writes is ever read as markup. */
+  function renderInsight(body, insight) {
+    body.innerHTML = "";
+    body.appendChild(el("p", "insight-overview", insight.overview));
+
+    if (insight.flags && insight.flags.length) {
+      var flags = el("ul", "bullets flags");
+      insight.flags.forEach(function (line) { flags.appendChild(el("li", "", line)); });
+      body.appendChild(insightSection("Flags to check", flags));
+    }
+
+    if (insight.visits && insight.visits.length) {
+      var table = el("table");
+      var headRow = el("tr");
+      ["Date", "Treatment", "How her skin responded"].forEach(function (label) {
+        headRow.appendChild(el("th", "", label));
+      });
+      var thead = el("thead");
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      var tbody = el("tbody");
+      insight.visits.forEach(function (visit) {
+        var row = el("tr");
+        row.appendChild(el("td", "date", visit.date));
+        row.appendChild(el("td", "", visit.treatment));
+        row.appendChild(el("td", "", visit.response));
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+
+      var tableWrap = el("div", "table-wrap");
+      tableWrap.appendChild(table);
+      body.appendChild(insightSection("Visits", tableWrap));
+    }
+
+    if (insight.products && insight.products.length) {
+      var products = el("ul", "products");
+      insight.products.forEach(function (product) {
+        var item = el("li");
+        item.appendChild(el("strong", "", product.name));
+        if (product.note) item.appendChild(el("span", "", product.note));
+        products.appendChild(item);
+      });
+      body.appendChild(insightSection("Products in the routine", products));
+    }
+
+    if (insight.watch && insight.watch.length) {
+      var watch = el("ul", "bullets");
+      insight.watch.forEach(function (line) { watch.appendChild(el("li", "", line)); });
+      body.appendChild(insightSection("Watch for", watch));
+    }
+
+    if (insight.nextVisit && insight.nextVisit.length) {
+      var next = el("ul", "checklist");
+      insight.nextVisit.forEach(function (line) { next.appendChild(el("li", "", line)); });
+      body.appendChild(insightSection("Next visit", next));
+    }
+  }
+
+  function wireClientProfilePage() {
+    document.querySelectorAll(".edit-note-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var card = btn.closest("[data-note-id]");
+        card.querySelector(".note-view").style.display = "none";
+        card.querySelector(".note-edit").style.display = "block";
+        card.querySelector(".save-note-btn").style.display = "inline";
+      });
+    });
+
+    document.querySelectorAll(".save-note-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var noteId = btn.getAttribute("data-note-id");
+        var card = btn.closest("[data-note-id]");
+        var textarea = card.querySelector(".note-edit");
+        var newText = textarea.value.trim();
+        if (!newText) return;
+
+        btn.textContent = "Saving...";
+        fetch("/admin/notes/" + noteId, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ summary: newText }),
+        })
+          .then(function (response) {
+            if (!response.ok) throw new Error("save failed");
+            card.querySelector(".note-view").textContent = newText;
+            card.querySelector(".note-view").style.display = "block";
+            textarea.style.display = "none";
+            btn.style.display = "none";
+            btn.textContent = "Save";
+          })
+          .catch(function () {
+            btn.textContent = "Save failed — try again";
+          });
+      });
+    });
+
+    var card = document.getElementById("insight-card");
+    var insightBody = document.getElementById("insight-body");
+    var insightMeta = document.getElementById("insight-meta");
+
+    function showInsight(insight, meta) {
+      renderInsight(insightBody, insight);
+      if (meta !== null) insightMeta.textContent = meta;
+      document.getElementById("insight-placeholder").style.display = "none";
+      document.getElementById("insight-result").style.display = "block";
+    }
+
+    // A saved summary is shown straight away, with no API call.
+    var saved = card && card.getAttribute("data-saved");
+    if (saved) {
+      try { renderInsight(insightBody, JSON.parse(saved)); } catch (error) { /* leave the button to regenerate */ }
+    }
+
+    // force=true asks for a fresh AI call even if nothing changed (Regenerate).
+    function runSummary(button, force) {
+      var idleLabel = button.getAttribute("data-label") || button.textContent;
+      var clientId = button.getAttribute("data-client-id");
+      button.disabled = true;
+      button.textContent = "Thinking...";
+      fetch("/admin/clients/" + clientId + "/insight" + (force ? "?refresh=1" : ""), { method: "POST" })
+        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok) {
+            button.textContent = result.data.message || "Couldn't summarize right now.";
+            button.disabled = false;
+            return;
+          }
+          showInsight(
+            result.data.summary,
+            result.data.cached
+              ? "Saved earlier. Nothing has changed, so no new AI call was made."
+              : "Just generated and saved."
+          );
+          button.disabled = false;
+          button.textContent = idleLabel;
+        })
+        .catch(function () {
+          button.textContent = "Couldn't summarize right now.";
+          button.disabled = false;
+        });
+    }
+
+    var summarizeBtn = document.getElementById("summarize-btn");
+    if (summarizeBtn) summarizeBtn.addEventListener("click", function () { runSummary(summarizeBtn, false); });
+
+    var regenerateBtn = document.getElementById("regenerate-btn");
+    if (regenerateBtn) regenerateBtn.addEventListener("click", function () { runSummary(regenerateBtn, true); });
+  }
+
+  /* -------------------------------------------------------------- upload */
+
+  function wireUploadPage() {
+    var card = document.getElementById("upload-card");
+    if (!card) return;
+    var clientId = card.getAttribute("data-client-id");
+
+    var stepIdle = document.getElementById("upload-step-idle");
+    var stepProcessing = document.getElementById("upload-step-processing");
+    var stepReview = document.getElementById("upload-step-review");
+    var stepError = document.getElementById("upload-step-error");
+    var fileInput = document.getElementById("file-input");
+    var chosenName = document.getElementById("chosen-file-name");
+    var form = document.getElementById("upload-form");
+
+    function showStep(step) {
+      [stepIdle, stepProcessing, stepReview, stepError].forEach(function (el) {
+        if (el) el.style.display = "none";
+      });
+      if (step) step.style.display = step === stepReview || step === stepError ? "flex" : "flex";
+    }
+
+    fileInput.addEventListener("change", function () {
+      var files = fileInput.files;
+      if (!files || !files.length) { chosenName.textContent = ""; return; }
+      var names = [];
+      for (var i = 0; i < files.length; i++) names.push(files[i].name);
+      chosenName.textContent = names.join(", ");
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var files = fileInput.files;
+      if (!files || !files.length) return;
+
+      var formData = new FormData();
+      for (var i = 0; i < files.length; i++) formData.append("file", files[i]);
+
+      showStep(stepProcessing);
+
+      fetch("/admin/clients/" + clientId + "/notes", { method: "POST", body: formData })
+        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok) {
+            stepError.textContent = result.data.message || "Something went wrong reading that file.";
+            showStep(stepError);
+            return;
+          }
+          if (result.data.status === "no_new_pages") {
+            stepError.style.color = "var(--ink-soft)";
+            stepError.textContent = "No new pages found since the last upload for this client" + missingNote(result.data.missingHashes) + ".";
+            showStep(stepError);
+            return;
+          }
+          renderReview(result.data);
+        })
+        .catch(function () {
+          stepError.textContent = "Upload failed — check your connection and try again.";
+          showStep(stepError);
+        });
+    });
+
+    function missingNote(missingHashes) {
+      if (!missingHashes || !missingHashes.length) return "";
+      return " (note: " + missingHashes.length + " previously-seen page(s) are missing from this export — possible wrong file?)";
+    }
+
+    function renderReview(data) {
+      stepReview.innerHTML = "";
+
+      if (data.missingHashes && data.missingHashes.length) {
+        var warn = document.createElement("div");
+        warn.className = "flag-warn";
+        warn.style.marginBottom = "4px";
+        warn.innerHTML = "<span>⚠</span><span>" + data.missingHashes.length + " previously-seen page(s) are missing from this export — double check this is the right file.</span>";
+        stepReview.appendChild(warn);
+      }
+
+      var entryEls = data.entries.map(function (entry) {
+        var el = document.createElement("div");
+        el.className = "entry-card";
+        el.setAttribute("data-index", entry.index);
+
+        var header = document.createElement("div");
+        header.style.display = "flex";
+        header.style.alignItems = "center";
+        header.style.gap = "10px";
+
+        var include = document.createElement("input");
+        include.type = "checkbox";
+        include.checked = true;
+        include.className = "entry-include";
+
+        var dateInput = document.createElement("input");
+        dateInput.type = "date";
+        dateInput.className = "entry-date";
+        dateInput.value = entry.date || "";
+        dateInput.style.flex = "1";
+
+        header.appendChild(include);
+        header.appendChild(dateInput);
+        if (entry.confidence === "low") {
+          var badge = document.createElement("span");
+          badge.className = "pill";
+          badge.style.background = "var(--warn)";
+          badge.style.color = "#fff";
+          badge.textContent = "Low confidence";
+          header.appendChild(badge);
+        }
+
+        var textarea = document.createElement("textarea");
+        textarea.className = "entry-summary";
+        textarea.value = entry.summary;
+        textarea.style.minHeight = "90px";
+
+        el.appendChild(header);
+        el.appendChild(textarea);
+        stepReview.appendChild(el);
+        return el;
+      });
+
+      var actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "10px";
+      actions.style.justifyContent = "flex-end";
+
+      var cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn btn-secondary";
+      cancelBtn.textContent = "Start over";
+      cancelBtn.addEventListener("click", function () { window.location.reload(); });
+
+      var saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "btn btn-primary";
+      saveBtn.textContent = "Save";
+      saveBtn.addEventListener("click", function () {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+        var payload = entryEls.map(function (el) {
+          return {
+            index: Number(el.getAttribute("data-index")),
+            include: el.querySelector(".entry-include").checked,
+            date: el.querySelector(".entry-date").value || null,
+            summary: el.querySelector(".entry-summary").value,
+          };
+        });
+        fetch("/admin/clients/" + clientId + "/notes/" + data.draftId + "/confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ entries: payload }),
+        })
+          .then(function (response) { return response.json().then(function (d) { return { ok: response.ok, data: d }; }); })
+          .then(function (result) {
+            if (!result.ok) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = "Save";
+              return;
+            }
+            window.location.href = result.data.redirect;
+          })
+          .catch(function () {
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save failed — try again";
+          });
+      });
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(saveBtn);
+      stepReview.appendChild(actions);
+
+      showStep(stepReview);
+    }
+  }
+
+  /* ------------------------------------------------------- email campaigns */
+
+  function postForm(form) {
+    return fetch(form.action, { method: "POST", body: new FormData(form), headers: { accept: "application/json" } })
+      .then(function (response) { return response.json().catch(function () { return {}; }).then(function (data) { return { ok: response.ok, data: data }; }); });
+  }
+
+  function wireCampaignLists() {
+    document.querySelectorAll("tr[data-href]").forEach(function (row) {
+      row.addEventListener("click", function (event) {
+        if (event.target.closest("a")) return;
+        window.location.href = row.getAttribute("data-href");
+      });
+    });
+    document.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
+      form.addEventListener("change", function () { postForm(form).catch(function () { form.submit(); }); });
+    });
+    document.querySelectorAll("form[data-confirm]").forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        var question = form.getAttribute("data-confirm");
+        if (question && !window.confirm(question)) { event.preventDefault(); return; }
+        var button = form.querySelector("button[type=submit]");
+        if (button) setTimeout(function () { button.disabled = true; }, 0);
+      });
+    });
+    document.querySelectorAll("form[data-busy-form]").forEach(function (form) {
+      form.addEventListener("submit", function (event) {
+        var button = event.submitter;
+        if (!button || !button.getAttribute("data-busy-text")) return;
+        // Keep the button's value in the post, then show that the AI is working.
+        setTimeout(function () {
+          form.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+          button.textContent = button.getAttribute("data-busy-text");
+        }, 0);
+      });
+    });
+    // The preview grows to the email's own height, so the page scrolls instead of the frame.
+    document.querySelectorAll("iframe.camp-frame").forEach(function (frame) {
+      function fit() {
+        try {
+          var doc = frame.contentDocument;
+          if (doc && doc.documentElement) frame.style.height = Math.max(400, doc.documentElement.scrollHeight) + "px";
+          if (doc) doc.querySelectorAll("a").forEach(function (link) { link.setAttribute("target", "_blank"); link.setAttribute("rel", "noopener"); });
+        } catch (error) { /* keep the fixed height */ }
+      }
+      frame.addEventListener("load", fit);
+      fit();
+      window.addEventListener("resize", fit);
+    });
+  }
+
+  // The email editor: the preview itself is editable. Laura clicks into the
+  // email and types; shortly after, the words are read back into the form's
+  // fields (**bold**, [named links](https://...), blank lines between
+  // paragraphs) and saved, which is what the server stores and renders.
+  var EDIT_BLOCK = /^(P|DIV|LI|OL|UL|H[1-6]|TABLE|TBODY|TR|TD)$/;
+  var SINGLE_LINE = { subject: true, preheader: true, eyebrow: true, headline: true, tipsTitle: true, greeting: true, fallbackName: true, buttonLabel: true, buttonUrl: true, signoff: true, signName: true, shopTitle: true };
+  var FIELD_FOR = { personalPs: "ps" };
+
+  function editedText(node) {
+    var out = "";
+    node.childNodes.forEach(function (child) {
+      if (child.nodeType === 3) { out += child.nodeValue.replace(/ /g, " "); return; }
+      if (child.nodeType !== 1) return;
+      var tag = child.tagName;
+      var bold = tag === "STRONG" || tag === "B" || (tag === "SPAN" && /bold|[6-9]00/.test(child.style.fontWeight));
+      if (tag === "BR") out += "\n";
+      else if (bold) {
+        var inner = editedText(child);
+        out += inner.trim() ? (/^\s/.test(inner) ? " " : "") + "**" + inner.trim() + "**" + (/\s$/.test(inner) ? " " : "") : inner;
+      } else if (tag === "A") {
+        var href = child.getAttribute("href") || "";
+        var label = editedText(child).trim();
+        out += !label || label === href ? href : "[" + label + "](" + href + ")";
+      } else if (EDIT_BLOCK.test(tag)) out += "\n\n" + editedText(child) + "\n\n";
+      else out += editedText(child);
+    });
+    return out;
+  }
+
+  function tidyText(text) {
+    return text.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function readEdited(el) {
+    var name = el.getAttribute("data-edit");
+    if (SINGLE_LINE[name]) return el.textContent.replace(/\s+/g, " ").trim();
+    if (name === "tips") {
+      return Array.prototype.map.call(el.querySelectorAll("li"), function (li) { return tidyText(editedText(li)).replace(/\s*\n\s*/g, " "); })
+        .filter(Boolean).join("\n");
+    }
+    return tidyText(editedText(el));
+  }
+
+  function wireInlineEditor() {
+    var form = document.querySelector("form[data-inline-editor]");
+    var frame = document.querySelector("iframe.camp-frame");
+    if (!form || !frame) return;
+    var hints = document.querySelector("[data-voice-hints]");
+    var state = form.querySelector("[data-save-state]");
+    var dirty = false;
+    var ready = false;
+    var timer = null;
+    var ticket = 0;
+    var saving = null;
+
+    function doc() { return frame.contentDocument; }
+    function regions() { return doc() ? Array.prototype.slice.call(doc().querySelectorAll("[data-edit]")) : []; }
+    function fit() {
+      var d = doc();
+      if (d && d.documentElement) frame.style.height = Math.max(400, d.documentElement.scrollHeight) + "px";
+    }
+    function markEmpty(el) { el.classList.toggle("is-empty", !el.textContent.trim()); }
+
+    function collect() {
+      regions().forEach(function (el) {
+        var name = FIELD_FOR[el.getAttribute("data-edit")] || el.getAttribute("data-edit");
+        var input = form.querySelector('[data-field="' + name + '"]');
+        if (input) input.value = readEdited(el);
+      });
+    }
+
+    function showState(text, error) {
+      if (!state) return;
+      state.textContent = text;
+      state.classList.toggle("is-error", Boolean(error));
+    }
+
+    // Saves what's in the email now. Returns a promise that settles when it's saved (or failed).
+    function save() {
+      clearTimeout(timer);
+      if (!dirty) return saving || Promise.resolve();
+      collect();
+      dirty = false;
+      showState("Saving…");
+      var body = new FormData(form);
+      var previous = saving || Promise.resolve();
+      var mine = previous.then(function () {
+        return fetch(form.getAttribute("action"), { method: "POST", body: body, headers: { accept: "application/json" } });
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok || !data.ok) throw new Error(data.message || "Couldn't save.");
+          if (!dirty) showState("Saved");
+        });
+      }).catch(function (error) {
+        dirty = true;
+        showState((error && error.message) || "Couldn't save. Check your connection.", true);
+      }).then(function () {
+        if (saving === mine) saving = null;
+      });
+      saving = mine;
+      refreshHints(body);
+      return mine;
+    }
+
+    function refreshHints(body) {
+      if (!hints) return;
+      var mine = ++ticket;
+      fetch(form.getAttribute("data-hints-url"), { method: "POST", body: body, headers: { accept: "application/json" } })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+          if (!data || mine !== ticket) return;
+          var list = hints.querySelector("ul");
+          list.textContent = "";
+          (data.hints || []).forEach(function (hint) {
+            var item = document.createElement("li");
+            item.textContent = hint;
+            list.appendChild(item);
+          });
+          hints.hidden = !(data.hints || []).length;
+        })
+        .catch(function () { /* keep the last hints */ });
+    }
+
+    function changed() {
+      dirty = true;
+      showState("Saving…");
+      fit();
+      clearTimeout(timer);
+      timer = setTimeout(save, 800);
+    }
+
+    function setup() {
+      var d = doc();
+      if (ready || !d || !d.body || !d.querySelector("[data-edit]")) return;
+      ready = true;
+      var style = d.createElement("style");
+      style.textContent = "[data-edit]{position:relative;outline:1px dashed rgba(184,113,79,.5);outline-offset:4px;border-radius:3px;cursor:text;min-height:1.2em}"
+        + "[data-edit]:hover{outline-color:#B8714F}[data-edit]:focus{outline:2px solid #B8714F}"
+        + "[data-edit].is-empty::before{content:attr(data-placeholder);position:absolute;left:0;top:0;color:#A99E92;font-weight:normal;pointer-events:none}"
+        + "span[data-edit]{display:inline-block;min-width:1.5em}span[data-edit].is-empty{min-width:14em}span[data-edit].is-empty::before{white-space:nowrap}";
+      d.head.appendChild(style);
+      regions().forEach(function (el) {
+        el.setAttribute("contenteditable", "true");
+        el.setAttribute("spellcheck", "true");
+        markEmpty(el);
+        el.addEventListener("input", function () { markEmpty(el); changed(); });
+        el.addEventListener("blur", save);
+        el.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" && SINGLE_LINE[el.getAttribute("data-edit")]) event.preventDefault();
+        });
+      });
+      // Pasted text arrives plain, so it takes on the email's own look.
+      d.addEventListener("paste", function (event) {
+        if (!event.target.closest || !event.target.closest("[data-edit]")) return;
+        event.preventDefault();
+        d.execCommand("insertText", false, (event.clipboardData || window.clipboardData).getData("text/plain"));
+      });
+      // Links don't open while editing; the preview after saving still opens them.
+      d.addEventListener("click", function (event) {
+        if (event.target.closest && event.target.closest("a")) event.preventDefault();
+      });
+      var first = d.querySelector("[data-edit]");
+      if (first && !first.textContent.trim()) first.focus();
+      fit();
+    }
+
+    frame.addEventListener("load", setup);
+    setup();
+
+    form.querySelectorAll("[data-format]").forEach(function (button) {
+      // Keep the selection in the email when a button is pressed.
+      button.addEventListener("mousedown", function (event) { event.preventDefault(); });
+      button.addEventListener("click", function () {
+        var d = doc();
+        var selection = d && d.getSelection();
+        var node = selection && selection.anchorNode;
+        var inside = node && (node.nodeType === 1 ? node : node.parentElement);
+        if (!inside || !inside.closest("[data-edit]")) return;
+        if (button.getAttribute("data-format") === "bold") {
+          d.execCommand("bold");
+        } else {
+          var address = window.prompt("Web address for the link", "https://");
+          if (!address || address === "https://") return;
+          if (!/^https?:\/\//i.test(address)) address = "https://" + address;
+          if (selection.isCollapsed) {
+            var link = d.createElement("a");
+            link.href = address;
+            link.textContent = address;
+            selection.getRangeAt(0).insertNode(link);
+          } else {
+            d.execCommand("createLink", false, address);
+          }
+          // New links look like the email's own links.
+          d.querySelectorAll("[data-edit] a:not([style])").forEach(function (link) {
+            link.setAttribute("style", "color:#96583C;font-weight:bold;");
+          });
+        }
+        changed();
+      });
+    });
+
+    // The button choice shows in the email right away.
+    var BUTTONS = { book: "Book a facial", shop: "Visit the shop" };
+    var goal = form.querySelector("select[name=goal]");
+    if (goal) {
+      goal.addEventListener("change", function () {
+        var row = doc() && doc().querySelector("[data-cta]");
+        if (!row) return;
+        row.style.display = BUTTONS[goal.value] ? "" : "none";
+        if (BUTTONS[goal.value]) {
+          var label = row.querySelector("a");
+          label.textContent = BUTTONS[goal.value];
+          markEmpty(label);
+          var address = row.querySelector('[data-edit="buttonUrl"]');
+          if (address) {
+            address.textContent = row.getAttribute("data-url-" + goal.value) || "";
+            markEmpty(address);
+          }
+        }
+        fit();
+        changed();
+      });
+    }
+
+    // Anything else in the form that changes (like the product picker) saves too.
+    form.addEventListener("input", changed);
+    // Saving happens by itself, so the form never submits.
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      save();
+    });
+    // Approve, Reject and the rest wait for the last words to be saved.
+    document.addEventListener("submit", function (event) {
+      var other = event.target;
+      if (other === form || (!dirty && !saving)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      var submitter = event.submitter;
+      save().then(function () {
+        if (dirty || saving) return;
+        if (other.requestSubmit) other.requestSubmit(submitter && submitter.form === other ? submitter : undefined);
+        else other.submit();
+      });
+    }, true);
+    window.addEventListener("beforeunload", function (event) {
+      if (!dirty && !saving) return;
+      save();
+      event.preventDefault();
+      event.returnValue = "";
+    });
+  }
+
+  // Products in the shared email, edited in the email itself: each card has a
+  // Remove button, and the search box under the cards adds one from the shop
+  // as Laura types its name. The hidden product fields follow the cards, in
+  // order, and each change counts as an edit, so it autosaves.
+  function wireProductEditing() {
+    var form = document.querySelector("form[data-inline-editor]");
+    var frame = document.querySelector("iframe.camp-frame");
+    var fields = form && form.querySelector("[data-product-fields]");
+    if (!form || !frame || !fields) return;
+    var shop = [];
+    try { shop = JSON.parse(form.getAttribute("data-shop") || "[]"); } catch (error) { shop = []; }
+    var max = Number(form.getAttribute("data-max-products")) || 6;
+    var wired = null;
+
+    function doc() { return frame.contentDocument; }
+    function cards() { return doc() ? Array.prototype.slice.call(doc().querySelectorAll("[data-product]")) : []; }
+    function names() { return cards().map(function (card) { return card.getAttribute("data-product"); }); }
+    function fit() {
+      var d = doc();
+      if (d && d.documentElement) frame.style.height = Math.max(400, d.documentElement.scrollHeight) + "px";
+    }
+    function placeholder() {
+      var query = doc() && doc().querySelector("[data-product-query]");
+      if (!query) return;
+      var full = names().length >= max;
+      query.disabled = full;
+      query.placeholder = full ? "This email has the most products it can hold (" + max + ")" : "+ Add a product: type its name";
+    }
+    function sync() {
+      fields.textContent = "";
+      names().forEach(function (name) {
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "product";
+        input.value = name;
+        fields.appendChild(input);
+      });
+      var title = doc() && doc().querySelector("[data-products-title]");
+      if (title) title.style.display = cards().length ? "" : "none";
+      placeholder();
+      fit();
+      form.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    // Every word typed has to appear in the name, so "vit c" finds "Vitamin C Serum".
+    function matches(text) {
+      var words = text.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.length) return [];
+      var used = names();
+      return shop.filter(function (product) {
+        var name = product.name.toLowerCase();
+        return used.indexOf(product.name) < 0 && words.every(function (word) { return name.indexOf(word) >= 0; });
+      }).slice(0, 8);
+    }
+
+    function addProduct(name) {
+      var list = doc() && doc().querySelector("[data-product-list]");
+      if (!list || names().indexOf(name) >= 0 || names().length >= max) return;
+      fetch(form.getAttribute("data-product-card-url") + "?name=" + encodeURIComponent(name), { headers: { accept: "application/json" } })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+          if (!data || !doc() || names().indexOf(data.name) >= 0) return;
+          var holder = doc().createElement("tbody");
+          holder.innerHTML = data.html;
+          var row = holder.querySelector("tr");
+          if (!row) return;
+          list.appendChild(row);
+          sync();
+        })
+        .catch(function () { /* nothing added; she can try again */ });
+    }
+
+    function setup() {
+      var d = doc();
+      if (!d || !d.body || wired === d || !d.querySelector("[data-products]")) return;
+      wired = d;
+      d.addEventListener("click", function (event) {
+        var button = event.target.closest && event.target.closest("[data-remove-product]");
+        if (!button) return;
+        event.preventDefault();
+        button.closest("[data-product]").remove();
+        sync();
+      });
+
+      var query = d.querySelector("[data-product-query]");
+      var box = d.querySelector("[data-product-matches]");
+      if (!query || !box) return;
+      var found = [];
+      var active = 0;
+      function close() { box.style.display = "none"; box.textContent = ""; found = []; fit(); }
+      function choose(index) {
+        var product = found[index];
+        if (!product) return;
+        query.value = "";
+        close();
+        addProduct(product.name);
+      }
+      function show() {
+        found = matches(query.value);
+        box.textContent = "";
+        if (!query.value.trim()) { close(); return; }
+        if (!found.length) {
+          var none = d.createElement("div");
+          none.textContent = "No product in the shop matches “" + query.value.trim() + "”";
+          none.setAttribute("style", "padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6E6358;");
+          box.appendChild(none);
+        }
+        found.forEach(function (product, index) {
+          var option = d.createElement("div");
+          option.setAttribute("role", "option");
+          option.setAttribute("style", "display:flex;align-items:center;gap:10px;padding:10px 14px;min-height:44px;cursor:pointer;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#2A241F;border-top:" + (index ? "1px solid #E7DCCB" : "0") + ";background:" + (index === active ? "#F8EFE7" : "#FFFFFF") + ";");
+          var thumb = d.createElement(product.image ? "img" : "span");
+          thumb.setAttribute("style", "width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none;background:#F8EFE7;");
+          if (product.image) { thumb.src = product.image; thumb.alt = ""; }
+          option.appendChild(thumb);
+          var name = d.createElement("span");
+          name.textContent = product.name;
+          name.setAttribute("style", "flex:1;font-weight:bold;");
+          option.appendChild(name);
+          if (product.price) {
+            var price = d.createElement("span");
+            price.textContent = product.price;
+            price.setAttribute("style", "color:#96583C;font-weight:bold;white-space:nowrap;");
+            option.appendChild(price);
+          }
+          // mousedown, so the pick happens before the box loses focus.
+          option.addEventListener("mousedown", function (event) { event.preventDefault(); choose(index); });
+          box.appendChild(option);
+        });
+        box.style.display = "block";
+        fit();
+      }
+      query.addEventListener("input", function () { active = 0; show(); });
+      query.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowDown" && found.length) { event.preventDefault(); active = (active + 1) % found.length; show(); }
+        else if (event.key === "ArrowUp" && found.length) { event.preventDefault(); active = (active - 1 + found.length) % found.length; show(); }
+        else if (event.key === "Enter") { event.preventDefault(); choose(active); }
+        else if (event.key === "Escape") { query.value = ""; close(); }
+      });
+      query.addEventListener("blur", function () { setTimeout(close, 150); });
+      placeholder();
+    }
+    frame.addEventListener("load", setup);
+    setup();
+  }
+
+  // The cost estimate's math, same as cost.js estimateCampaign. Null without a price.
+  function costEstimator() {
+    var box = document.querySelector("[data-cost-estimate]");
+    if (!box) return null;
+    var inputs;
+    try { inputs = JSON.parse(box.getAttribute("data-cost-estimate")); } catch (error) { return null; }
+    if (!inputs || !inputs.price) return null;
+    return {
+      inputs: inputs,
+      cost: function (topicChars, matched) {
+        var calls = Math.ceil(matched / inputs.batch);
+        var input = inputs.sharedInput + Math.ceil(topicChars / 3.5) + calls * inputs.personalCallInput + matched * inputs.clientInput;
+        var output = inputs.sharedOutput + calls * inputs.personalCallOutput + matched * inputs.clientOutput;
+        return (input * inputs.price.input + output * inputs.price.output) / 1e6;
+      },
+      format: function (amount) { return amount < 0.01 ? "under 1¢" : "$" + amount.toFixed(2); },
+    };
+  }
+
+  // The new-email page's cost estimate, redone as the topic grows.
+  function wireCostEstimate() {
+    var box = document.querySelector("[data-cost-estimate]");
+    var topic = document.querySelector("form[data-draft-form] textarea[name=topic]");
+    var estimator = costEstimator();
+    if (!box || !topic || !estimator) return;
+    function update() {
+      var chars = topic.value.length;
+      box.querySelector("[data-cost-email]").textContent = "About " + estimator.format(estimator.cost(chars, 0));
+      box.querySelector("[data-cost-examples]").textContent = "If 10 clients match: about " + estimator.format(estimator.cost(chars, 10)) + ". If 30 match: about " + estimator.format(estimator.cost(chars, 30)) + ".";
+      box.querySelector("[data-cost-all]").textContent = "about " + estimator.format(estimator.cost(chars, estimator.inputs.clientsWithNotes));
+    }
+    topic.addEventListener("input", update);
+    update();
+  }
+
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  function utcDayName(time) {
+    var date = new Date(time);
+    return WEEKDAYS[date.getUTCDay()] + ", " + MONTHS[date.getUTCMonth()] + " " + date.getUTCDate();
+  }
+
+  // Which day "count" new emails go out, behind what's already queued. Same as sending.js projectSchedule.
+  function projectDays(count, outlook) {
+    var usage = outlook.usage;
+    var DAY = 24 * 60 * 60 * 1000;
+    var date = Date.parse(outlook.today + "T00:00:00Z");
+    var room = Math.max(0, Math.min(usage.today.campaignLimit - usage.today.campaign, usage.today.limit - usage.today.sent, usage.month.limit - usage.month.sent));
+    var monthLeft = usage.month.limit - usage.month.sent;
+    var ahead = outlook.queued || 0;
+    var days = [];
+    for (var index = 0; index < 120 && count > 0; index++) {
+      if (index > 0) {
+        var month = new Date(date).getUTCMonth();
+        date += DAY;
+        if (new Date(date).getUTCMonth() !== month) monthLeft = usage.month.limit;
+        room = Math.max(0, Math.min(usage.today.campaignLimit, monthLeft));
+      }
+      var forQueue = Math.min(room, ahead);
+      ahead -= forQueue; room -= forQueue; monthLeft -= forQueue;
+      var take = Math.min(room, count);
+      count -= take; monthLeft -= take;
+      if (take) days.push({ time: date, today: index === 0, count: take });
+    }
+    return days;
+  }
+
+  function scheduleText(days, providerLimit) {
+    if (!days.length) return "";
+    if (days.length === 1 && days[0].today) return "";
+    if (days.length === 1) return "Today's sending is full (Resend's free plan sends " + providerLimit + " emails a day), so " + (days[0].count === 1 ? "this one goes" : "all " + days[0].count + " go") + " out on " + utcDayName(days[0].time) + ".";
+    var parts = days.map(function (day) { return day.count + (day.today ? " today" : " on " + utcDayName(day.time)); });
+    var list = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0];
+    return (days[0].today ? "" : "Today's sending is full. ") + "Resend's free plan sends " + providerLimit + " emails a day, so " +
+      (days[0].today ? days[0].count + " go out today and the rest are scheduled: " : "they're scheduled: ") + list + ".";
+  }
+
+  // The recipient list (pages/campaigns.js recipientPicker). Loads everyone from
+  // /admin/campaigns/recipients, keeps the ticked ones in the hidden field as JSON.
+  function wireRecipientPicker(root, options) {
+    var list = root.querySelector("[data-pick-list]");
+    var field = root.querySelector("[data-pick-field]");
+    var search = root.querySelector("[data-pick-search]");
+    var shownText = root.querySelector("[data-pick-shown]");
+    var bar = (options.bar || root);
+    var countText = bar.querySelector("[data-pick-count]");
+    var scheduleBox = bar.querySelector("[data-pick-schedule]");
+    var submit = bar.querySelector("[data-pick-submit]");
+    var initial = null;
+    try { initial = root.getAttribute("data-picked") ? JSON.parse(root.getAttribute("data-picked")) : null; } catch (error) { initial = null; }
+    var people = [];
+    var picked = {};
+    var filter = "all";
+    var outlook = null;
+    var loaded = false;
+    var loading = null;
+
+    function matches(person) {
+      if (filter === "notes" && !person.notes) return false;
+      if (filter === "bought" && !person.lastOrderAt) return false;
+      if (filter === "picked" && !picked[person.email]) return false;
+      if (filter === "unpicked" && (picked[person.email] || person.unsubscribed)) return false;
+      var query = search.value.trim().toLowerCase();
+      return !query || (person.name || "").toLowerCase().indexOf(query) >= 0 || person.email.indexOf(query) >= 0;
+    }
+    function pickedList() {
+      return people.filter(function (person) { return picked[person.email]; });
+    }
+    function update() {
+      var chosen = pickedList();
+      field.value = JSON.stringify(chosen.map(function (person) { return { email: person.email, customerId: person.customerId }; }));
+      field.disabled = !loaded;
+      countText.textContent = chosen.length + (chosen.length === 1 ? " person" : " people") + " picked";
+      if (submit) submit.disabled = !loaded || !chosen.length;
+      var text = outlook ? scheduleText(projectDays(chosen.length, outlook), outlook.usage.today.limit) : "";
+      scheduleBox.textContent = text;
+      scheduleBox.hidden = !text;
+      var shown = 0;
+      people.forEach(function (person) {
+        var visible = matches(person);
+        person.row.hidden = !visible;
+        person.box.checked = Boolean(picked[person.email]);
+        if (visible) shown++;
+      });
+      shownText.textContent = "Showing " + shown + " of " + people.length;
+      var empty = list.querySelector(".camp-pick-empty");
+      if (empty) empty.hidden = shown > 0;
+      if (options.onChange) options.onChange(chosen);
+    }
+    function tag(text, extra) {
+      var span = document.createElement("span");
+      span.className = "camp-tag" + (extra ? " " + extra : "");
+      span.textContent = text;
+      return span;
+    }
+    function render() {
+      list.innerHTML = "";
+      people.forEach(function (person) {
+        var row = document.createElement("label");
+        row.className = "camp-pick-row" + (person.unsubscribed ? " is-off" : "");
+        var box = document.createElement("input");
+        box.type = "checkbox";
+        box.disabled = person.unsubscribed;
+        box.setAttribute("aria-label", person.name || person.email);
+        box.addEventListener("change", function () {
+          if (box.checked) picked[person.email] = true; else delete picked[person.email];
+          update();
+        });
+        var who = document.createElement("span");
+        who.className = "camp-pick-who";
+        var name = document.createElement("span");
+        name.className = "camp-pick-name";
+        name.textContent = person.name || person.email.split("@")[0];
+        var email = document.createElement("span");
+        email.className = "camp-pick-email";
+        email.textContent = person.email;
+        who.appendChild(name); who.appendChild(email);
+        var tags = document.createElement("span");
+        tags.className = "camp-pick-tags";
+        if (person.unsubscribed) tags.appendChild(tag("Unsubscribed", "camp-tag-off"));
+        if (person.notes) tags.appendChild(tag("Notes", "camp-tag-notes"));
+        if (person.lastOrderAt) {
+          var bought = new Date(person.lastOrderAt);
+          tags.appendChild(tag("Bought " + MONTHS[bought.getUTCMonth()] + " " + bought.getUTCFullYear()));
+        }
+        row.appendChild(box); row.appendChild(who); row.appendChild(tags);
+        person.row = row; person.box = box;
+        list.appendChild(row);
+      });
+      var empty = document.createElement("div");
+      empty.className = "camp-pick-empty";
+      empty.textContent = "No one matches. Try another search or filter.";
+      empty.hidden = true;
+      list.appendChild(empty);
+      root.querySelectorAll("[data-pick-filter]").forEach(function (chip) {
+        var key = chip.getAttribute("data-pick-filter");
+        var count = key === "notes" ? people.filter(function (p) { return p.notes; }).length
+          : key === "bought" ? people.filter(function (p) { return p.lastOrderAt; }).length : null;
+        if (count !== null && !chip.querySelector(".camp-chip-count")) {
+          var badge = document.createElement("span");
+          badge.className = "camp-chip-count";
+          badge.textContent = count;
+          chip.appendChild(badge);
+        }
+      });
+    }
+    function load() {
+      if (loaded || loading) return loading;
+      list.innerHTML = '<div class="camp-pick-loading"><span class="spinner" aria-hidden="true"></span> Loading your clients from Square…</div>';
+      loading = fetch(root.getAttribute("data-source"), { headers: { accept: "application/json" }, credentials: "same-origin" })
+        .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok) throw new Error(result.data.message || "Couldn't load your clients.");
+          people = result.data.recipients || [];
+          outlook = result.data;
+          var start = initial ? initial.reduce(function (set, email) { set[email] = true; return set; }, {}) : null;
+          people.forEach(function (person) {
+            if (!person.unsubscribed && (!start || start[person.email])) picked[person.email] = true;
+          });
+          loaded = true;
+          render();
+          update();
+        })
+        .catch(function (error) {
+          loading = null;
+          list.innerHTML = "";
+          var box = document.createElement("div");
+          box.className = "camp-pick-empty";
+          box.textContent = (error.message || "Couldn't load your clients.") + " ";
+          var retry = document.createElement("button");
+          retry.type = "button";
+          retry.className = "camp-text-btn";
+          retry.textContent = "Try again";
+          retry.addEventListener("click", load);
+          box.appendChild(retry);
+          list.appendChild(box);
+          update();
+        });
+      return loading;
+    }
+
+    search.addEventListener("input", update);
+    search.addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
+    root.querySelectorAll("[data-pick-filter]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        filter = chip.getAttribute("data-pick-filter");
+        root.querySelectorAll("[data-pick-filter]").forEach(function (other) {
+          other.classList.toggle("on", other === chip);
+          other.setAttribute("aria-pressed", other === chip ? "true" : "false");
+        });
+        update();
+      });
+    });
+    function setShown(on) {
+      people.forEach(function (person) {
+        if (person.unsubscribed || !matches(person)) return;
+        if (on) picked[person.email] = true; else delete picked[person.email];
+      });
+      update();
+    }
+    root.querySelector("[data-pick-all]").addEventListener("click", function () { setShown(true); });
+    root.querySelector("[data-pick-none]").addEventListener("click", function () { setShown(false); });
+    update();
+    return { load: load, picked: pickedList };
+  }
+
+  function wireDraftForm() {
+    var form = document.querySelector("form[data-draft-form]");
+    if (!form) return;
+    var busy = form.querySelector("[data-drafting]");
+    var busyText = form.querySelector("[data-drafting-text]");
+    var writeStage = form.querySelector("[data-stage-write]");
+    var pickStage = form.querySelector("[data-stage-pick]");
+    var topic = form.querySelector("textarea[name=topic]");
+    var personalize = form.querySelector("[data-personalize]");
+    var costText = form.querySelector("[data-pick-cost]");
+    var stepItems = document.querySelectorAll("[data-steps] li");
+    var estimator = costEstimator();
+    var picker = wireRecipientPicker(form.querySelector("[data-recipient-picker]"), { bar: pickStage, onChange: showCost });
+    var button = pickStage.querySelector("[data-pick-submit]");
+
+    function showCost(chosen) {
+      if (!estimator) { costText.textContent = ""; return; }
+      var chars = topic.value.length;
+      var email = estimator.format(estimator.cost(chars, 0));
+      if (!personalize.checked) { costText.textContent = "· AI cost about " + email + " (one email for everyone)"; return; }
+      var withNotes = chosen.filter(function (person) { return person.notes; }).length;
+      costText.textContent = "· AI cost about " + email + (withNotes ? ", up to " + estimator.format(estimator.cost(chars, withNotes)) + " if all " + withNotes + " picked clients with notes relate" : "");
+    }
+    function showPersonal() {
+      form.querySelectorAll("[data-personal-only]").forEach(function (el) { el.hidden = !personalize.checked; });
+      showCost(picker.picked());
+    }
+    function setStage(stage) {
+      form.setAttribute("data-stage", stage);
+      writeStage.hidden = stage !== "write";
+      pickStage.hidden = stage !== "pick";
+      stepItems.forEach(function (item, index) {
+        item.className = index === (stage === "write" ? 0 : 1) ? "on" : index < (stage === "write" ? 0 : 1) ? "done" : "";
+      });
+      window.scrollTo(0, 0);
+      if (stage === "pick") { picker.load(); showCost(picker.picked()); }
+    }
+    personalize.addEventListener("change", showPersonal);
+    form.querySelector("[data-back-button]").addEventListener("click", function () { setStage("write"); });
+
+    var messages = ["Writing the email…", "Reading client notes and purchases…", "Writing personal notes…", "Almost done…"];
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (form.getAttribute("data-stage") === "write") {
+        if (form.reportValidity()) setStage("pick");
+        return;
+      }
+      if (!picker.picked().length) return;
+      var steps = personalize.checked ? messages : ["Writing the email…", "Adding product cards…", "Almost done…"];
+      button.disabled = true;
+      busy.hidden = false;
+      var step = 0;
+      busyText.textContent = steps[0];
+      var timer = setInterval(function () {
+        step = Math.min(step + 1, steps.length - 1);
+        busyText.textContent = steps[step];
+      }, 9000);
+      postForm(form)
+        .then(function (result) {
+          if (result.ok && result.data.redirect) { window.location.href = result.data.redirect; return; }
+          throw new Error(result.data.message || "Couldn't draft the email. Try again.");
+        })
+        .catch(function (error) {
+          clearInterval(timer);
+          busyText.textContent = error.message || "Couldn't draft the email. Check your connection and try again.";
+          button.disabled = false;
+        });
+    });
+    showPersonal();
+    wireRecorder(topic);
+  }
+
+  // "Who gets it" for a campaign in review: the same list, saved with a normal form post.
+  function wirePickForm() {
+    var form = document.querySelector("form[data-pick-form]");
+    if (!form) return;
+    wireRecipientPicker(form.querySelector("[data-recipient-picker]"), { bar: form }).load();
+    form.querySelector("[data-pick-search]").addEventListener("keydown", function (event) { if (event.key === "Enter") event.preventDefault(); });
+  }
+
+  // Ticking versions on the review screen to approve or reject several at once.
+  function wireBulkVersions() {
+    var form = document.querySelector("form[data-bulk-form]");
+    if (!form) return;
+    var items = Array.prototype.slice.call(document.querySelectorAll("[data-bulk-item]"));
+    var all = form.querySelector("[data-bulk-all]");
+    var label = form.querySelector("[data-bulk-label]");
+    var bar = form.querySelector("[data-bulk-bar]");
+    var count = form.querySelector("[data-bulk-count]");
+    var idle = count.textContent;
+    function update() {
+      var ticked = items.filter(function (item) { return item.checked; }).length;
+      all.checked = ticked > 0 && ticked === items.length;
+      all.indeterminate = ticked > 0 && ticked < items.length;
+      label.textContent = all.checked ? "Clear all" : "Select all";
+      bar.classList.toggle("has-picks", ticked > 0);
+      count.textContent = ticked ? ticked + " selected" : idle;
+    }
+    items.forEach(function (item) { item.addEventListener("change", update); });
+    all.addEventListener("change", function () {
+      items.forEach(function (item) { item.checked = all.checked; });
+      update();
+    });
+    form.querySelector("[data-bulk-pick]").addEventListener("click", function () {
+      items.forEach(function (item) { item.checked = item.getAttribute("data-status") === "review"; });
+      update();
+    });
+    form.addEventListener("submit", function () {
+      setTimeout(function () { form.querySelectorAll("[data-bulk-action]").forEach(function (b) { b.disabled = true; }); }, 0);
+    });
+    update();
+  }
+
+  // Records up to 90 seconds, then types it out with the server's speech-to-text and adds it to the text box.
+  function wireRecorder(textarea) {
+    var mic = document.querySelector("[data-mic]");
+    if (!mic || !textarea || !window.MediaRecorder || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    var label = document.querySelector("[data-mic-text]");
+    var hint = document.querySelector("[data-mic-hint]");
+    mic.hidden = false; label.hidden = false; hint.hidden = false;
+    var recorder = null;
+    var chunks = [];
+    var stopTimer = null;
+    var type = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].filter(function (t) { return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || "";
+
+    function setState(state, text) {
+      mic.classList.toggle("recording", state === "recording");
+      mic.disabled = state === "working";
+      mic.setAttribute("aria-label", state === "recording" ? "Stop recording" : "Record");
+      label.textContent = text;
+    }
+
+    function stop() {
+      if (recorder && recorder.state === "recording") recorder.stop();
+    }
+
+    mic.addEventListener("click", function () {
+      if (recorder && recorder.state === "recording") { stop(); return; }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        chunks = [];
+        recorder = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream);
+        recorder.addEventListener("dataavailable", function (event) { if (event.data && event.data.size) chunks.push(event.data); });
+        recorder.addEventListener("stop", function () {
+          clearTimeout(stopTimer);
+          stream.getTracks().forEach(function (track) { track.stop(); });
+          setState("working", "Typing it out…");
+          var blob = new Blob(chunks, { type: recorder.mimeType || type || "audio/mp4" });
+          fetch("/admin/campaigns/transcribe", { method: "POST", body: blob, headers: { "content-type": blob.type || "application/octet-stream" } })
+            .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+            .then(function (result) {
+              if (!result.ok) throw new Error(result.data.message || "Couldn't type out the recording.");
+              textarea.value = (textarea.value.trim() ? textarea.value.trim() + "\n\n" : "") + result.data.text;
+              setState("idle", "Added to your text. Tap to record more");
+            })
+            .catch(function (error) { setState("idle", error.message || "Couldn't type out the recording. Try again."); });
+        });
+        recorder.start();
+        setState("recording", "Recording… tap to stop");
+        stopTimer = setTimeout(stop, 90000);
+      }).catch(function () {
+        setState("idle", "Allow the microphone to record, or type instead.");
+      });
+    });
+  }
+
+  function urlKeyBytes(base64url) {
+    var padded = (base64url + "===".slice((base64url.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+    var text = atob(padded);
+    var bytes = new Uint8Array(text.length);
+    for (var i = 0; i < text.length; i += 1) bytes[i] = text.charCodeAt(i);
+    return bytes;
+  }
+
+  // Reminders as notifications: this week's email (Campaigns page) and missing notes (clients page).
+  // On an iPhone or iPad they need the Home Screen app; on a computer the browser is enough.
+  function wirePushButton() {
+    var box = document.querySelector("[data-push]");
+    if (!box) return;
+    var button = box.querySelector("[data-push-button]");
+    var status = box.querySelector("[data-push-status]");
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !window.Notification) {
+      if (!isHomeScreenApp() && /iPhone|iPad/.test(navigator.userAgent)) status.textContent = "To get reminders as notifications, add this page to your Home Screen (Share, then Add to Home Screen) and open it from there.";
+      return;
+    }
+    navigator.serviceWorker.ready.then(function (registration) {
+      return registration.pushManager.getSubscription().then(function (existing) {
+        if (existing && Notification.permission === "granted") {
+          status.textContent = "Notifications are on for this device.";
+          // Make sure the server has it (for example after the app was reinstalled).
+          fetch("/admin/campaigns/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(existing) });
+          return;
+        }
+        if (Notification.permission === "denied") {
+          status.textContent = "Notifications are blocked for this app. Turn them on in the phone's Settings, then come back.";
+          return;
+        }
+        button.hidden = false;
+        button.addEventListener("click", function () {
+          button.disabled = true;
+          Notification.requestPermission()
+            .then(function (permission) {
+              if (permission !== "granted") throw new Error("Notifications weren't allowed.");
+              return fetch("/admin/campaigns/push-key").then(function (response) { return response.json(); });
+            })
+            .then(function (data) {
+              return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlKeyBytes(data.publicKey) });
+            })
+            .then(function (subscription) {
+              return fetch("/admin/campaigns/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(subscription) });
+            })
+            .then(function (response) {
+              if (!response.ok) throw new Error("Couldn't save the setting.");
+              button.hidden = true;
+              status.textContent = "Notifications are on for this device.";
+            })
+            .catch(function (error) {
+              button.disabled = false;
+              status.textContent = error.message || "Couldn't turn on notifications.";
+            });
+        });
+      });
+    }).catch(function () { /* no service worker: email reminders still work */ });
+  }
+
+  /* --------------------------------------------------- Home Screen app */
+
+  function isHomeScreenApp() {
+    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  }
+
+  // Keeps the app's own files on the phone and shows an offline screen with no connection.
+  // It never stores client pages (see /admin/sw.js).
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/admin/sw.js", { scope: "/admin" }).catch(function () { /* the app works without it */ });
+  }
+
+  // A Home Screen app has no browser reload, so pulling down at the top of a page reloads it, like a native list.
+  function wirePullToRefresh() {
+    if (!isHomeScreenApp()) return;
+    var THRESHOLD = 72;
+    var indicator = document.createElement("div");
+    indicator.className = "ptr";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.innerHTML = '<span class="ptr-spinner"></span>';
+    document.body.appendChild(indicator);
+
+    var startY = null;
+    var pulled = 0;
+    function reset() {
+      indicator.style.transform = "";
+      indicator.style.opacity = "";
+      indicator.classList.remove("ptr-ready");
+    }
+    window.addEventListener("touchstart", function (event) {
+      startY = window.scrollY <= 0 && event.touches.length === 1 ? event.touches[0].clientY : null;
+      pulled = 0;
+    }, { passive: true });
+    window.addEventListener("touchmove", function (event) {
+      if (startY === null) return;
+      pulled = Math.max(0, event.touches[0].clientY - startY);
+      if (window.scrollY > 0) { startY = null; reset(); return; }
+      var distance = Math.min(pulled, 120);
+      indicator.style.transform = "translateY(" + (distance - 48) + "px)";
+      indicator.style.opacity = String(Math.min(1, distance / THRESHOLD));
+      indicator.classList.toggle("ptr-ready", distance >= THRESHOLD);
+    }, { passive: true });
+    window.addEventListener("touchend", function () {
+      if (startY === null) return;
+      startY = null;
+      if (pulled >= THRESHOLD) {
+        indicator.classList.add("ptr-loading");
+        window.location.reload();
+      } else {
+        reset();
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    wireClientsPage();
+    wireUnsentNotes();
+    wireFormLinks();
+    wireClientProfilePage();
+    wireUploadPage();
+    wireCampaignLists();
+    wireDraftForm();
+    wirePickForm();
+    wireBulkVersions();
+    wireInlineEditor();
+    wireProductEditing();
+    wireCostEstimate();
+    registerServiceWorker();
+    wirePushButton();
+    wirePullToRefresh();
+  });
+})();
+`;

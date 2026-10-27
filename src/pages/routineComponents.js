@@ -1,5 +1,5 @@
-import { html } from "../html.js";
-import { BOOKING_URL, formatMoney } from "../config.js";
+import { html, raw } from "../html.js";
+import { BOOKING_URL, formatMoney, priceMarkup } from "../config.js";
 
 /** Small overlapping fan of up to 3 product photos — stands in for a single
  *  "whole routine" photo until one exists for each kit. */
@@ -55,7 +55,7 @@ function routineProductCard(item) {
       <div class="product-info">
         <h3>${product.name}</h3>
         ${role ? html`<p class="product-short">${role}</p>` : ""}
-        <p class="product-price">${formatMoney(priceCents)}</p>
+        <p class="product-price">${raw(priceMarkup(priceCents, product.defaultVariation.regularPriceCents))}</p>
         <button type="button" class="routine-more-trigger" data-routine-more>See details</button>
       </div>
       <div class="routine-more-popover" data-routine-more-popover hidden>

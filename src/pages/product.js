@@ -1,6 +1,6 @@
-import { html, jsonScript } from "../html.js";
+import { html, jsonScript, raw } from "../html.js";
 import { productCard } from "./components.js";
-import { formatMoney, BOOKING_URL, SUPPORT_EMAIL } from "../config.js";
+import { formatMoney, priceMarkup, BOOKING_URL, SUPPORT_EMAIL } from "../config.js";
 import { productInsightFor } from "../product-insights.js";
 import { renderProductOverview } from "../product-overview.js";
 
@@ -160,6 +160,10 @@ function ingredientReview(review, productOverview) {
   `;
 }
 
+function saleNote(sale) {
+  return sale ? `${sale.label} · ${sale.name}` : "";
+}
+
 export function productPage({ product, related, cfg }) {
   const soldOut = !product.available;
   const hasChoices = product.variations.length > 1;
@@ -169,7 +173,8 @@ export function productPage({ product, related, cfg }) {
 
   const variationData = Object.fromEntries(
     product.variations.map((variation) => [variation.id, {
-      price: formatMoney(variation.priceCents),
+      price: priceMarkup(variation.priceCents, variation.regularPriceCents),
+      sale: saleNote(variation.sale),
       inStock: variation.inStock,
     }]),
   );
@@ -177,7 +182,8 @@ export function productPage({ product, related, cfg }) {
   const productOverview = html`
     <p class="eyebrow">${product.category}</p>
     <h1>${product.name}</h1>
-    <p class="product-detail-price" data-price-display>${formatMoney(product.priceCents)}</p>
+    <p class="product-detail-price" data-price-display>${raw(priceMarkup(product.priceCents, product.regularPriceCents))}</p>
+    <p class="product-sale-note" data-sale-display ${product.sale ? "" : html`hidden`}>${saleNote(product.sale)}</p>
 
     ${hasChoices ? html`
       <fieldset class="variation-picker">
