@@ -145,3 +145,20 @@ export function resolveRoutine(routine, products) {
 
   return { ...routine, items, totalCents };
 }
+
+/** The routine's own address. Opening it shows the homepage with this
+ *  routine's popout already open, so it can be texted or posted anywhere. */
+export function routinePath(slug) {
+  return `/routines/${slug}`;
+}
+
+export function routineBySlug(slug) {
+  return ROUTINES.find((routine) => routine.slug === slug) || null;
+}
+
+/** The photo shown when a routine link is pasted into a text or a post: the
+ *  routine's own `image` if one is set, otherwise its first product photo. */
+export function routineShareImage(resolved) {
+  if (resolved.image) return resolved.image;
+  return resolved.items.map((item) => item.product.image).find(Boolean) || "";
+}

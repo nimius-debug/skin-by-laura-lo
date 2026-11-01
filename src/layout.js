@@ -7,7 +7,7 @@ import { promoBanner } from "./promo.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261027-sale-banner";
+const ASSET_VERSION = "20261101-routine-links";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -96,10 +96,10 @@ function footer() {
  * Wrap page content in the full document shell.
  * `head` accepts pre-escaped markup for page-specific meta/JSON-LD.
  */
-export function page({ title, description, body, cfg, current = "", head = "", canonical = "", promo = null }) {
-  const fullTitle = title
+export function page({ title, description, body, cfg, current = "", head = "", canonical = "", promo = null, image = "", fullTitle: titleOverride = "" }) {
+  const fullTitle = titleOverride || (title
     ? `${title} · Skin by Laura Lo`
-    : "Skin by Laura Lo · Tampa esthetician & Korean-infused facials";
+    : "Skin by Laura Lo · Tampa esthetician & Korean-infused facials");
 
   return toString(html`<!doctype html>
 <html lang="en">
@@ -112,6 +112,11 @@ ${canonical ? html`<link rel="canonical" href="${canonical}" />` : ""}
 <meta property="og:title" content="${fullTitle}" />
 <meta property="og:description" content="${description || "Korean-infused facials and curated home care in Tampa, Florida."}" />
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="Skin by Laura Lo" />
+${canonical ? html`<meta property="og:url" content="${canonical}" />` : ""}
+${image ? html`<meta property="og:image" content="${image}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="${image}" />` : ""}
 <meta name="theme-color" content="#20231f" />
 <link rel="stylesheet" href="/assets/styles.css?v=${ASSET_VERSION}" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

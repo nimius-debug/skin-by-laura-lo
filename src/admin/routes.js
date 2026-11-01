@@ -34,6 +34,7 @@ import { MANIFEST, OFFLINE_HTML, SERVICE_WORKER_JS } from "./pwa.js";
 import { iconBytes } from "./icons.js";
 import { handleCampaignRoute } from "./campaigns/routes.js";
 import * as forms from "./forms.js";
+import { routinesPage } from "./pages/routines.js";
 import { formsHomePage, formSubmissionsPage, submissionPage, clientFormsCard } from "./pages/forms.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
@@ -716,6 +717,13 @@ async function handleSignedIn(request, env, url, segments, method) {
       remindersOn(env),
     ]);
     return adminHtmlResponse(adminPage({ title: "Clients", body: clientsPage({ clients, today: isConfigured(env) ? today : null, needsNotes, noteReminders: isConfigured(env) ? noteReminders : null }) }));
+  }
+
+  // GET /admin/routines — each routine's own link, to text or DM to a client.
+  if (url.pathname === "/admin/routines" && method === "GET") {
+    const { products } = await loadCatalog(env);
+    const siteUrl = settings(env).siteUrl;
+    return adminHtmlResponse(adminPage({ title: "Routines", active: "routines", body: routinesPage({ products, siteUrl }) }));
   }
 
   // The missing-note reminders switch on the clients page.
