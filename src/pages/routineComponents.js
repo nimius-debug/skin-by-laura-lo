@@ -1,5 +1,8 @@
 import { html, raw } from "../html.js";
 import { BOOKING_URL, formatMoney, priceMarkup } from "../config.js";
+import { routinePath } from "../routines.js";
+
+const SHARE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="M7.5 7.5 12 3l4.5 4.5"></path><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"></path></svg>';
 
 /** Small overlapping fan of up to 3 product photos — stands in for a single
  *  "whole routine" photo until one exists for each kit. */
@@ -70,13 +73,18 @@ function routineProductCard(item) {
  *  with browser-native focus handling, ESC-to-close and a backdrop. */
 export function routineDialog(resolved) {
   return html`
-    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}">
+    <dialog class="routine-dialog" id="routine-${resolved.slug}" data-routine data-routine-dialog="${resolved.slug}"
+            data-routine-path="${routinePath(resolved.slug)}">
       <div class="routine-dialog-body">
         <button class="routine-dialog-close" type="button" data-routine-close aria-label="Close">&times;</button>
         <div class="routine-dialog-scroll">
           <p class="routine-concern">${resolved.concern}</p>
           <h3 class="routine-name">${resolved.name}</h3>
           <p class="routine-hook">${resolved.hook}</p>
+          <button type="button" class="routine-share" data-routine-share
+                  data-share-title="${resolved.name}" data-share-text="${resolved.oneLiner}">
+            ${raw(SHARE_ICON)}<span data-routine-share-label>Share this routine</span>
+          </button>
           <p class="routine-description">${resolved.description}</p>
           <ul class="routine-bestfor">
             ${resolved.bestFor.map((tag) => html`<li>${tag}</li>`)}

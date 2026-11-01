@@ -369,6 +369,9 @@ html.result-viewer-open { overflow: hidden; }
 .routine-name { font-family: var(--font-serif); font-size: 32px; line-height: 1.05; margin: 6px 0 18px; }
 .routine-concern { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--clay-deep); }
 .routine-hook { font-family: var(--font-serif); font-style: italic; font-size: 18px; color: var(--clay-deep); margin-bottom: 14px; }
+.routine-share { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin: 0 0 18px; padding: 0 16px; border: 1px solid var(--line); background: var(--white); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; letter-spacing: .02em; cursor: pointer; }
+.routine-share:hover { border-color: var(--ink); }
+.routine-share.is-copied { border-color: var(--clay-deep); color: var(--clay-deep); }
 .routine-description { color: var(--muted); line-height: 1.7; font-size: 13.5px; margin-bottom: 20px; }
 .routine-bestfor { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 32px; list-style: none; }
 .routine-bestfor li { padding: 7px 12px; border: 1px solid var(--line); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

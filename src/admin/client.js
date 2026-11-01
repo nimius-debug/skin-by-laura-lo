@@ -150,6 +150,20 @@ export const ADMIN_CLIENT_JS = String.raw`
       var input = btn.parentNode.querySelector("[data-copy-source]");
       if (input) { input.focus(); input.select(); }
     }
+
+    // "Share" opens the phone's share sheet (Messages, WhatsApp, Instagram...).
+    // Hidden where the browser has no share sheet; Copy link covers that.
+    if (!navigator.share) return;
+    document.querySelectorAll("[data-share-link]").forEach(function (btn) {
+      btn.hidden = false;
+      btn.addEventListener("click", function () {
+        navigator.share({
+          title: btn.getAttribute("data-share-title") || "",
+          text: btn.getAttribute("data-share-text") || "",
+          url: btn.getAttribute("data-share-link"),
+        }).catch(function () {});
+      });
+    });
   }
 
   /* --------------------------------------------------- client profile page */

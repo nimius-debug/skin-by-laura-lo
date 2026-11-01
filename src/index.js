@@ -15,6 +15,7 @@ import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
 import { relatedProductsFor } from "./related-products.js";
 import { salePromo } from "./promo.js";
+import { ROUTINES, routineBySlug, routinePath, resolveRoutine, routineShareImage } from "./routines.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
 } from "./pages/content.js";
@@ -329,6 +330,24 @@ export default {
       }), { cacheSeconds: 60 });
     }
 
+    // A routine's own link: the homepage, with that routine's popout opened
+    // by cart.js on load, and the routine's name and photo as the preview
+    // when the link is pasted into a text or a post.
+    if (path === "/routines") return redirect("/#routines", 302);
+    if (path.startsWith("/routines/")) {
+      const routine = routineBySlug(decodeURIComponent(path.slice("/routines/".length)));
+      if (!routine) return redirect("/#routines", 302);
+      const { products } = catalog;
+      const resolved = resolveRoutine(routine, products);
+      const image = routineShareImage(resolved);
+      return htmlResponse(page({ promo,
+        fullTitle: `${routine.name} routine · Skin by Laura Lo`,
+        description: `${routine.oneLiner} A ${routine.concern.toLowerCase()} routine curated by Laura Lo.`,
+        image,
+        body: homePage({ products, cfg }), cfg, current: "/", canonical,
+      }), { cacheSeconds: 60 });
+    }
+
     if (path === "/shop") {
       const { products, connected } = catalog;
       return htmlResponse(page({ promo,
@@ -442,6 +461,7 @@ export default {
     if (path === "/sitemap.xml") {
       const { products } = catalog;
       const paths = ["/", "/about", "/treatments", "/shop", "/gallery", "/terms", "/privacy"]
+        .concat(ROUTINES.map((routine) => routinePath(routine.slug)))
         .concat(products.map((product) => `/product/${product.slug}`));
       const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

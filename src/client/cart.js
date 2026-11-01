@@ -322,6 +322,88 @@ export const CLIENT_JS = String.raw`
       });
     }
 
+    // While a routine is open, the address bar shows its own link
+    // (/routines/<slug>), so copying the address gives a link that reopens
+    // it. Closing puts back the page's own address.
+    var addressBeforeOpen = null;
+
+    function openRoutine(dialog) {
+      if (!dialog) return;
+      if (dialog.showModal && !dialog.open) dialog.showModal();
+      updateAuditCheckbox(dialog);
+      var routinePath = dialog.getAttribute("data-routine-path");
+      if (routinePath && window.history && history.replaceState && location.pathname !== routinePath) {
+        addressBeforeOpen = location.pathname + location.search + location.hash;
+        history.replaceState(history.state, "", routinePath);
+      }
+    }
+
+    dialogs.forEach(function (dialog) {
+      dialog.addEventListener("close", function () {
+        var routinePath = dialog.getAttribute("data-routine-path");
+        if (!window.history || !history.replaceState || location.pathname !== routinePath) return;
+        history.replaceState(history.state, "", addressBeforeOpen || "/#routines");
+        addressBeforeOpen = null;
+      });
+    });
+
+    function routineUrl(dialog) {
+      return location.origin + (dialog.getAttribute("data-routine-path") || "/");
+    }
+
+    function flashShareLabel(button, text) {
+      var label = button.querySelector("[data-routine-share-label]") || button;
+      if (!button.hasAttribute("data-label")) button.setAttribute("data-label", label.textContent);
+      label.textContent = text;
+      button.classList.add("is-copied");
+      clearTimeout(button._shareTimer);
+      button._shareTimer = setTimeout(function () {
+        label.textContent = button.getAttribute("data-label");
+        button.classList.remove("is-copied");
+      }, 2500);
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+      return new Promise(function (resolve, reject) {
+        var area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        (document.querySelector("dialog[open]") || document.body).appendChild(area);
+        area.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+        area.remove();
+        if (ok) resolve(); else reject(new Error("copy failed"));
+      });
+    }
+
+    // Phones (and Safari on Mac) open the system share sheet; everywhere
+    // else the link is copied and the button says so.
+    function shareRoutine(button) {
+      var dialog = button.closest("[data-routine]");
+      if (!dialog) return;
+      var url = routineUrl(dialog);
+      var data = { title: button.getAttribute("data-share-title") || document.title, text: button.getAttribute("data-share-text") || "", url: url };
+      if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+        navigator.share(data).catch(function (error) {
+          if (error && error.name === "AbortError") return;
+          copyText(url).then(function () { flashShareLabel(button, "Link copied"); });
+        });
+        return;
+      }
+      copyText(url).then(
+        function () { flashShareLabel(button, "Link copied"); },
+        function () { window.prompt("Copy this link:", url); }
+      );
+    }
+
+    // Arriving from a routine link opens that routine straight away.
+    var linked = location.pathname.match(/^\/routines\/([a-z0-9-]+)$/);
+    if (linked) openRoutine(document.getElementById("routine-" + linked[1]));
+
     document.addEventListener("click", function (event) {
       var moreButton = event.target.closest("[data-routine-more]");
       if (moreButton) {
@@ -344,9 +426,13 @@ export const CLIENT_JS = String.raw`
 
       var opener = event.target.closest("[data-routine-open]");
       if (opener) {
-        var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));
-        if (dialog && dialog.showModal) dialog.showModal();
-        if (dialog) updateAuditCheckbox(dialog);
+        openRoutine(document.getElementById("routine-" + opener.getAttribute("data-routine-open")));
+        return;
+      }
+
+      var shareButton = event.target.closest("[data-routine-share]");
+      if (shareButton) {
+        shareRoutine(shareButton);
         return;
       }
 
