@@ -15,7 +15,7 @@ SQUARE_ENVIRONMENT="sandbox"
 # NOTES_BUCKET (R2) bindings in wrangler.toml — see README "The /admin
 # client-notes tool" for how to provision those.
 ANTHROPIC_API_KEY=""
-# Optional override; defaults to claude-sonnet-5-5.
+# Optional override; defaults to claude-haiku-5-5.
 # ANTHROPIC_MODEL=""
 
 # Login for /admin. Leave empty and /admin refuses everyone.
