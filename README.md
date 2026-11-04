@@ -71,7 +71,11 @@ Two credentials are needed, and they are easy to mix up:
 Get the access token at [developer.squareup.com/apps](https://developer.squareup.com/apps)
 → your app → **Credentials** → switch to **Production** → *Production Access Token*.
 It needs **Catalog read** (`ITEMS_READ`), **Inventory read** (`INVENTORY_READ`)
-and **Orders/Payments write** (`ORDERS_WRITE`, `PAYMENTS_WRITE`).
+and **Orders/Payments write** (`ORDERS_WRITE`, `PAYMENTS_WRITE`). For the
+`/admin` client-notes tool's "Sync from Square" to find clients and their
+seller notes, it also needs **Appointments read**
+(`APPOINTMENTS_READ`, `APPOINTMENTS_ALL_READ`) and **Customers read**
+(`CUSTOMERS_READ`).
 
 To find the location ID, run:
 
@@ -140,8 +144,10 @@ redeploy, no code edit. Money is in **cents**.
 | `PICKUP_ENABLED` | `true` | Offer free Tampa pickup |
 | `PICKUP_PREP_HOURS` | `24` | Pickup prep time |
 | `CATALOG_TTL_SECONDS` | `120` | Catalog cache. `0` = always live |
+| `SALES_RANK_TTL_SECONDS` | `21600` | Best-seller ranking cache (6h). Requires Reporting API read scope on the Square token; falls back to alphabetical order if unavailable |
 | `HIDE_SOLD_OUT` | `false` | `true` hides sold-out items instead of labelling them |
-| `SITE_URL` | test domain | Used for canonical URLs and the sitemap |
+| `HIDE_UNCATEGORIZED` | `true` | `false` shows products with no Square category instead of hiding them |
+| `SITE_URL` | `https://skinbylauralo.com` | Used for canonical URLs and the sitemap |
 
 Copy, hours, address, booking/eGift links, review count and gallery images live
 in `src/config.js`.
@@ -163,17 +169,249 @@ src/
 ├── styles.js         Design system stylesheet
 ├── html.js           Auto-escaping template helpers
 ├── client/cart.js    Browser JS: cart, filters, checkout
-└── pages/            One module per page
+├── pages/            One module per storefront page
+└── admin/            The /admin client-notes tool — its own DB, see below
 scripts/              square-locations.mjs — find your SQUARE_LOCATION_ID
-test/                 Catalog + checkout tests, Square mocked
+test/                 Catalog + checkout + admin-notes tests, Square mocked
 ```
+
+## The /admin client-notes tool
+
+A separate internal tool, bolted onto the same Worker at `/admin`, for
+Laura's consultation notes. Everything else in this project reads Square
+live and stores nothing — this is the one exception, because Square has
+nowhere to put a handwritten consultation note.
+
+**Clients are never typed in by hand.** A client only appears after
+**Sync from Square** (the button on `/admin`) finds them with a past,
+`ACCEPTED` Square booking — so the client list is always a subset of real
+Square customers who've actually had a service, never a free-text list
+someone can drift out of sync with Square. The same sync also imports each
+booking's `seller_note` as a note (tagged "From Square"), since that's
+already real text sitting in Square with no transcription needed.
+
+**Adding a handwritten note** (tagged "From Noteful") works like this:
+export a notebook from Noteful as PDF or Image (not Native — that format
+isn't readable here), upload it on a client's page, and Claude reads the
+new pages and proposes one or more dated entries for review before
+anything is saved. Because Noteful always re-exports the *whole* notebook,
+not just what's new, re-uploading the same notebook later only processes
+pages that weren't already seen — matched by a hash of each page's
+content, not its position, so Noteful reordering or inserting a page never
+confuses it. A page that was previously seen but is missing from a newer
+export is flagged, not silently dropped — that usually means the wrong
+file was picked.
+
+A note's **date** and **summary** are never guessed. A page with no
+legible date comes back `null`, shown as "no date detected"; anything the
+model wasn't confident reading is flagged low-confidence with the
+original file one tap away. Laura can edit a note's summary at any time.
+
+**Routine** on a client's page is never stored — it's read live from their
+most recent completed Square order, the same way the rest of the site
+treats Square as the source of truth.
+
+### Provisioning
+
+The D1 database and R2 bucket already exist and are wired into
+`wrangler.toml` — nothing to create. One secret is still needed before the
+AI features work:
+
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+
+(For reference, this is how the database/bucket were created and the
+schema applied, if this ever needs doing again in a different account:)
+
+```bash
+npx wrangler d1 create skin-by-laura-lo-client-notes
+npx wrangler r2 bucket create skin-by-laura-lo-client-notes
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0001_client_notes.sql
+```
+
+**`/admin` has its own login page.** Set the username and password as Worker
+secrets (they are never stored in the repo):
+
+```bash
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+```
+
+Until both are set, `/admin` refuses everyone. The session lasts 12 hours and
+is signed with the password, so changing `ADMIN_PASSWORD` signs everyone out.
+PDF/image note uploads are switched off (`UPLOADS_ENABLED` in
+`src/admin/routes.js`) while notes come from the Excel sheet.
+
+### iPad notes
+
+Laura can write a client's note by hand on the iPad, the way she did in Noteful, and it lands in
+the dashboard by itself. On a client's page, **Write a note** opens a full-screen lined page with
+the four sheet sections printed on it (Treatment type, Notes / remarks, Purchase history, Possible
+treatments). The Apple Pencil writes (pen, highlighter, eraser, four inks, undo); a finger only
+scrolls, so a resting palm leaves no marks. **Done** sends the pages to Claude, which reads them
+into the four sections; she checks or fixes them, then **Save to dashboard**. The note is saved
+"From iPad" with its sections (so the insight, safety check and email matching read it) and the
+page as she wrote it behind "View handwriting". If the reading fails, she can still type the key
+points, or save the handwriting with nothing typed.
+
+The clients page opens on **today's appointments** from Square, each with a Write a note button,
+so the right client is one tap. A saved iPad note can be changed later: **Edit** (in the dashboard)
+for the typed sections and date, or **Edit handwriting** to reopen the page on the iPad, change it
+and save it again in place. On the page, a finger scrolls natively and two fingers pinch-zoom the
+page (up to 250%, also with the − / + buttons); the Pencil and a resting palm never scroll it.
+
+While she writes, every stroke is kept on the iPad (IndexedDB), so a dropped connection or a
+closed app loses nothing; reopening the client picks the note back up. That copy is deleted once
+the note is saved. It is the only client data the app keeps on a device. Tapping Done again throws the
+earlier reading away, and the 15-minute cron clears any draft nobody saved within a day.
+
+**Putting it on the iPad:** in Safari open skinbylauralo.com/ipad (it leads to /admin), log in
+with "Keep me signed in", then Share, Add to Home Screen. It opens full screen from the icon, with
+its own launch screen, and updates itself on every deploy. Migration `0008_ipad_notes.sql` must
+run before deploying:
+
+```bash
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0008_ipad_notes.sql
+```
+
+### Client forms
+
+Intake forms clients fill out before a visit, under **Forms** in the site
+header (`/forms`, `/forms/<form>`). Each form is written as data in
+`src/forms/definitions.js`: steps, questions, which steps only apply to some
+services, and how each answer reads in the client's notes. The public page,
+the server-side checks and the admin view are all built from that, so a new
+form is a new entry there.
+
+- **One step at a time.** A progress bar, large tap targets, and only the
+  steps for the services she picked. Each step is checked before moving on,
+  and everything is checked again on the server. Without JavaScript the form
+  shows as one long page and still sends.
+- **Kept whole.** Every submission is saved in `form_submissions` exactly as
+  sent, with the questions as she saw them.
+- **Linked to the client.** Her email, then her phone, is looked up in
+  Square. A match with an existing client links straight away. A Square
+  customer with no completed booking yet links on the next "Sync from
+  Square". Anything else waits on the form's page in the admin for Laura to
+  pick the client.
+- **Fed into the insight.** A linked submission is also written as a note
+  (`notes.source = 'form'`) holding only the answers that matter for her care
+  (services, actives, allergies, conditions, pregnancy, reactions). The AI
+  summary, the safety check and the email matching read it like any other
+  note, and the summary's cache sees the change. Negative answers are worded
+  so they aren't flagged ("No known allergies").
+- **Admin.** `/admin/forms` shows each form with its counts and a link to copy,
+  and every submission with its answers and a client picker. A client's page
+  lists the forms she has sent.
+
+**Setup.** Run migration `0007_form_submissions.sql` before deploying:
+
+```bash
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0007_form_submissions.sql
+```
+
+For the Square lookup the access token also needs **Customers read**
+(`CUSTOMERS_READ`), which the client sync already uses.
+
+### Email campaigns
+
+`/admin/campaigns` writes and sends the twice-weekly client email (Tuesday
+and Thursday). Square has no API for its own marketing emails, so they go
+out through [Resend](https://resend.com).
+
+1. **Write.** Type the week's idea, or tap the microphone and say it. The
+   recording is typed out by Workers AI (Whisper, the `AI` binding) and
+   added to the text; the audio is never stored. A switch, **Personal notes
+   for related clients**, is on by default; off, there's one email for
+   everybody and no client matching at all.
+2. **Pick who gets it.** A checklist of everyone in Square with an email,
+   all ticked to start, with search and filters (has notes, bought from the
+   shop, picked, not picked). People who unsubscribed show greyed out. When
+   the pick is more than the day's sending room, it says which days the rest
+   go out. Only the people picked get the email, and the AI only reads the
+   notes of picked clients. "Change who gets it" on the review screen
+   reopens the list (no redraft: anyone added gets the shared email).
+3. **Drafting.** Claude writes one shared email in Laura's voice (the
+   guide is in `src/admin/campaigns/voice.js`; update it as she posts), plus
+   a list of words to look for. Every client's notes and stored purchases
+   are searched for those words, and only clients with a hit are sent to
+   Claude (first name only, no surname), which decides whether they really
+   relate and writes a short personal note. There is no cap on how many
+   clients get one. Personal notes never name
+   medications, pregnancy, allergies or diagnoses, and stay gentle for
+   clients flagged as sensitive.
+4. **Review.** Every version (the shared one and each personal one) is
+   approved, edited, or rejected and redrafted with Laura's feedback. The
+   email in the preview is the editor, with no Edit step: she clicks
+   anything in it and types, including the subject and inbox preview line
+   (shown above the email), the "Hi there", the button's words and where it
+   links, and the "See you soon, Laura" sign-off.
+   Bold and links come from the toolbar, Enter adds a paragraph or tip, and
+   there's a P.S. (for everyone, or just one client) and the button to show.
+   Changes save as she types and keep the version's approval, since they're
+   her own words. They're checked against her voice guide as she goes. On a
+   phone the versions and the preview are two tabs. Each version in the
+   list has a checkbox, so several can be approved or rejected at once.
+5. **Send.** The people picked get it, except people who unsubscribed
+   (here or in Square). Clients with an approved personal version get
+   that; everyone else gets the shared email. Emails are queued and sent by
+   the scheduled run every 15 minutes, at most `EMAIL_DAILY_LIMIT` a day
+   (95, under Resend's free 100) and `EMAIL_MONTHLY_LIMIT` a month (3,000),
+   counting test emails and reminders, so a longer list finishes over the
+   next days.
+
+**Scheduled** (`/admin/campaigns/scheduled`, under Email campaigns) shows
+Resend usage as two bars (today out of 100, this month out of 3,000), what
+goes out on which day, and per campaign how many were sent, delivered,
+opened, bounced or failed, plus the latest emails with their delivery time.
+Delivery and open times come from Resend's webhook at
+`/email/resend-webhook` (signed; see setup).
+
+**Cost.** The new-email page estimates the AI cost before drafting,
+measured from the real prompts and the shop's products and client notes.
+Each campaign records the tokens it used, and the review page, the send
+button and the Campaigns home show what it really cost. Prices per model
+are in `src/admin/campaigns/cost.js`.
+
+Every email has the studio's address, an unsubscribe link, and one-click
+unsubscribe headers. Unsubscribe links are signed, open a confirmation page
+first (so mail scanners can't unsubscribe anyone), and are kept in D1.
+
+**Reminders.** On Tuesday and Thursday at 9:00 am (Tampa time) Laura gets a
+reminder email at `REMINDER_EMAIL` with three topic ideas from recent notes,
+and a phone notification on any phone where she tapped "Turn on phone
+notifications" (on an iPhone this works in the Home Screen app). Each day
+can be switched off on the Campaigns page. No reminder is sent if a
+campaign was already started that day.
+
+**Setup.** Migration `0006_email_campaigns.sql` creates the tables. Then:
+
+1. Create a Resend account and verify `skinbylauralo.com` (Resend shows DNS
+   records to add in Cloudflare DNS).
+2. `npx wrangler secret put RESEND_API_KEY`
+3. Check `CAMPAIGN_FROM_EMAIL`, `REMINDER_EMAIL` and `EMAIL_DAILY_LIMIT`
+   under `[vars]` in `wrangler.toml`. Replies go to `SUPPORT_EMAIL`.
+4. `npx wrangler deploy`, which also turns on the `AI` binding and the
+   15-minute cron trigger.
+5. Run migration `0009_campaign_audience.sql` before deploying the
+   recipient picker and Scheduled page:
+   `npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0009_campaign_audience.sql`
+6. For delivery tracking, add a webhook in Resend (Webhooks) pointing at
+   `https://skinbylauralo.com/email/resend-webhook` with the
+   `email.delivered`, `email.delivery_delayed`, `email.bounced`,
+   `email.complained`, `email.opened` and `email.clicked` events, then
+   `npx wrangler secret put RESEND_WEBHOOK_SECRET` with its signing secret.
+   Opens are only reported if open tracking is on for the domain in Resend.
 
 ## Not built (deliberately)
 
 Blueprint phases intentionally left out — see §7 of the blueprint:
 
 - **Order lookup** (email + order number) — Phase 5, `[if wanted]`
-- **D1 caching layer** — Phase 6, only if live API calls prove too slow
+- **A D1 caching layer for the catalog** — Phase 6, only if live Square
+  catalog reads prove too slow. (D1 is now used for `/admin`'s client
+  notes, above — a different, unrelated use of it.)
 - **Embedded booking** — Phase 7; the link-out works and is unchanged
 - **Customer accounts** — Phase 8, a separate decision
 

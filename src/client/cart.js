@@ -79,8 +79,16 @@ export const CLIENT_JS = String.raw`
     var button = document.querySelector(".menu-button");
     var nav = document.getElementById("primary-nav");
     if (!button || !nav) return;
+    var header = document.querySelector(".site-header");
     button.addEventListener("click", function () {
       var open = nav.classList.toggle("nav-open");
+      // Drop the menu from wherever the header sits now: below the sale and
+      // shipping bars at the top of the page, or at the very top once scrolled.
+      if (open && header) {
+        var top = Math.max(0, Math.round(header.getBoundingClientRect().bottom));
+        nav.style.top = top + "px";
+        nav.style.maxHeight = "calc(100dvh - " + top + "px)";
+      }
       button.setAttribute("aria-expanded", open ? "true" : "false");
     });
     nav.addEventListener("click", function (event) {
@@ -89,6 +97,14 @@ export const CLIENT_JS = String.raw`
         button.setAttribute("aria-expanded", "false");
       }
     });
+    // The Forms menu closes when she clicks or tabs away from it, or presses Escape.
+    var menus = nav.querySelectorAll(".nav-menu");
+    function closeMenus(except) {
+      Array.prototype.forEach.call(menus, function (menu) { if (menu !== except) menu.open = false; });
+    }
+    document.addEventListener("click", function (event) { closeMenus(event.target.closest && event.target.closest(".nav-menu")); });
+    document.addEventListener("focusin", function (event) { closeMenus(event.target.closest && event.target.closest(".nav-menu")); });
+    document.addEventListener("keydown", function (event) { if (event.key === "Escape") closeMenus(null); });
   }
 
   var toastTimer = null;
@@ -214,7 +230,13 @@ export const CLIENT_JS = String.raw`
       for (var i = 0; i < siblings.length; i++) siblings[i].classList.remove("active");
       choice.classList.add("active");
       if (addButton) addButton.setAttribute("data-add-to-cart", id);
-      if (priceDisplay && variations[id]) priceDisplay.textContent = variations[id].price;
+      // price is server-built markup from catalog numbers only.
+      if (priceDisplay && variations[id]) priceDisplay.innerHTML = variations[id].price;
+      var saleDisplay = document.querySelector("[data-sale-display]");
+      if (saleDisplay && variations[id]) {
+        saleDisplay.textContent = variations[id].sale;
+        saleDisplay.hidden = !variations[id].sale;
+      }
     });
   }
 
@@ -300,6 +322,88 @@ export const CLIENT_JS = String.raw`
       });
     }
 
+    // While a routine is open, the address bar shows its own link
+    // (/routines/<slug>), so copying the address gives a link that reopens
+    // it. Closing puts back the page's own address.
+    var addressBeforeOpen = null;
+
+    function openRoutine(dialog) {
+      if (!dialog) return;
+      if (dialog.showModal && !dialog.open) dialog.showModal();
+      updateAuditCheckbox(dialog);
+      var routinePath = dialog.getAttribute("data-routine-path");
+      if (routinePath && window.history && history.replaceState && location.pathname !== routinePath) {
+        addressBeforeOpen = location.pathname + location.search + location.hash;
+        history.replaceState(history.state, "", routinePath);
+      }
+    }
+
+    dialogs.forEach(function (dialog) {
+      dialog.addEventListener("close", function () {
+        var routinePath = dialog.getAttribute("data-routine-path");
+        if (!window.history || !history.replaceState || location.pathname !== routinePath) return;
+        history.replaceState(history.state, "", addressBeforeOpen || "/#routines");
+        addressBeforeOpen = null;
+      });
+    });
+
+    function routineUrl(dialog) {
+      return location.origin + (dialog.getAttribute("data-routine-path") || "/");
+    }
+
+    function flashShareLabel(button, text) {
+      var label = button.querySelector("[data-routine-share-label]") || button;
+      if (!button.hasAttribute("data-label")) button.setAttribute("data-label", label.textContent);
+      label.textContent = text;
+      button.classList.add("is-copied");
+      clearTimeout(button._shareTimer);
+      button._shareTimer = setTimeout(function () {
+        label.textContent = button.getAttribute("data-label");
+        button.classList.remove("is-copied");
+      }, 2500);
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+      return new Promise(function (resolve, reject) {
+        var area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        (document.querySelector("dialog[open]") || document.body).appendChild(area);
+        area.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+        area.remove();
+        if (ok) resolve(); else reject(new Error("copy failed"));
+      });
+    }
+
+    // Phones (and Safari on Mac) open the system share sheet; everywhere
+    // else the link is copied and the button says so.
+    function shareRoutine(button) {
+      var dialog = button.closest("[data-routine]");
+      if (!dialog) return;
+      var url = routineUrl(dialog);
+      var data = { title: button.getAttribute("data-share-title") || document.title, text: button.getAttribute("data-share-text") || "", url: url };
+      if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+        navigator.share(data).catch(function (error) {
+          if (error && error.name === "AbortError") return;
+          copyText(url).then(function () { flashShareLabel(button, "Link copied"); });
+        });
+        return;
+      }
+      copyText(url).then(
+        function () { flashShareLabel(button, "Link copied"); },
+        function () { window.prompt("Copy this link:", url); }
+      );
+    }
+
+    // Arriving from a routine link opens that routine straight away.
+    var linked = location.pathname.match(/^\/routines\/([a-z0-9-]+)$/);
+    if (linked) openRoutine(document.getElementById("routine-" + linked[1]));
+
     document.addEventListener("click", function (event) {
       var moreButton = event.target.closest("[data-routine-more]");
       if (moreButton) {
@@ -322,9 +426,13 @@ export const CLIENT_JS = String.raw`
 
       var opener = event.target.closest("[data-routine-open]");
       if (opener) {
-        var dialog = document.getElementById("routine-" + opener.getAttribute("data-routine-open"));
-        if (dialog && dialog.showModal) dialog.showModal();
-        if (dialog) updateAuditCheckbox(dialog);
+        openRoutine(document.getElementById("routine-" + opener.getAttribute("data-routine-open")));
+        return;
+      }
+
+      var shareButton = event.target.closest("[data-routine-share]");
+      if (shareButton) {
+        shareRoutine(shareButton);
         return;
       }
 
@@ -436,6 +544,15 @@ export const CLIENT_JS = String.raw`
 
     if (search) search.addEventListener("input", apply);
 
+    // /shop?category=Masks (the sale banner's link) opens on that category.
+    var wanted = new URLSearchParams(window.location.search).get("category");
+    if (wanted) {
+      var match = pills.filter(function (pill) {
+        return pill.getAttribute("data-filter").toLowerCase() === wanted.toLowerCase();
+      })[0];
+      if (match) match.click();
+    }
+
     var reset = document.querySelector("[data-shop-reset]");
     if (reset) reset.addEventListener("click", function () {
       if (search) search.value = "";
@@ -444,6 +561,21 @@ export const CLIENT_JS = String.raw`
       if (routinesPill) routinesPill.classList.remove("active");
       if (pills[0]) pills[0].classList.add("active");
       showProducts();
+    });
+  }
+
+  /* ----------------------------------------------------------- sale banner */
+
+  // The banner scrolls on its own, so it needs a way to stop it (WCAG 2.2.2).
+  // Hover and focus pause it too; reduced-motion visitors get a still line.
+  function initPromo() {
+    var promo = document.querySelector("[data-promo]");
+    var pause = promo && promo.querySelector("[data-promo-pause]");
+    if (!pause) return;
+    pause.hidden = false;
+    pause.addEventListener("click", function () {
+      var paused = promo.classList.toggle("is-paused");
+      pause.setAttribute("aria-pressed", paused ? "true" : "false");
     });
   }
 
@@ -465,6 +597,12 @@ export const CLIENT_JS = String.raw`
     var orbitRaf = null;
     var orbitElapsed = 0;
     var orbitLastNow = null;
+    var resultViewer = document.querySelector("[data-result-viewer]");
+    var viewerImage = resultViewer && resultViewer.querySelector("[data-result-viewer-image]");
+    var hoveredCard = null, focusedCard = null, pressedCard = null;
+    var hoverTimer = null, viewerTrigger = null;
+    var dismissPointer = null, lastPointer = { x: 0, y: 0 };
+    var restoringFocus = false;
     var resultImages = [];
     try {
       resultImages = JSON.parse(stage.getAttribute("data-result-images") || "[]");
@@ -544,6 +682,9 @@ export const CLIENT_JS = String.raw`
         card.style.setProperty("--orbit-scale", scale.toFixed(3));
         card.style.setProperty("--orbit-tilt", (-Math.sin(cardAngle) * 3).toFixed(2) + "deg");
         card.style.opacity = visibility.toFixed(3);
+        // Invisible cards must never intercept a tap or keyboard focus.
+        card.inert = visibility < .05;
+        card.style.pointerEvents = visibility < .05 ? "none" : "auto";
         card.style.zIndex = front ? "4" : "1";
         card.setAttribute("data-orbit-side", front ? "front" : "back");
       });
@@ -560,16 +701,107 @@ export const CLIENT_JS = String.raw`
     paintOrbit(0);
     if (!reducedMotion) orbitRaf = requestAnimationFrame(orbitFrame);
 
-    document.addEventListener("visibilitychange", function () {
-      if (reducedMotion) return;
-      if (document.hidden && orbitRaf) {
-        cancelAnimationFrame(orbitRaf);
+    function syncOrbitPlayback() {
+      var paused = reducedMotion || document.hidden || hoveredCard || focusedCard || pressedCard || (resultViewer && resultViewer.open);
+      if (paused) {
+        if (orbitRaf !== null) cancelAnimationFrame(orbitRaf);
         orbitRaf = null;
+        // Resume from this exact angle; time spent reading is not orbit time.
         orbitLastNow = null;
-      } else if (!document.hidden && !orbitRaf) {
+      } else if (orbitRaf === null) {
         orbitRaf = requestAnimationFrame(orbitFrame);
       }
+    }
+
+    function clearHoverTimer() {
+      window.clearTimeout(hoverTimer);
+      hoverTimer = null;
+    }
+
+    function openResult(card) {
+      var image = card.querySelector("img");
+      if (!image || !resultViewer || !resultViewer.showModal || resultViewer.open) return;
+      clearHoverTimer();
+      viewerTrigger = card.querySelector("[data-result-open]");
+      viewerImage.src = image.currentSrc || image.src;
+      viewerImage.alt = image.alt;
+      resultViewer.showModal();
+      document.documentElement.classList.add("result-viewer-open");
+      syncOrbitPlayback();
+    }
+
+    resultCards.forEach(function (card) {
+      var trigger = card.querySelector("[data-result-open]");
+      if (!trigger) return;
+      trigger.addEventListener("pointerenter", function (event) {
+        if (event.pointerType !== "mouse" || dismissPointer || (resultViewer && resultViewer.open)) return;
+        lastPointer = { x: event.clientX, y: event.clientY };
+        hoveredCard = card;
+        syncOrbitPlayback();
+        clearHoverTimer();
+        // A brief intentional hover opens the same viewer as a click or tap.
+        hoverTimer = window.setTimeout(function () { openResult(card); }, 350);
+      });
+      trigger.addEventListener("pointerleave", function () {
+        clearHoverTimer();
+        if (hoveredCard === card) hoveredCard = null;
+        syncOrbitPlayback();
+      });
+      trigger.addEventListener("pointerdown", function () {
+        pressedCard = card;
+        syncOrbitPlayback();
+      });
+      trigger.addEventListener("click", function () { openResult(card); });
+      trigger.addEventListener("focus", function () {
+        if (!restoringFocus && trigger.matches(":focus-visible")) {
+          focusedCard = card;
+          syncOrbitPlayback();
+        }
+      });
+      trigger.addEventListener("blur", function () {
+        if (focusedCard === card) focusedCard = null;
+        syncOrbitPlayback();
+      });
     });
+
+    function releaseCard() {
+      pressedCard = null;
+      syncOrbitPlayback();
+    }
+    window.addEventListener("pointerup", releaseCard);
+    window.addEventListener("pointercancel", releaseCard);
+    window.addEventListener("pointermove", function (event) {
+      if (event.pointerType !== "mouse") return;
+      lastPointer = { x: event.clientX, y: event.clientY };
+      // Closing must not immediately reopen the card under a stationary mouse.
+      if (dismissPointer && Math.hypot(event.clientX - dismissPointer.x, event.clientY - dismissPointer.y) > 12) dismissPointer = null;
+    }, { passive: true });
+
+    if (resultViewer) {
+      resultViewer.querySelector("[data-result-close]").addEventListener("click", function () { resultViewer.close(); });
+      var backdropPress = false;
+      resultViewer.addEventListener("pointerdown", function (event) { backdropPress = event.target === resultViewer; });
+      resultViewer.addEventListener("click", function (event) {
+        if (backdropPress && event.target === resultViewer) resultViewer.close();
+        backdropPress = false;
+      });
+      resultViewer.addEventListener("close", function () {
+        clearHoverTimer();
+        document.documentElement.classList.remove("result-viewer-open");
+        dismissPointer = lastPointer;
+        hoveredCard = focusedCard = pressedCard = null;
+        restoringFocus = true;
+        if (viewerTrigger) viewerTrigger.focus({ preventScroll: true });
+        restoringFocus = false;
+        syncOrbitPlayback();
+      });
+    }
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) clearHoverTimer();
+      syncOrbitPlayback();
+    });
+    syncOrbitPlayback();
 
     if (reducedMotion) return;
 
@@ -590,6 +822,7 @@ export const CLIENT_JS = String.raw`
 
     window.addEventListener("pointermove", function (event) {
       if (event.pointerType && event.pointerType !== "mouse") return;
+      if (hoveredCard || pressedCard || (resultViewer && resultViewer.open)) return;
       var box = stage.getBoundingClientRect();
       tx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width || 1)));
       ty = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height || 1)));
@@ -662,7 +895,12 @@ export const CLIENT_JS = String.raw`
     function lineFor(item) {
       var entry = catalog && catalog[item.id];
       if (!entry) return null;
-      return { item: item, entry: entry, total: entry.priceCents * item.qty };
+      return {
+        item: item,
+        entry: entry,
+        total: entry.priceCents * item.qty,
+        regularTotal: (entry.regularPriceCents || entry.priceCents) * item.qty,
+      };
     }
 
     function render() {
@@ -698,7 +936,12 @@ export const CLIENT_JS = String.raw`
               "</div>" +
             "</div>" +
             '<div class="cart-item-end">' +
-              "<strong>" + money(line.total) + "</strong>" +
+              "<strong>" +
+                (line.regularTotal > line.total
+                  ? '<s class="price-regular">' + money(line.regularTotal) + "</s> "
+                  : "") +
+                money(line.total) +
+              "</strong>" +
               '<button type="button" data-line-remove="' + escapeAttr(line.item.id) + '">Remove</button>' +
             "</div>" +
           "</div>";
@@ -843,6 +1086,7 @@ export const CLIENT_JS = String.raw`
   function init() {
     paintCount();
     initNav();
+    initPromo();
     initAddButtons();
     initProductPage();
     initProductGallery();

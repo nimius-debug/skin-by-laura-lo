@@ -253,6 +253,7 @@ function generatedReview(record) {
       : "I am holding the ingredient interpretation until the current package panel can be confirmed. That is more useful—and more honest—than guessing from a product name or marketing description.",
     useNote: record.considerations,
     ingredients,
+    formula: record.formula || "",
     formulaSource: sourceUrl(record.source),
     formulaSourceLabel: sourceLabel(record.source),
     confidence: record.confidence,
@@ -277,6 +278,15 @@ REVIEWS.set(productKey("Arctigenin Brightening Treatment"), {
 
 export function productInsightFor(productName) {
   return REVIEWS.get(productKey(productName)) || null;
+}
+
+/** One sentence on who a product suits, from its reviewed "best for" text. Empty when the product has no review. */
+export function shortGoodFor(productName) {
+  const text = productInsightFor(productName)?.bestFor?.trim();
+  if (!text) return "";
+  const sentence = text.split(/(?<=[.!?])\s+|;\s+| — /)[0].trim();
+  if (sentence.length <= 170) return sentence;
+  return `${sentence.slice(0, 167).replace(/\s+\S*$/, "")}…`;
 }
 
 export function productInsightCoverage() {

@@ -6,10 +6,12 @@ const CATALOG = {
       ecom_visibility: "VISIBLE",
       variations: [{ id: "V1", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 3400, currency: "USD" }, track_inventory: false } }] } },
-    { id: "I2", type: "ITEM", item_data: { name: "Serum", ecom_visibility: "VISIBLE",
+    { id: "I2", type: "ITEM", item_data: { name: "Serum", reporting_category: { id: "C1" },
+      ecom_visibility: "VISIBLE",
       variations: [{ id: "V2", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 7000, currency: "USD" }, track_inventory: false } }] } },
-    { id: "I3", type: "ITEM", item_data: { name: "Gone", ecom_visibility: "VISIBLE",
+    { id: "I3", type: "ITEM", item_data: { name: "Gone", reporting_category: { id: "C1" },
+      ecom_visibility: "VISIBLE",
       variations: [{ id: "V3", item_variation_data: { pricing_type: "FIXED_PRICING",
         price_money: { amount: 1000, currency: "USD" }, track_inventory: true } }] } },
   ],
@@ -20,7 +22,9 @@ let lastLinkBody = null;
 globalThis.fetch = async (url, options) => {
   const path = new URL(url).pathname;
   const body = options?.body ? JSON.parse(options.body) : {};
-  if (path === "/v2/catalog/search") return json(CATALOG);
+  if (path === "/v2/catalog/search") {
+    return json(body.object_types.includes("PRICING_RULE") ? { objects: [] } : CATALOG);
+  }
   if (path === "/v2/inventory/counts/batch-retrieve") {
     return json({ counts: [{ catalog_object_id: "V3", state: "IN_STOCK", quantity: "0" }] });
   }
@@ -28,6 +32,7 @@ globalThis.fetch = async (url, options) => {
     lastLinkBody = body;
     return json({ payment_link: { url: "https://square.link/u/TEST" } });
   }
+  if (path === "/reporting/v1/load") return json({ data: [] });
   throw new Error("unexpected " + path);
 };
 function json(data, status = 200) {
@@ -62,6 +67,7 @@ check("returns Square URL", r.data.url, "https://square.link/u/TEST");
 check("line item uses catalog id", lastLinkBody.order.line_items, [{ catalog_object_id: "V1", quantity: "1" }]);
 check("no price sent to Square", "base_price_money" in lastLinkBody.order.line_items[0], false);
 check("auto taxes on", lastLinkBody.order.pricing_options.auto_apply_taxes, true);
+check("no sale, no discounts", "discounts" in lastLinkBody.order, false);
 check("shipping fee charged under threshold", lastLinkBody.checkout_options.shipping_fee.charge.amount, 1000);
 check("asks for shipping address", lastLinkBody.checkout_options.ask_for_shipping_address, true);
 check("redirects to thank-you", lastLinkBody.checkout_options.redirect_url, "https://test.skinbylauralo.com/thank-you");

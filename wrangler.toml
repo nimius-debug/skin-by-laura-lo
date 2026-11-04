@@ -27,28 +27,63 @@ PICKUP_PREP_HOURS = "24"
 # Set to "0" to always hit Square live.
 CATALOG_TTL_SECONDS = "120"
 
+# How long the best-seller ranking (products sorted by all-time units sold,
+# within each category; the top 2 per category also get a "Best seller"
+# badge) is cached before Square's Reporting API is asked again. Sales data
+# moves slowly, so this is hours — deliberately far above CATALOG_TTL_SECONDS.
+# Requires the Square access token to have the Reporting API's read scope; if
+# that's missing, products simply fall back to alphabetical order rather than
+# breaking the shop.
+SALES_RANK_TTL_SECONDS = "21600" # 6 hours
+
 # Set to "true" to hide out-of-stock items entirely instead of marking them sold out.
 HIDE_SOLD_OUT = "false"
+
+# A product with no category assigned in Square still needs somewhere to
+# live, so the site labels it "Skincare" rather than dropping it — but that
+# makes an uncategorized product easy to miss. Hiding it entirely (on by
+# default) surfaces the gap instead of quietly shipping it to customers.
+# Set to "false" to show uncategorized products again.
+HIDE_UNCATEGORIZED = "true"
+
+# Email campaigns (/admin/campaigns). Emails go out through Resend, from an
+# address on a domain verified in Resend; replies go to SUPPORT_EMAIL in
+# src/config.js. Nothing sends until the RESEND_API_KEY secret is set.
+CAMPAIGN_FROM_EMAIL = "laura@skinbylauralo.com"
+REMINDER_EMAIL = "skinbylauralo@gmail.com" # Tuesday/Thursday reminders and test emails
+EMAIL_DAILY_LIMIT = "95"                   # Resend's free plan allows 100 a day
+EMAIL_MONTHLY_LIMIT = "3000"               # and 3,000 a month (test emails and reminders count too)
 
 # ---------------------------------------------------------------------------
 # Secrets — DO NOT put these here. Set them with:
 #   npx wrangler secret put SQUARE_ACCESS_TOKEN
 #   npx wrangler secret put SQUARE_LOCATION_ID
 #   npx wrangler secret put SQUARE_ENVIRONMENT   (optional: "sandbox")
+#   npx wrangler secret put ANTHROPIC_API_KEY    (for the /admin client-notes tool)
+#   npx wrangler secret put ANTHROPIC_MODEL      (optional override, e.g. a cheaper model)
+#   npx wrangler secret put ADMIN_USERNAME       (login for /admin)
+#   npx wrangler secret put ADMIN_PASSWORD       (login for /admin; changing it signs everyone out)
+#   npx wrangler secret put RESEND_API_KEY       (sends the email campaigns; from resend.com)
+#   npx wrangler secret put RESEND_WEBHOOK_SECRET (Resend webhook signing secret, for delivery tracking)
 # ---------------------------------------------------------------------------
 
-# Phase 4 cutover — the zone is already on Cloudflare, so this is what
-# actually points the live domain at this Worker. `wrangler deploy` creates
-# and manages the DNS record for each pattern below itself; it does not
-# touch any other record (MX, TXT, SRV, or the mail/webmail/cpanel
-# subdomains), since those are entirely different hostnames.
-[[routes]]
-pattern = "skinbylauralo.com"
-custom_domain = true
+# ---------------------------------------------------------------------------
+# /admin — internal client-notes tool. Its own database and file storage;
+# everything else in this project still reads Square live. See README
+# "The /admin client-notes tool" for what these hold.
+# ---------------------------------------------------------------------------
+[[d1_databases]]
+binding = "CLIENT_NOTES_DB"
+database_name = "skin-by-laura-lo-client-notes"
+database_id = "5c16028c-f42e-4c83-a6cf-a405f26a346e"
 
-[[routes]]
-pattern = "www.skinbylauralo.com"
-custom_domain = true
+[[r2_buckets]]
+binding = "NOTES_BUCKET"
+bucket_name = "skin-by-laura-lo-client-notes"
+
+# The production hostname is attached as a dashboard Route only after the
+# WordPress backup and final cutover checks are complete. Keeping it out of
+# this file means merging a code-preparation PR cannot redirect live traffic.
 
 # Static files (hero cutout, gallery photography). Served directly by
 # Cloudflare's asset layer at their matching path — e.g. public/media/x.png
@@ -56,6 +91,15 @@ custom_domain = true
 # the Worker, so every rendered route is unaffected.
 [assets]
 directory = "./public"
+
+# Voice recording on the "New email" screen is typed out by Workers AI.
+[ai]
+binding = "AI"
+
+# Every 15 minutes: sends queued campaign emails (within the daily limit) and
+# the Tuesday/Thursday 9 am reminders (Tampa time).
+[triggers]
+crons = ["*/15 * * * *"]
 
 [observability]
 enabled = true

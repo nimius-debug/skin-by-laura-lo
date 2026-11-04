@@ -2,10 +2,12 @@ import { html, toString, raw } from "./html.js";
 import {
   BOOKING_URL, EGIFT_URL, INSTAGRAM_URL, SUPPORT_EMAIL, STUDIO,
 } from "./config.js";
+import { FORMS } from "./forms/definitions.js";
+import { promoBanner } from "./promo.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20260910-result-labels";
+const ASSET_VERSION = "20261101-routine-links";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -21,9 +23,10 @@ function announcement(cfg) {
   `;
 }
 
-function header(cfg, current) {
+function header(cfg, current, promo) {
   const mark = (path) => (current === path ? raw(' aria-current="page"') : "");
   return html`
+    ${promoBanner(promo)}
     <div class="announcement">${announcement(cfg)}</div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="Skin by Laura Lo home">
@@ -37,6 +40,13 @@ function header(cfg, current) {
         <a href="/treatments"${mark("/treatments")}>Treatments</a>
         <a href="/shop"${mark("/shop")}>Shop</a>
         <a href="/gallery"${mark("/gallery")}>Gallery</a>
+        <details class="nav-menu${current === "/forms" ? " is-current" : ""}">
+          <summary>Forms</summary>
+          <div class="nav-submenu">
+            ${FORMS.map((form) => html`<a href="/forms/${form.slug}">${form.navLabel}</a>`)}
+            <a class="nav-submenu-all" href="/forms">All forms</a>
+          </div>
+        </details>
         <a href="${EGIFT_URL}">eGift</a>
         <a class="nav-book" href="${BOOKING_URL}">Book now <span aria-hidden="true">&#8599;</span></a>
         <a class="cart-link" href="/cart">Bag <span data-cart-count>0</span></a>
@@ -86,10 +96,10 @@ function footer() {
  * Wrap page content in the full document shell.
  * `head` accepts pre-escaped markup for page-specific meta/JSON-LD.
  */
-export function page({ title, description, body, cfg, current = "", head = "", canonical = "" }) {
-  const fullTitle = title
+export function page({ title, description, body, cfg, current = "", head = "", canonical = "", promo = null, image = "", fullTitle: titleOverride = "" }) {
+  const fullTitle = titleOverride || (title
     ? `${title} · Skin by Laura Lo`
-    : "Skin by Laura Lo · Tampa esthetician & Korean-infused facials";
+    : "Skin by Laura Lo · Tampa esthetician & Korean-infused facials");
 
   return toString(html`<!doctype html>
 <html lang="en">
@@ -102,6 +112,11 @@ ${canonical ? html`<link rel="canonical" href="${canonical}" />` : ""}
 <meta property="og:title" content="${fullTitle}" />
 <meta property="og:description" content="${description || "Korean-infused facials and curated home care in Tampa, Florida."}" />
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="Skin by Laura Lo" />
+${canonical ? html`<meta property="og:url" content="${canonical}" />` : ""}
+${image ? html`<meta property="og:image" content="${image}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="${image}" />` : ""}
 <meta name="theme-color" content="#20231f" />
 <link rel="stylesheet" href="/assets/styles.css?v=${ASSET_VERSION}" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -109,7 +124,7 @@ ${typeof head === "string" ? raw(head) : head}
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-${header(cfg, current)}
+${header(cfg, current, promo)}
 <main id="main">${body}</main>
 ${footer()}
 <script src="/assets/cart.js?v=${ASSET_VERSION}" defer></script>
