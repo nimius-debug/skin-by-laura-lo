@@ -3,7 +3,7 @@
 import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import {
-  campaignRecipientsPage, campaignReviewPage, campaignsHomePage, newCampaignPage, scheduledPage, unsubscribePage,
+  campaignRecipientsPage, campaignReviewPage, campaignsHomePage, migrationNeededPage, newCampaignPage, scheduledPage, unsubscribePage,
 } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
 import { contentProducts, defaultButtonLabel, defaultButtonUrl, productCardHtml } from "./email-template.js";
@@ -116,6 +116,13 @@ async function handleDraft(request, env) {
   const personalize = !form.has("personalizeShown") || form.get("personalize") === "on";
   const recipients = pickedRecipients(form);
   if (recipients && !recipients.length) return fail("Pick at least one person to send this email to.", 400);
+  try {
+    // Checked before any AI call, so a missing migration costs nothing.
+    await env.CLIENT_NOTES_DB.prepare("SELECT audience_json FROM email_campaigns LIMIT 0").all();
+  } catch (error) {
+    if (store.isMissingSchema(error)) return fail("The database needs an update before drafting: run migrations/0009_campaign_audience.sql (see the README).", 503);
+    throw error;
+  }
   try {
     const id = await draftCampaign(env, { topic, goal, personalize, recipients });
     return wantsJson ? jsonResponse({ redirect: `/admin/campaigns/${id}` }) : redirect(`/admin/campaigns/${id}`);
@@ -518,6 +525,21 @@ function dayLabel(date) {
 /** Signed-in /admin/campaigns routes. Returns null for paths that aren't campaign routes. */
 export async function handleCampaignRoute(request, env, url, segments, method) {
   if (segments[1] !== "campaigns") return null;
+  try {
+    return await campaignRoute(request, env, url, segments, method);
+  } catch (error) {
+    // A deploy that ran ahead of its migration: say what to run instead of a bare 1101.
+    if (!store.isMissingSchema(error)) throw error;
+    console.error("Campaign route needs a migration:", error.message);
+    return adminHtmlResponse(adminPage({
+      title: "Database update needed",
+      active: "campaigns",
+      body: migrationNeededPage(),
+    }), { status: 503 });
+  }
+}
+
+async function campaignRoute(request, env, url, segments, method) {
   const [, , first, second, third] = segments;
 
   if (!first && method === "GET") return homePage(env, url);

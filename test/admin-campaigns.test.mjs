@@ -642,5 +642,30 @@ async function freshEnv(extra = {}) {
   check("with tracking on it shows delivered and opened", [trackedHtml.includes("Delivery tracking is off"), trackedHtml.includes(">Opened<")], [false, true]);
 }
 
+// --- a deploy that runs ahead of migration 0009 ----------------------------------------------
+{
+  const db = createD1({ migrations: schemaMigrations().slice(0, -1) });
+  const env = { CLIENT_NOTES_DB: db, SITE_URL: SITE, RESEND_API_KEY: "re_test", CAMPAIGN_FROM_EMAIL: "laura@skinbylauralo.com" };
+  db.raw.exec("INSERT INTO email_campaigns (id, topic, goal, content_json, status) VALUES ('c_old', 't', 'news', '{}', 'sending')");
+  db.raw.exec("INSERT INTO email_versions (id, campaign_id, client_id, status) VALUES ('v_old', 'c_old', NULL, 'approved')");
+  db.raw.exec("INSERT INTO email_sends (id, campaign_id, version_id, email, first_name) VALUES ('s1', 'c_old', 'v_old', 'a@example.com', 'A')");
+  const ok = async (url, init) => new Response(JSON.stringify({ data: JSON.parse(init.body).map((_, index) => ({ id: `m_${index}` })) }), { status: 200 });
+  const run = await sendQueued(env, { now: new Date("2026-10-25T15:00:00Z"), fetchImpl: ok });
+  check("queued emails keep sending before the migration has run", run.sent, 1);
+  const route = (path, init) => {
+    const url = new URL(`https://x.test${path}`);
+    return handleCampaignRoute(new Request(url, init), env, url, url.pathname.split("/").filter(Boolean), init?.method || "GET");
+  };
+  const scheduledPage = await route("/admin/campaigns/scheduled");
+  const text = await scheduledPage.text();
+  check("the Scheduled page says which migration to run instead of crashing",
+    [scheduledPage.status, text.includes("0009_campaign_audience.sql")], [503, true]);
+  const form = new FormData();
+  form.set("topic", "A topic long enough to draft.");
+  const draft = await route("/admin/campaigns", { method: "POST", body: form, headers: { accept: "application/json" } });
+  check("drafting stops before any AI call and names the migration",
+    [draft.status, (await draft.json()).message.includes("0009_campaign_audience.sql")], [503, true]);
+}
+
 console.log(failures === 0 ? "\nAll admin-campaigns tests passed." : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
