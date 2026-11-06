@@ -3,6 +3,7 @@ import { productCard } from "./components.js";
 import { formatMoney, priceMarkup, BOOKING_URL, SUPPORT_EMAIL } from "../config.js";
 import { productInsightFor } from "../product-insights.js";
 import { renderProductOverview } from "../product-overview.js";
+import { ingredientSlug } from "../ingredient-checker.js";
 
 function ingredientDetails(ingredient) {
   return html`
@@ -31,6 +32,9 @@ function ingredientDetails(ingredient) {
           <p>${ingredient.note}</p>
         </div>
         <p class="ingredient-evidence">Information level: <strong>${ingredient.level}</strong></p>
+        ${ingredientSlug(ingredient.name)
+          ? html`<a class="text-link" href="/ingredients/${ingredientSlug(ingredient.name)}">More about this ingredient</a>`
+          : ""}
         ${ingredient.source
           ? html`<a class="text-link" href="${ingredient.source}" target="_blank" rel="noopener noreferrer">Learn from Epicutis <span aria-hidden="true">&#8599;</span></a>`
           : ""}

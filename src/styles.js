@@ -1016,5 +1016,117 @@ html.result-viewer-open { overflow: hidden; }
   .ingredient-toggle { grid-column: 3; grid-row: 1 / span 2; }
   .ingredient-explanation { padding-inline: 18px; }
 }
+
+/* ---------------------------------------------------------- ingredient checker */
+.checker-page { --clog: #a2482a; --helper: #5d6b4a; padding-bottom: 90px; }
+.checker-hero { padding-top: 90px; padding-bottom: 60px; display: grid; grid-template-columns: 1fr .72fr; gap: 10%; align-items: end; border-bottom: 1px solid var(--line); }
+.checker-hero h1 { margin: 0; font-size: clamp(52px, 7vw, 100px); line-height: 1.02; overflow-wrap: anywhere; }
+.checker-hero > p { max-width: 500px; margin: 0 0 13px; color: var(--muted); font-size: 16px; line-height: 1.75; }
+.checker-input { padding-top: 46px; }
+.checker-tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.checker-tabs a { min-height: 48px; padding: 0 22px; display: inline-flex; align-items: center; border-bottom: 2px solid transparent; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+.checker-tabs a.active { border-bottom-color: var(--ink); color: var(--ink); }
+.checker-form { max-width: 880px; padding-top: 30px; display: grid; gap: 14px; }
+.checker-label { display: block; margin-bottom: 8px; color: var(--clay-deep); font-size: 10px; font-weight: 650; letter-spacing: .2em; text-transform: uppercase; }
+.checker-form textarea, .checker-form input[type="search"], .checker-page select { width: 100%; box-sizing: border-box; border: 1px solid rgba(44, 52, 36, .35); background: var(--white); color: var(--ink); font: inherit; font-size: 15px; }
+.checker-form textarea { padding: 18px 20px; line-height: 1.6; resize: vertical; }
+.checker-form input[type="search"], .checker-page select { min-height: 52px; padding: 0 14px; }
+.checker-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
+.checker-row > :first-child { flex: 1 1 260px; }
+.checker-type { min-width: 0; }
+.checker-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.checker-actions .button { min-width: 120px; }
+.checker-hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.checker-hint a { text-decoration: underline; }
+.checker-results { padding-top: 56px; }
+.checker-section { padding-top: 56px; }
+.checker-results > .checker-section:first-child { padding-top: 0; }
+.checker-section h2 { margin: 0 0 22px; font-size: clamp(30px, 3.4vw, 40px); }
+.checker-section .eyebrow { margin-bottom: 10px; }
+.checker-checking { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.checker-verdict { padding: 36px 40px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 28px 48px; align-items: center; background: var(--white); border: 1px solid var(--line); }
+.checker-verdict h2 { margin: 0 0 12px; font-size: clamp(30px, 3.6vw, 42px); line-height: 1.1; }
+.checker-verdict p:not(.checker-verdict-eyebrow) { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.checker-verdict-eyebrow { margin: 0 0 12px; color: var(--clay-deep); font-size: 10px; font-weight: 650; letter-spacing: .2em; text-transform: uppercase; }
+.checker-verdict-clog { border-top: 3px solid var(--clog); }
+.checker-verdict-clog .checker-verdict-eyebrow { color: var(--clog); }
+.checker-verdict-safe { border-top: 3px solid var(--helper); }
+.checker-counts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.checker-counts > div { padding: 16px; display: flex; flex-direction: column-reverse; gap: 4px; background: var(--paper); }
+.checker-counts dt { color: var(--muted); font-size: 12px; }
+.checker-counts dd { margin: 0; font-family: var(--font-serif); font-size: 30px; line-height: 1; }
+.checker-count-clog dd { color: var(--clog); }
+.checker-count-note dd { color: var(--brass-deep); }
+.checker-explainers { padding-top: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.checker-explainers p:not(.ingredient-label) { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.checker-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.checker-group { padding: 22px; background: var(--white); border-top: 3px solid var(--on-dark-muted); }
+.checker-group p:last-child { margin: 0; font-family: var(--font-serif); font-size: 17px; line-height: 1.6; }
+.checker-group-label { margin: 0 0 12px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+.checker-group-clog { border-top-color: var(--clog); }
+.checker-group-clog .checker-group-label { color: var(--clog); }
+.checker-group-note { border-top-color: var(--brass-deep); }
+.checker-group-note .checker-group-label { color: var(--clay); }
+.checker-group-help { border-top-color: var(--helper); }
+.checker-list { border-top: 1px solid var(--line); }
+.checker-ingredient { border-bottom: 1px solid var(--line); }
+.checker-ingredient summary { min-height: 64px; padding: 12px 6px; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; gap: 8px 16px; align-items: center; list-style: none; cursor: pointer; }
+.checker-ingredient summary::-webkit-details-marker { display: none; }
+.checker-ingredient summary:hover, .checker-ingredient[open] > summary { background: var(--panel-stone); }
+.checker-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--on-dark-muted); }
+.checker-ingredient-name { font-family: var(--font-serif); font-size: 18px; overflow-wrap: anywhere; }
+.checker-ingredient-role { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
+.checker-tag { padding: 5px 10px; display: inline-block; border: 1px solid var(--on-dark-muted); color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.checker-ingredient-clog .checker-dot { background: var(--clog); }
+.checker-ingredient-clog .checker-tag, .checker-tag-clog { border-color: var(--clog); color: var(--clog); }
+.checker-ingredient-note .checker-dot { background: var(--brass-deep); }
+.checker-ingredient-note .checker-tag, .checker-tag-note { border-color: var(--brass-deep); color: var(--clay); }
+.checker-ingredient-help .checker-dot { background: var(--helper); }
+.checker-ingredient-help .checker-tag, .checker-tag-help { border-color: var(--helper); }
+.checker-explanation { padding: 8px 6px 28px 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 32px; background: var(--panel-stone); }
+.checker-explanation .ingredient-label { margin-top: 16px; }
+.checker-explanation p:not(.ingredient-label):not(.ingredient-evidence) { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.checker-explanation .ingredient-evidence { margin-top: 14px; padding-top: 12px; }
+.checker-explanation .text-link { margin-top: 14px; font-size: 10px; }
+.checker-section-head p:not(.eyebrow) { max-width: 640px; margin: -8px 0 24px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.checker-alt-grid { margin-bottom: 18px; }
+.checker-alt { display: flex; flex-direction: column; gap: 12px; }
+.checker-alt-why { padding: 12px 14px; background: var(--white); font-size: 12px; line-height: 1.5; color: var(--muted); }
+.checker-alt-why p { margin: 0; }
+.checker-alt-why strong { color: var(--ink); }
+.checker-alt-better { margin-top: 4px !important; font-weight: 650; }
+.checker-type-prompt { max-width: 640px; }
+.checker-matches { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.checker-matches li { border-bottom: 1px solid var(--line); }
+.checker-matches a { min-height: 56px; display: flex; align-items: center; font-family: var(--font-serif); font-size: 18px; }
+.checker-disclaimer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.7; }
+.checker-disclaimer a { text-decoration: underline; }
+.ingredient-page .breadcrumbs { margin: 28px auto 0; }
+.ingredient-hero { padding-top: 48px; grid-template-columns: 1fr; }
+.ingredient-badges { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+.ingredient-facts { padding-top: 48px; }
+.ingredient-checks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ingredient-checks > div { background: var(--white); }
+.ingredient-checks dd { font-size: 22px; }
+.checker-section .checker-hint + .text-link { margin-top: 16px; }
+.checker-back { padding-top: 56px; }
+@media (max-width: 900px) {
+  .checker-hero, .checker-verdict { grid-template-columns: 1fr; }
+  .checker-explainers, .checker-explanation { grid-template-columns: 1fr; }
+  .checker-verdict { padding: 26px 22px; }
+}
+@media (max-width: 640px) {
+  .checker-hero { padding-top: 56px; padding-bottom: 40px; }
+  .checker-hero h1 { font-size: 46px; }
+  .checker-tabs a { flex: 1 1 0; justify-content: center; padding: 0 8px; font-size: 10px; text-align: center; }
+  .checker-actions { width: 100%; }
+  .checker-actions .button { flex: 1 1 0; }
+  .checker-ingredient summary { grid-template-columns: 10px minmax(0, 1fr) auto; }
+  .checker-ingredient-role { display: none; }
+  .checker-explanation { padding-left: 22px; }
+  .checker-counts > div { padding: 12px; }
+  .checker-counts dd { font-size: 24px; }
+  .ingredient-checks { grid-template-columns: 1fr; }
+}
 `;
 

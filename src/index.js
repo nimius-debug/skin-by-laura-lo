@@ -13,6 +13,13 @@ import { homePage } from "./pages/home.js";
 import { shopPage } from "./pages/shop.js";
 import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
+import { checkerPage, ingredientPage, hasIngredientPage } from "./pages/ingredients.js";
+import {
+  betterAlternatives, checkIngredients, describeIngredient, findShopProduct, parseIngredientList,
+  productTypeFor, PRODUCT_TYPES, searchShopProducts, shopIngredientIndex,
+} from "./ingredient-checker.js";
+import { PORE_CLOGGERS } from "./data/pore-cloggers.js";
+import { productInsightFor } from "./product-insights.js";
 import { relatedProductsFor } from "./related-products.js";
 import { salePromo } from "./promo.js";
 import { ROUTINES, routineBySlug, routinePath, resolveRoutine, routineShareImage } from "./routines.js";
@@ -348,6 +355,68 @@ export default {
       }), { cacheSeconds: 60 });
     }
 
+    // The ingredient checker. Results are plain GET pages so a check works
+    // without JavaScript and can be shared as a link; nothing typed is stored.
+    if (path === "/ingredients") {
+      const { products } = catalog;
+      const shopIndex = shopIngredientIndex(products);
+      const params = url.searchParams;
+      const tab = params.get("tab") === "product" ? "product" : "";
+      const list = (params.get("list") || "").slice(0, 6000);
+      const query = (params.get("q") || "").slice(0, 120).trim();
+      const requestedType = PRODUCT_TYPES.some((item) => item.id === params.get("type")) ? params.get("type") : "";
+      let checked = null;
+      let matches = null;
+
+      const picked = findShopProduct(shopIndex.checked.map((entry) => entry.product), params.get("product") || query);
+      if (picked) {
+        const names = (productInsightFor(picked.name)?.ingredients || []).map((item) => item.name);
+        const result = checkIngredients(names);
+        const type = productTypeFor(picked.name, picked.category);
+        checked = {
+          result, type, checkedName: picked.name, typeNeeded: false,
+          alternatives: betterAlternatives(result, products, { type, exclude: picked.slug }),
+        };
+      } else if (tab === "product" && query) {
+        matches = searchShopProducts(products, query);
+      } else if (list.trim()) {
+        const result = checkIngredients(parseIngredientList(list));
+        const hasProblem = result.cloggers.length > 0 || result.notes.some((item) => /fragrance|sensory/i.test(item.role));
+        checked = {
+          result, type: requestedType, checkedName: "",
+          typeNeeded: hasProblem && !requestedType && result.helpers.length > 0,
+          alternatives: betterAlternatives(result, products, { type: requestedType }),
+        };
+      }
+
+      return htmlResponse(page({ promo,
+        title: "Ingredient checker",
+        body: checkerPage({
+          tab, list, type: requestedType, query, checked, matches, shopIndex,
+          productNames: shopIndex.checked.map((entry) => entry.product.name).sort(),
+        }),
+        cfg, current: "/ingredients", canonical,
+        description: "Paste any skincare ingredient list to find pore-clogging ingredients, learn what each ingredient does, and see acne-safe alternatives from Laura Lo's shop.",
+      }), { cacheSeconds: checked || matches ? 0 : 60 });
+    }
+
+    if (path.startsWith("/ingredients/")) {
+      const slug = decodeURIComponent(path.slice("/ingredients/".length));
+      const { products } = catalog;
+      const shopIndex = shopIngredientIndex(products);
+      if (!hasIngredientPage(slug, shopIndex)) {
+        return htmlResponse(page({ promo, title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+      }
+      const clogger = PORE_CLOGGERS.find((item) => describeIngredient(item.name).slug === slug);
+      const entry = shopIndex.ingredients.get(slug) || { ...describeIngredient(clogger.name), products: [] };
+      return htmlResponse(page({ promo,
+        title: `${entry.name}: what it does for skin`,
+        body: ingredientPage({ entry }),
+        cfg, current: "/ingredients", canonical,
+        description: `${entry.name} (${entry.role}): ${entry.description} ${entry.clogger ? "On the pore-clogging list." : "Not on the pore-clogging list."}`.slice(0, 160),
+      }), { cacheSeconds: 300 });
+    }
+
     if (path === "/shop") {
       const { products, connected } = catalog;
       return htmlResponse(page({ promo,
@@ -460,8 +529,9 @@ export default {
 
     if (path === "/sitemap.xml") {
       const { products } = catalog;
-      const paths = ["/", "/about", "/treatments", "/shop", "/gallery", "/terms", "/privacy"]
+      const paths = ["/", "/about", "/treatments", "/shop", "/ingredients", "/gallery", "/terms", "/privacy"]
         .concat(ROUTINES.map((routine) => routinePath(routine.slug)))
+        .concat([...shopIngredientIndex(products).ingredients.keys()].map((slug) => `/ingredients/${slug}`))
         .concat(products.map((product) => `/product/${product.slug}`));
       const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
