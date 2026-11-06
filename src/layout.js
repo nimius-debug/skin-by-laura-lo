@@ -7,7 +7,7 @@ import { promoBanner } from "./promo.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261101-routine-links";
+const ASSET_VERSION = "20261106-ingredient-checker";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -39,6 +39,7 @@ function header(cfg, current, promo) {
         <a href="/about"${mark("/about")}>About</a>
         <a href="/treatments"${mark("/treatments")}>Treatments</a>
         <a href="/shop"${mark("/shop")}>Shop</a>
+        <a href="/ingredients"${mark("/ingredients")}>Ingredient checker</a>
         <a href="/gallery"${mark("/gallery")}>Gallery</a>
         <details class="nav-menu${current === "/forms" ? " is-current" : ""}">
           <summary>Forms</summary>
@@ -70,6 +71,7 @@ function footer() {
             <a href="/about">About</a>
             <a href="/treatments">Treatments</a>
             <a href="/shop">Shop</a>
+            <a href="/ingredients">Ingredient checker</a>
             <a href="/gallery">Gallery</a>
             <a href="${EGIFT_URL}">eGift cards</a>
           </div>
