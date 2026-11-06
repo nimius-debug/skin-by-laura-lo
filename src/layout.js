@@ -7,7 +7,7 @@ import { promoBanner } from "./promo.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261106-ingredient-checker";
+const ASSET_VERSION = "20261106-checker-photos";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {

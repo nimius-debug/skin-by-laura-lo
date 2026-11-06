@@ -8,6 +8,7 @@ import {
 } from "../src/ingredient-checker.js";
 import { poreCloggerFor } from "../src/data/pore-cloggers.js";
 import { squareFetch, SQUARE_ENV } from "./helpers/checker-catalog.mjs";
+import { CLIENT_JS } from "../src/client/cart.js";
 
 // ------------------------------------------------------------ reading a list
 assert.deepEqual(
@@ -80,13 +81,25 @@ console.log("PASS  alternatives only when the shop product is better and the sam
 page = await get("/ingredients?tab=product&q=corthe");
 assert.match(page.body, /Pick a product/);
 assert.match(page.body, /product=corthe-rich-m-lotion/);
+page = await get("/ingredients?tab=product");
+const data = JSON.parse(page.body.match(/<script type="application\/json" data-checker-products>([\s\S]*?)<\/script>/)[1]);
+const rich = data.find((product) => product.name === "Corthe Rich M Lotion");
+assert.match(rich.image, /^https:\/\/items-images-production/, "each suggestion carries its photo");
+assert.equal(rich.kind, "Moisturizer");
+assert.equal(rich.acneSafe, false);
+assert.equal(rich.url, "/ingredients?tab=product&product=corthe-rich-m-lotion#result");
+assert.equal(data.find((product) => product.name === "Soba Calm Cream").acneSafe, true);
+assert.match(page.body, /role="combobox"[^>]*aria-controls="checker-suggest"|aria-controls="checker-suggest"/);
+assert.match(CLIENT_JS, /function initCheckerSearch\(\)/, "the dropdown script ships with the site script");
 page = await get("/ingredients?tab=product&product=corthe-rich-m-lotion");
-assert.match(page.body, /Checking <strong>Corthe Rich M Lotion<\/strong>/);
+assert.match(page.body, /class="checker-picked-product" href="\/product\/corthe-rich-m-lotion"/);
+assert.match(page.body, /<img src="https:\/\/items-images-production[^"]*richm\.jpg" alt="Corthe Rich M Lotion"/, "the picked product shows its photo");
+assert.match(page.body, /Check a different product/);
 assert.match(page.body, /1 pore-clogging ingredient found/);
 assert.match(page.body, /<h3>Moisture RX Recharge/, "a shop product with a pore-clogger gets a clean shop swap");
 page = await get("/ingredients?tab=product&q=not-a-product");
 assert.match(page.body, /isn&#8217;t in Laura&#8217;s shop/);
-console.log("PASS  a shop product can be found and checked");
+console.log("PASS  a shop product can be found with photos and checked");
 
 page = await get("/ingredients/niacinamide");
 assert.equal(page.status, 200);
