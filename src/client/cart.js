@@ -1081,6 +1081,94 @@ export const CLIENT_JS = String.raw`
       });
   }
 
+  /* ---------------------------------------------------- ingredient checker */
+
+  // "Find a product" on the ingredient checker: matching shop products, with
+  // their photos, appear under the box as you type. Without this script the
+  // form still submits and the server lists the matches as a page.
+  function initCheckerSearch() {
+    var input = document.querySelector("[data-checker-search]");
+    var box = document.querySelector("[data-checker-suggest]");
+    var source = document.querySelector("[data-checker-products]");
+    if (!input || !box || !source) return;
+    var products = [];
+    try { products = JSON.parse(source.textContent) || []; } catch (error) { return; }
+    var matches = [];
+    var active = -1;
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, function (ch) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
+      });
+    }
+
+    function close() {
+      box.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      active = -1;
+    }
+
+    function highlight(index) {
+      var rows = box.querySelectorAll("[data-suggest-row]");
+      active = index;
+      for (var i = 0; i < rows.length; i++) rows[i].setAttribute("aria-selected", i === index ? "true" : "false");
+      if (rows[index]) {
+        input.setAttribute("aria-activedescendant", rows[index].id);
+        rows[index].scrollIntoView({ block: "nearest" });
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
+    }
+
+    function render() {
+      var words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!words.length || input.value.trim().length < 2) { close(); return; }
+      matches = products.filter(function (product) {
+        var name = product.name.toLowerCase();
+        return words.every(function (word) { return name.indexOf(word) !== -1; });
+      }).slice(0, 8);
+      var html = '<p class="checker-suggest-count">' + (matches.length
+        ? matches.length + (matches.length === 1 ? " product" : " products")
+        : "No products match") + "</p>";
+      matches.forEach(function (product, index) {
+        html += '<a class="checker-suggest-row" data-suggest-row role="option" aria-selected="false" id="checker-suggest-' + index + '" href="' + escapeHtml(product.url) + '">' +
+          (product.image
+            ? '<img src="' + escapeHtml(product.image) + '" alt="" width="52" height="60" loading="lazy" />'
+            : '<span class="checker-suggest-noimg" aria-hidden="true"></span>') +
+          '<span class="checker-suggest-text"><span class="checker-suggest-name">' + escapeHtml(product.name) + "</span>" +
+          '<span class="checker-suggest-meta">' + escapeHtml([product.kind, product.price].filter(Boolean).join(" · ")) + "</span></span>" +
+          '<span class="checker-tag checker-tag-' + (product.acneSafe ? "help" : "clog") + '">' + (product.acneSafe ? "Acne-safe" : "Pore-clogging") + "</span></a>";
+      });
+      html += '<p class="checker-suggest-foot">Not here? <a href="/ingredients">Paste its ingredient list</a> instead.</p>';
+      box.innerHTML = html;
+      box.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      active = -1;
+    }
+
+    input.addEventListener("input", render);
+    input.addEventListener("focus", function () { if (input.value.trim().length >= 2) render(); });
+    input.addEventListener("keydown", function (event) {
+      if (box.hidden) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        highlight(Math.min(active + 1, matches.length - 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        highlight(Math.max(active - 1, 0));
+      } else if (event.key === "Enter" && active >= 0 && matches[active]) {
+        event.preventDefault();
+        window.location.href = matches[active].url;
+      } else if (event.key === "Escape") {
+        close();
+      }
+    });
+    document.addEventListener("click", function (event) {
+      if (!box.contains(event.target) && event.target !== input) close();
+    });
+  }
+
   /* ---------------------------------------------------------------- boot */
 
   function init() {
@@ -1092,6 +1180,7 @@ export const CLIENT_JS = String.raw`
     initProductGallery();
     initProductInsights();
     initShopFilters();
+    initCheckerSearch();
     initRoutines();
     initHero();
     initTilt();

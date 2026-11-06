@@ -1,6 +1,6 @@
-import { html } from "../html.js";
+import { html, jsonScript, raw } from "../html.js";
 import { productCard } from "./components.js";
-import { BOOKING_URL } from "../config.js";
+import { BOOKING_URL, priceMarkup } from "../config.js";
 import { PORE_CLOGGERS } from "../data/pore-cloggers.js";
 import {
   GROUPS, MAX_LIST_CHARS, PRODUCT_TYPES, productTypeLabel, researchUrl, ingredientSlug,
@@ -36,7 +36,7 @@ function typeOptions(selected) {
   `;
 }
 
-function checkerForms({ tab, list, type, query, productNames }) {
+function checkerForms({ tab, list, type, query, suggestions }) {
   const pasteTab = tab !== "product";
   return html`
     <div class="checker-tabs" role="tablist" aria-label="How to check">
@@ -66,15 +66,17 @@ function checkerForms({ tab, list, type, query, productNames }) {
         <input type="hidden" name="tab" value="product" />
         <label class="checker-label" for="checker-product">Search Laura&#8217;s shop</label>
         <div class="checker-row">
-          <input id="checker-product" name="q" type="search" list="checker-products" value="${query}"
-            placeholder="e.g. Corthe toner" autocomplete="off" required />
+          <div class="checker-combo">
+            <input id="checker-product" name="q" type="search" value="${query}" data-checker-search
+              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="checker-suggest"
+              placeholder="e.g. Corthe toner" autocomplete="off" required />
+            <div id="checker-suggest" class="checker-suggest" role="listbox" aria-label="Matching products" data-checker-suggest hidden></div>
+          </div>
           <div class="checker-actions">
             <button class="button button-dark" type="submit">Check</button>
           </div>
         </div>
-        <datalist id="checker-products">
-          ${productNames.map((name) => html`<option value="${name}"></option>`)}
-        </datalist>
+        <script type="application/json" data-checker-products>${jsonScript(suggestions)}</script>
         <p class="checker-hint">Checking something from another brand? <a href="/ingredients">Paste its ingredient list</a> instead.</p>
       </form>
     `}
@@ -226,12 +228,34 @@ function alternativesSection({ result, alternatives, type, list, typeNeeded }) {
   `;
 }
 
-function results({ result, checkedName, alternatives, type, list, typeNeeded, shopIndex }) {
+function checkedProductPanel(product, type, result) {
+  return html`
+    <div class="checker-picked-bar">
+      <p>Checking a product from Laura&#8217;s shop</p>
+      <a class="text-link" href="/ingredients?tab=product">Check a different product</a>
+    </div>
+    <div class="checker-picked">
+      <a class="checker-picked-product" href="/product/${product.slug}">
+        ${product.image
+          ? html`<img src="${product.image}" alt="${product.name}" width="300" height="350" />`
+          : html`<span class="product-image-fallback">${product.name}</span>`}
+        ${type ? html`<span class="checker-picked-kind">${productTypeLabel(type)}</span>` : ""}
+        <span class="checker-picked-name">${product.name}</span>
+        <span class="checker-picked-price">${raw(priceMarkup(product.priceCents, product.regularPriceCents))}</span>
+        <span class="text-link">View product page</span>
+      </a>
+      <div class="checker-picked-result">${verdict(result)}</div>
+    </div>
+  `;
+}
+
+function results({ result, checkedName, checkedProduct, alternatives, type, list, typeNeeded, shopIndex }) {
   return html`
     <div class="checker-results section-shell" id="result">
       <section class="checker-section" aria-labelledby="result-heading">
-        ${checkedName ? html`<p class="checker-checking">Checking <strong>${checkedName}</strong></p>` : ""}
-        ${verdict(result)}
+        ${checkedProduct
+          ? checkedProductPanel(checkedProduct, type, result)
+          : html`${checkedName ? html`<p class="checker-checking">Checking <strong>${checkedName}</strong></p>` : ""}${verdict(result)}`}
       </section>
       ${result.ingredients.length ? html`
         ${groups(result)}
@@ -269,7 +293,7 @@ function productMatches({ query, matches }) {
 
 /** The checker page: the forms, and the result when there is one. */
 export function checkerPage({
-  tab = "", list = "", type = "", query = "", productNames = [], checked = null, matches = null, shopIndex,
+  tab = "", list = "", type = "", query = "", suggestions = [], checked = null, matches = null, shopIndex,
 }) {
   return html`
     <div class="checker-page">
@@ -282,7 +306,7 @@ export function checkerPage({
       </div>
 
       <div class="checker-input section-shell">
-        ${checkerForms({ tab, list, type, query, productNames })}
+        ${checkerForms({ tab, list, type, query, suggestions })}
       </div>
 
       ${checked ? results({ ...checked, list, shopIndex }) : matches ? productMatches({ query, matches }) : ""}

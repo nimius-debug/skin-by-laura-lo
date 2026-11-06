@@ -1,4 +1,4 @@
-import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO } from "./config.js";
+import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO, formatMoney } from "./config.js";
 import { getCatalog, indexVariations, isConfigured, createPaymentLink } from "./square.js";
 import { page, htmlResponse, jsonResponse } from "./layout.js";
 import { STYLES } from "./styles.js";
@@ -16,7 +16,7 @@ import { cartPage, thankYouPage } from "./pages/cart.js";
 import { checkerPage, ingredientPage, hasIngredientPage } from "./pages/ingredients.js";
 import {
   betterAlternatives, checkIngredients, describeIngredient, findShopProduct, parseIngredientList,
-  productTypeFor, PRODUCT_TYPES, searchShopProducts, shopIngredientIndex,
+  productTypeFor, productTypeLabel, PRODUCT_TYPES, searchShopProducts, shopIngredientIndex,
 } from "./ingredient-checker.js";
 import { PORE_CLOGGERS } from "./data/pore-cloggers.js";
 import { productInsightFor } from "./product-insights.js";
@@ -374,7 +374,7 @@ export default {
         const result = checkIngredients(names);
         const type = productTypeFor(picked.name, picked.category);
         checked = {
-          result, type, checkedName: picked.name, typeNeeded: false,
+          result, type, checkedName: picked.name, checkedProduct: picked, typeNeeded: false,
           alternatives: betterAlternatives(result, products, { type, exclude: picked.slug }),
         };
       } else if (tab === "product" && query) {
@@ -393,7 +393,16 @@ export default {
         title: "Ingredient checker",
         body: checkerPage({
           tab, list, type: requestedType, query, checked, matches, shopIndex,
-          productNames: shopIndex.checked.map((entry) => entry.product.name).sort(),
+          suggestions: shopIndex.checked
+            .map(({ product, result }) => ({
+              name: product.name,
+              url: `/ingredients?tab=product&product=${encodeURIComponent(product.slug)}#result`,
+              image: product.image || "",
+              kind: productTypeLabel(productTypeFor(product.name, product.category)),
+              price: formatMoney(product.priceCents),
+              acneSafe: result.cloggers.length === 0,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
         }),
         cfg, current: "/ingredients", canonical,
         description: "Paste any skincare ingredient list to find pore-clogging ingredients, learn what each ingredient does, and see acne-safe alternatives from Laura Lo's shop.",
