@@ -5,6 +5,8 @@ import { parseCsv, readGoogleResponses, googleTimestamp } from "../src/forms/goo
 import { formPage } from "../src/pages/forms.js";
 import { toString } from "../src/html.js";
 import * as forms from "../src/admin/forms.js";
+import { importPage } from "../src/admin/pages/forms.js";
+import { FORMS_JS } from "../src/client/forms.js";
 import { findFlags } from "../src/admin/safety.js";
 import { summaryPrompt } from "../src/admin/claude.js";
 import { handleAdminRequest } from "../src/admin/routes.js";
@@ -308,6 +310,110 @@ const post = (slug, fields) => worker.fetch(new Request(`https://x.test/forms/${
   body.append("file", new File([csv], "responses.csv", { type: "text/csv" }));
   const previewPage = await (await call("/admin/forms/brows-lashes/import", { method: "POST", body })).text();
   check("uploading shows the preview; without Square here it says names only", [previewPage.includes("Already imported"), previewPage.includes("matched by name only")], [true, true]);
+}
+
+// --- the facial and virtual forms -------------------------------------------------------
+{
+  let parses = true;
+  try { new Function(FORMS_JS); } catch { parses = false; }
+  check("the step-by-step script is valid JavaScript once served", parses, true);
+  const facial = formBySlug("facial");
+  const virtual = formBySlug("virtual-consultation");
+  check("the facial and virtual forms are listed", [Boolean(facial), Boolean(virtual)], [true, true]);
+  const facialBase = {
+    full_name: "Rosa Diaz", email: "rosa@example.com", phone: "813-555-0199", date_of_birth: "1990-01-02",
+    facial_goal: "Both / Ambos", skin_priorities: ["Acne", "__other"], skin_priorities__other: "Large pores",
+    skin_type: ["Oily (Grasa)"], makeup: "No", skin_medications: ["None / Ninguno"], allergies: ["Latex"],
+    health_conditions: ["None of the above / Ninguna de las anteriores"], supplements: "No", pregnant: "No",
+    media_consent: "No", ack_truthful: "yes", signature: "Rosa Diaz",
+  };
+  const { answers, errors } = readSubmission(facial, toFormData(facialBase));
+  check("a complete facial form has no problems", errors, {});
+  check("what she types next to Other counts as one more pick", answers.skin_priorities, ["Acne", "Large pores"]);
+  check("Other with nothing typed adds nothing", readSubmission(facial, toFormData({ ...facialBase, skin_priorities: ["__other"], skin_priorities__other: "" })).errors.skin_priorities, "Please pick an answer.");
+  check("an Other single choice keeps the typed answer", readSubmission(facial, toFormData({ ...facialBase, facial_goal: "__other", facial_goal__other: "A gift" })).answers.facial_goal, "A gift");
+  const note = noteFromSubmission(facial, answers);
+  check("the facial note carries her allergies for the safety check", note.includes("Latex"), true);
+  const markup = toString(formPage({ form: facial }));
+  check("the facial form shows its Spanish wording", markup.includes('class="form-es" lang="es"'), true);
+  check("a form without photos isn't sent as a file upload", markup.includes("multipart/form-data"), false);
+
+  const vMarkup = toString(formPage({ form: virtual }));
+  check("the virtual form asks for three photos and uploads files", [(vMarkup.match(/type="file"/g) || []).length, vMarkup.includes('enctype="multipart/form-data"')], [3, true]);
+
+  const photo = (name, type = "image/jpeg") => new File([new Uint8Array([1, 2, 3])], name, { type });
+  const virtualBase = {
+    full_name: "Lee Chan", email: "lee@example.com", phone: "813-555-0111", date_of_birth: "1988-08-08", skin_priorities: ["Acne"], skin_type: ["Dry (Seca)"],
+    makeup: "No", skin_medications: ["None / Ninguno"], allergies: ["None / Ninguna"], health_conditions: ["None of the above / Ninguna de las anteriores"],
+    supplements: "No", pregnant: "No", product_reactions: "No", smoke: "No", shaving_irritation: "No", stress: "No",
+    ack_truthful: "yes", signature: "Lee Chan",
+  };
+  const withPhotos = toFormData(virtualBase);
+  ["left.jpg", "right.jpg", "front.jpg"].forEach((name, index) => withPhotos.append(`photos__${index}`, photo(name)));
+  const read = readSubmission(virtual, withPhotos);
+  check("three photos make a complete virtual form", [read.errors, read.answers.photos.map((p) => p.slot)], [{}, ["Left side", "Right side", "Front"]]);
+  const two = toFormData(virtualBase);
+  two.append("photos__0", photo("left.jpg"));
+  two.append("photos__1", photo("right.jpg"));
+  check("a missing photo is asked for", readSubmission(virtual, two).errors.photos, "Please add all 3 photos.");
+  const notImage = toFormData(virtualBase);
+  ["a.pdf", "b.jpg", "c.jpg"].forEach((name, index) => notImage.append(`photos__${index}`, photo(name, index ? "image/jpeg" : "application/pdf")));
+  check("a file that isn't a photo is refused", readSubmission(virtual, notImage).errors.photos, "Please add photos only.");
+
+  // Saved photos go to R2 and only the admin serves them.
+  const stored = new Map();
+  const bucket = {
+    put: async (key, body, options) => { stored.set(key, { body, type: options.httpMetadata.contentType }); },
+    get: async (key) => (stored.has(key) ? { body: stored.get(key).body, httpMetadata: { contentType: stored.get(key).type }, writeHttpMetadata(h) { h.set("content-type", this.httpMetadata.contentType); } } : null),
+  };
+  const photoEnv = { ...env, NOTES_BUCKET: bucket };
+  const saved = await forms.saveSubmission(photoEnv, virtual, read.answers);
+  const sub = await forms.getSubmission(photoEnv, saved.id);
+  check("each photo is stored and the submission keeps its key", [stored.size, sub.answers.photos.map((p) => p.key)],
+    [3, [1, 2, 3].map((n) => `forms/${saved.id}/photos-${n}.jpg`)]);
+  check("the photos are shown on the submission", JSON.parse((await d1.prepare("SELECT display_json FROM form_submissions WHERE id = ?").bind(saved.id).first()).display_json)
+    .find((step) => step.rows.some((r) => r.id === "photos")).rows.find((r) => r.id === "photos").photos.length, 3);
+  const cookie = sessionCookie(await createSessionToken(env, Date.now(), {}), {}).split(";")[0];
+  const photoUrl = `https://x.test/admin/forms/submissions/${saved.id}/photos/photos/2`;
+  const served = await handleAdminRequest(new Request(photoUrl, { headers: { cookie } }), photoEnv, new URL(photoUrl));
+  check("the admin serves a photo", [served.status, served.headers.get("content-type")], [200, "image/jpeg"]);
+  const anon = await handleAdminRequest(new Request(photoUrl), photoEnv, new URL(photoUrl));
+  check("photos need the admin login", anon.status === 200, false);
+  const detail = await (await handleAdminRequest(new Request(`https://x.test/admin/forms/submissions/${saved.id}`, { headers: { cookie } }), photoEnv, new URL(`https://x.test/admin/forms/submissions/${saved.id}`))).text();
+  check("the submission page shows the photos", detail.includes(`/admin/forms/submissions/${saved.id}/photos/photos/0`), true);
+
+  // A Google Sheets style export: ";" between picks, AM/PM times with a zone, Spanish yes, Other text, Drive links.
+  const headers = virtual.steps.flatMap((step) => step.questions).map((q) => q.google);
+  headers.splice(headers.indexOf("Do you wear makeup regularly") + 1, 0, "If yes, please specify the products");
+  const vHeaders = ["Timestamp", ...new Set(headers)];
+  const cell = (title, value) => [title, value];
+  const row = new Map([
+    cell("Timestamp", "2024/10/13 1:25:21 PM EST"), cell("Full Name", "Sam Test"), cell("Email", "Sam@Example.com"),
+    cell("What is your top skincare priority", "Acne;Hyperpigmentation / Manchas de la piel;Blackheads"),
+    cell("How would you describe your skin type", "Oily (Grasa)"),
+    cell("Do you wear makeup regularly", "Sí / Yes"), cell("If yes, please specify the products", "Tinted sunscreen"),
+    cell("Do you have any known allergies", "None / Ninguna"), cell("Are you pregnant or nursing", "No / No"),
+    cell("Diet", "Cheese;Soy"), cell("Take 3 pictures", "https://drive.google.com/open?id=a, https://drive.google.com/open?id=b, https://drive.google.com/open?id=c"),
+    cell("I have read and completed this questionnaire truthfully", "Sam Test"),
+  ]);
+  const quote = (value) => `"${String(value).replace(/"/g, '""')}"`;
+  const csv = [vHeaders, vHeaders.map((h) => row.get(h) || "")].map((cells) => cells.map(quote).join(",")).join("\n");
+  const imported = readGoogleResponses(virtual, csv);
+  check("every virtual question finds its column", [imported.error, imported.missing], ["", []]);
+  const a = imported.rows[0].answers;
+  check("AM/PM times with a zone are read as Tampa time", imported.rows[0].submittedAt, "2024-10-13 17:25:21");
+  check("';' separated picks are split, and unknown ones kept", a.skin_priorities, ["Acne", "Hyperpigmentation / Manchas de la piel", "Blackheads"]);
+  check("Spanish yes with its product list becomes Yes with details", a.makeup, { answer: "Yes", details: "Tinted sunscreen" });
+  check("'No / No' and 'None / Ninguna' read as no", [a.pregnant, a.allergies], [{ answer: "No" }, ["None / Ninguna"]]);
+  check("the Drive links are kept as the photos", a.photos.length, 3);
+  check("the typed name signs it and agrees", [a.ack_truthful, a.signature], [true, "Sam Test"]);
+
+  // Skipping a row on the preview (a test entry) leaves it out.
+  const preview = await forms.previewImport(env, virtual, csv);
+  check("a skipped row isn't imported", (await forms.runImport(env, virtual, preview, [preview.rows[0].key])).added, 0);
+  const page = toString(importPage({ form: virtual, preview, csv }));
+  check("the preview offers a Skip box per new row", page.includes(`name="skip" value="${preview.rows[0].key}"`), true);
+  check("then it imports when not skipped", (await forms.runImport(env, virtual, preview)).added, 1);
 }
 
 console.log(failures === 0 ? "\nAll client-forms tests passed." : `\n${failures} FAILURE(S)`);

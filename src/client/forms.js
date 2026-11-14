@@ -36,13 +36,49 @@ export const FORMS_JS = `
 
   function active() { return steps.filter(applies); }
 
-  // "Tell me more" boxes show only after Yes.
+  // "Tell me more" boxes show only after Yes, and the "Other" box only once Other is picked.
   function syncDetails() {
     Array.prototype.forEach.call(form.querySelectorAll("[data-details-for]"), function (box) {
       var yes = values(box.getAttribute("data-details-for"))[0] === "Yes";
       box.hidden = !yes;
     });
+    Array.prototype.forEach.call(form.querySelectorAll("[data-other-for]"), function (box) {
+      box.hidden = values(box.getAttribute("data-other-for")).indexOf("__other") === -1;
+    });
   }
+
+  // Photos: show each one in its frame, and shrink big phone photos before they're sent so the upload is quick.
+  var MAX_SIDE = 2000;
+  function shrink(file) {
+    return new Promise(function (resolve) {
+      if (!window.createImageBitmap || !window.DataTransfer || file.size < 1500000 || !/^image\\/(jpeg|png|webp)$/.test(file.type)) return resolve(file);
+      createImageBitmap(file).then(function (bitmap) {
+        var scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(function (blob) {
+          if (!blob || blob.size >= file.size) return resolve(file);
+          resolve(new File([blob], file.name.replace(/\\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" }));
+        }, "image/jpeg", 0.85);
+      }).catch(function () { resolve(file); });
+    });
+  }
+  Array.prototype.forEach.call(form.querySelectorAll("[data-photo]"), function (input) {
+    input.addEventListener("change", function () {
+      var file = input.files && input.files[0];
+      var preview = input.parentNode.querySelector("[data-photo-preview]");
+      if (!file) { preview.hidden = true; input.parentNode.classList.remove("has-photo"); return; }
+      preview.src = URL.createObjectURL(file);
+      preview.hidden = false;
+      input.parentNode.classList.add("has-photo");
+      shrink(file).then(function (smaller) {
+        if (smaller === file) return;
+        try { var list = new DataTransfer(); list.items.add(smaller); input.files = list.files; } catch (error) { /* keep the original */ }
+      });
+    });
+  });
 
   // "None of the above" clears the other choices, and picking one clears it.
   form.addEventListener("change", function (event) {
@@ -74,6 +110,16 @@ export const FORMS_JS = `
     var required = question.hasAttribute("data-required");
     var picked = values(name);
     var text = (picked[0] || "").trim();
+    if (type === "photos") {
+      var inputs = question.querySelectorAll("input[type=file]");
+      var added = Array.prototype.filter.call(inputs, function (input) { return input.files && input.files.length; });
+      if (added.some(function (input) { return !/^image\\//.test(input.files[0].type); })) return "Please add photos only.";
+      return required && added.length < inputs.length ? "Please add all " + inputs.length + " photos." : "";
+    }
+    if (picked.indexOf("__other") !== -1) {
+      var otherBox = form.querySelector('[name="' + name + '__other"]');
+      if (otherBox && !otherBox.value.trim()) return "Please type your answer.";
+    }
     if (type === "agree") return required && !picked.length ? "Please tick this to continue." : "";
     if (type === "choices" || type === "choice" || type === "yesno") return required && !picked.length ? "Please pick an answer." : "";
     if (required && !text) return type === "signature" ? "Please type your full name to sign." : "Please fill this in.";

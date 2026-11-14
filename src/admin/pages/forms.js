@@ -159,6 +159,21 @@ function linkCard(submission, { suggestions, clients }) {
   `;
 }
 
+// Photos she sent here show as pictures; Google Drive links from an import show as links.
+function answerCell(submission, row) {
+  if (row.photos?.length) {
+    return html`<div class="forms-photos">${row.photos.map((photo) => {
+      const src = `/admin/forms/submissions/${submission.id}/photos/${row.id}/${photo.index}`;
+      return html`<a href="${src}" target="_blank" rel="noopener" class="forms-photo"><img src="${src}" alt="${photo.slot}" loading="lazy" /><span>${photo.slot}</span></a>`;
+    })}</div>`;
+  }
+  const links = String(row.value || "").split(/,\s*/).filter((part) => /^https:\/\/(drive|docs)\.google\.com\//.test(part));
+  if (links.length && links.length === String(row.value).split(/,\s*/).length) {
+    return html`<div class="sheet-value">${links.map((link, index) => html`<a href="${link}" target="_blank" rel="noopener">Photo ${index + 1}</a>${index < links.length - 1 ? " · " : ""}`)}</div>`;
+  }
+  return html`<div class="sheet-value${row.value ? "" : " forms-blank"}">${row.value || "Left blank"}</div>`;
+}
+
 /** One submission: who sent it, the client it belongs to, and every answer. */
 export function submissionPage({ form, submission, suggestions = [], clients = [] }) {
   return html`
@@ -180,7 +195,7 @@ export function submissionPage({ form, submission, suggestions = [], clients = [
               ${step.rows.map((row) => html`
                 <div class="sheet-field">
                   <div class="forms-q">${row.label}</div>
-                  <div class="sheet-value${row.value ? "" : " forms-blank"}">${row.value || "Left blank"}</div>
+                  ${answerCell(submission, row)}
                 </div>
               `)}
             </div>
@@ -267,7 +282,7 @@ export function importPage({ form, preview = null, csv = "", result = null }) {
     <div class="card" style="padding: 0; overflow: hidden;">
       <div class="camp-table-wrap" style="margin: 0;">
         <table class="data">
-          <thead><tr><th>Name</th><th>Sent</th><th>Client</th></tr></thead>
+          <thead><tr><th>Name</th><th>Sent</th><th>Client</th><th>Skip</th></tr></thead>
           <tbody>
             ${preview.rows.map((row) => html`
               <tr${row.alreadyImported ? raw(' class="forms-import-done"') : ""}>
@@ -278,6 +293,7 @@ export function importPage({ form, preview = null, csv = "", result = null }) {
                   : row.match.clientId
                     ? html`<strong>${row.match.clientName}</strong><div class="history-meta${row.match.how === "name" ? " forms-check" : ""}">${MATCH_LABEL[row.match.how]}</div>`
                     : html`<span class="pill pill-review">Needs a client</span><div class="history-meta">${MATCH_LABEL[row.match.how]}</div>`}</td>
+                <td>${row.alreadyImported ? "" : html`<label class="forms-skip"><input type="checkbox" name="skip" value="${row.key}" form="forms-import-confirm" aria-label="Skip ${row.answers.full_name || "this response"}" /></label>`}</td>
               </tr>
             `)}
           </tbody>
@@ -285,11 +301,11 @@ export function importPage({ form, preview = null, csv = "", result = null }) {
       </div>
     </div>
     ${fresh.length
-      ? html`<form method="post" action="/admin/forms/${form.slug}/import" class="forms-import-confirm">
+      ? html`<form method="post" action="/admin/forms/${form.slug}/import" class="forms-import-confirm" id="forms-import-confirm">
           <textarea name="csv" hidden>${csv}</textarea>
           <input type="hidden" name="confirm" value="1" />
-          <div class="camp-muted">${fresh.length} new response${fresh.length === 1 ? "" : "s"}, ${linked} matched to a client.</div>
-          <button type="submit" class="btn btn-primary">Import ${fresh.length} response${fresh.length === 1 ? "" : "s"}</button>
+          <div class="camp-muted">${fresh.length} new response${fresh.length === 1 ? "" : "s"}, ${linked} matched to a client. Tick Skip on any you don't want, like a test entry.</div>
+          <button type="submit" class="btn btn-primary">Import new responses</button>
         </form>`
       : html`<div class="camp-notice">Everything in this file is already imported.</div>`}
   `;

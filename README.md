@@ -288,6 +288,12 @@ form is a new entry there.
   steps for the services she picked. Each step is checked before moving on,
   and everything is checked again on the server. Without JavaScript the form
   shows as one long page and still sends.
+- **Three forms so far:** Facial, Virtual consultation and Brow + Lashes. The
+  facial and virtual forms show each question in Spanish under the English.
+  Choice questions can offer "Something else" with a box to type in.
+- **Photos.** The virtual form asks for three face photos. Big phone photos
+  are shrunk in the browser before sending, stored in R2 under
+  `forms/<submission>/`, and only shown inside the admin.
 - **Kept whole.** Every submission is saved in `form_submissions` exactly as
   sent, with the questions as she saw them.
 - **Linked to the client.** Her email, then her phone, is looked up in

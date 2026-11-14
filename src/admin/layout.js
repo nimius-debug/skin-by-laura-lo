@@ -525,6 +525,11 @@ const FORMS_STYLES = `
 .forms-import-upload input[type="file"] { margin-top: 8px; font: inherit; font-size: 14px; }
 tr.forms-import-done td { opacity: .55; }
 .forms-check { color: #7A5418; font-weight: 600; }
+.forms-skip { display: inline-flex; padding: 6px; cursor: pointer; }
+.forms-skip input { width: 18px; height: 18px; }
+.forms-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 160px)); gap: 10px; margin-top: 4px; }
+.forms-photo { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-soft); }
+.forms-photo img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; background: #F3ECE2; }
 @media (max-width: 760px) {
   .forms-col-form { display: none; }
   .forms-card-actions .btn { flex: 1; justify-content: center; }

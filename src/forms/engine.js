@@ -12,6 +12,14 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Field name for the "tell me more" box under a yes/no question. */
 export const detailsName = (question) => `${question.id}__details`;
+/** Field name for the text typed next to an "Other" choice. */
+export const otherName = (question) => `${question.id}__other`;
+/** The value the "Other" choice itself sends. */
+export const OTHER = "__other";
+/** Field name for one photo of a photos question. */
+export const photoName = (question, index) => `${question.id}__${index}`;
+
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
 /** True when a step should be shown for these answers. */
 export function stepVisible(step, answers) {
@@ -40,15 +48,25 @@ function readAnswer(question, data) {
 
   switch (question.type) {
     case "choices": {
-      const picked = [...new Set(getAll(question.id).map(String))].filter((option) => question.options.includes(option));
+      const sent = [...new Set(getAll(question.id).map(String))];
+      let picked = sent.filter((option) => question.options.includes(option));
+      // What she typed next to "Other" counts as one more pick.
+      const other = question.other && sent.includes(OTHER) ? clean(get(otherName(question)), MAX_SHORT) : "";
+      if (other) picked.push(other);
       // "None of the above" alongside a real pick is a slip; the real picks win.
-      if (question.none && picked.length > 1) return picked.filter((option) => option !== question.none);
+      if (question.none && picked.length > 1) picked = picked.filter((option) => option !== question.none);
       return picked;
     }
     case "choice": {
       const value = String(get(question.id) ?? "");
+      if (question.other && value === OTHER) return clean(get(otherName(question)), MAX_SHORT);
       return question.options.includes(value) ? value : "";
     }
+    case "photos":
+      // File objects until saveSubmission stores them; afterwards { slot, key } per photo.
+      return question.slots
+        .map((slot, index) => ({ slot, file: get(photoName(question, index)) }))
+        .filter(({ file }) => file && typeof file === "object" && file.size > 0);
     case "yesno": {
       const value = String(get(question.id) ?? "");
       if (value !== "Yes" && value !== "No") return null;
@@ -64,13 +82,19 @@ function readAnswer(question, data) {
 
 function isEmpty(question, value) {
   if (question.type === "choices") return value.length === 0;
+  if (question.type === "photos") return value.length < question.slots.length;
   if (question.type === "yesno") return value === null;
   if (question.type === "agree") return value !== true;
   return !value;
 }
 
 function problemWith(question, value) {
+  if (question.type === "photos") {
+    if (value.some(({ file }) => !String(file.type || "").startsWith("image/"))) return "Please add photos only.";
+    if (value.some(({ file }) => file.size > MAX_PHOTO_BYTES)) return "One of the photos is too large. Please try a smaller one.";
+  }
   if (question.required && isEmpty(question, value)) {
+    if (question.type === "photos") return `Please add all ${question.slots.length} photos.`;
     if (question.type === "agree") return "Please tick this to continue.";
     if (question.type === "choices" || question.type === "choice" || question.type === "yesno") return "Please pick an answer.";
     if (question.type === "signature") return "Please type your full name to sign.";
@@ -125,6 +149,8 @@ export function answerText(question, value) {
     case "choices": return value.join(", ");
     case "yesno": return value.details ? `${value.answer}: ${value.details}` : value.answer;
     case "agree": return value ? "Agreed" : "Not ticked";
+    // Photos sent here are shown as pictures; ones imported from Google Forms are Drive links.
+    case "photos": return value.map((photo) => (typeof photo === "string" ? photo : photo.slot)).join(", ");
     default: return value;
   }
 }
@@ -137,11 +163,14 @@ export function answerText(question, value) {
 export function describeSubmission(form, answers) {
   return visibleSteps(form, answers).map((step) => ({
     title: step.title,
-    rows: step.questions.map((question) => ({
-      id: question.id,
-      label: question.label,
-      value: answerText(question, answers[question.id]),
-    })),
+    rows: step.questions.map((question) => {
+      const value = answers[question.id];
+      const row = { id: question.id, label: question.label, value: answerText(question, value) };
+      if (question.type === "photos" && Array.isArray(value)) {
+        row.photos = value.flatMap((photo, index) => (photo?.key ? [{ index, slot: photo.slot }] : []));
+      }
+      return row;
+    }),
   }));
 }
 

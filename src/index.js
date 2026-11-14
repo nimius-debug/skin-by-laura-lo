@@ -5,7 +5,7 @@ import { STYLES } from "./styles.js";
 import { FORM_STYLES } from "./form-styles.js";
 import { CLIENT_JS } from "./client/cart.js";
 import { FORMS_JS } from "./client/forms.js";
-import { formPage, formThanksPage, formsIndexPage } from "./pages/forms.js";
+import { formPage, formThanksPage, formsIndexPage, hasPhotos } from "./pages/forms.js";
 import { formBySlug } from "./forms/definitions.js";
 import { readSubmission } from "./forms/engine.js";
 import { saveSubmission } from "./admin/forms.js";
@@ -200,15 +200,17 @@ async function handleCheckout(request, env, cfg, url) {
   }
 }
 
-// A client form is a few KB; anything far bigger isn't one.
+// A client form is a few KB; anything far bigger isn't one. A form with photos
+// carries up to three, which the page shrinks before sending.
 const MAX_FORM_BYTES = 64 * 1024;
+const MAX_PHOTO_FORM_BYTES = 50 * 1024 * 1024;
 // Sent faster than a person could read the first step: almost certainly a bot.
 const MIN_FORM_MS = 4000;
 
 async function handleFormSubmission(request, env, cfg, slug) {
   const form = formBySlug(slug);
   if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
-  if (Number(request.headers.get("content-length") || 0) > MAX_FORM_BYTES) {
+  if (Number(request.headers.get("content-length") || 0) > (hasPhotos(form) ? MAX_PHOTO_FORM_BYTES : MAX_FORM_BYTES)) {
     return new Response("That form is too large to send.", { status: 413 });
   }
   const data = await request.formData().catch(() => null);

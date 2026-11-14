@@ -42,28 +42,38 @@ export function columnsFor(form, headers) {
       let index = normalized.indexOf(wanted);
       if (index === -1) index = normalized.findIndex((header) => header.startsWith(wanted));
       if (index !== -1) columns[question.id] = index;
+      if (question.googleDetails) {
+        const details = normalized.findIndex((header) => header.startsWith(normalize(question.googleDetails)));
+        if (details !== -1) columns[`${question.id}__details`] = details;
+      }
     }
   }
   return columns;
 }
 
-// The old form's Yes options: "Yes", 'Yes, please specify in "other"', 'Yes (Please provide details in "other")'.
-const YES_OPTION = /^yes\b(?:,?\s*\(?please (?:specify|provide details) in "?other"?\)?)?[\s,]*/i;
-const NO_WORDS = /^(?:no|none|n\/a|na|nope|no\.)$/i;
+// The old forms' Yes options: "Yes", "Yes / Sí", 'Yes, please specify in "other"', 'Yes (Please provide details in "other")',
+// "Yes (Please specify / Sí, especifique)". What follows them is what she typed.
+const YES_OPTION = /^(?:yes|s[ií])(?![a-z])(?:\s*\/\s*(?:yes|s[ií])(?![a-z]))?(?:,?\s*\([^)]*\)|,?\s*please specify in "?other"?)?[\s,;]*/i;
+const NO_WORDS = /^(?:no|none|n\/a|na|nope|nada)(?:\s*\/\s*(?:no|ninguno|ninguna))?\.?$/i;
+// Google's own "Other" option label, which comes before what she typed.
+const OTHER_OPTION = /other\s*\((?:please specify)[^)]*\)|yes,?\s*please specify in "?other"?/gi;
 
-function toYesNo(cell) {
+function toYesNo(cell, detailsCell = "") {
   const text = cell.trim();
+  const extra = String(detailsCell || "").trim();
   if (!text) return undefined;
   if (NO_WORDS.test(text)) return { answer: "No" };
   // 'Yes, please specify in "other", latex' -> Yes with details "latex"; a bare "latex" in the Other box -> Yes too.
-  const details = YES_OPTION.test(text) ? text.replace(YES_OPTION, "").trim() : text;
+  const typed = YES_OPTION.test(text) ? text.replace(YES_OPTION, "").trim() : text;
+  // Some forms asked "If yes, which?" as a question of its own.
+  const details = [typed, extra].filter(Boolean).join("; ");
   return details ? { answer: "Yes", details } : { answer: "Yes" };
 }
 
-// Google joins ticked boxes with ", ", and some options have commas of their own, so known options are found by
-// name (longest first) rather than by splitting. Whatever is left is what she typed under Other.
+// Google joins ticked boxes with ", " (or ";" in a Sheets export), and some options have commas of their own, so
+// known options are found by name (longest first) rather than by splitting. Whatever is left is what she typed under Other.
 function toChoices(question, cell) {
-  let rest = cell;
+  let rest = cell.replace(OTHER_OPTION, "");
   const picked = [];
   for (const option of [...question.options].sort((a, b) => b.length - a.length)) {
     if (rest.includes(option)) {
@@ -71,11 +81,8 @@ function toChoices(question, cell) {
       rest = rest.replace(option, "");
     }
   }
-  const other = rest.replace(/^[\s,]+|[\s,]+$/g, "").replace(/\s*,\s*,\s*/g, ", ")
-    // The old "Yes, please specify in other" options aren't real choices.
-    .replace(/yes,?\s*please specify in "?other"?/i, "").replace(/^[\s,]+|[\s,]+$/g, "");
-  const ordered = question.options.filter((option) => picked.includes(option));
-  return other ? [...ordered, other] : ordered;
+  const others = rest.split(/;/).map((part) => part.replace(/^[\s,]+|[\s,]+$/g, "").replace(/\s*,\s*(,\s*)+/g, ", ")).filter(Boolean);
+  return [...question.options.filter((option) => picked.includes(option)), ...others];
 }
 
 /** "5/2/1994" or "1994-05-02" as yyyy-mm-dd, or the text as typed when it isn't a date. */
@@ -86,11 +93,14 @@ function toIsoDate(cell) {
   return text;
 }
 
-function toAnswer(question, cell) {
+function toAnswer(question, cell, detailsCell) {
   const text = String(cell || "").trim();
   switch (question.type) {
     case "choices": return text ? toChoices(question, text) : undefined;
-    case "yesno": return toYesNo(text);
+    case "choice": return text ? (question.options.find((option) => option.toLowerCase() === text.toLowerCase()) || text) : undefined;
+    case "yesno": return toYesNo(text, detailsCell);
+    // Photos uploaded to the old form are links to them in Google Drive.
+    case "photos": return text ? text.split(/,\s*/).filter(Boolean) : undefined;
     // A ticked statement in the old form was a line she typed her name or initials on.
     case "agree": return text ? true : undefined;
     case "date": return text ? toIsoDate(text) : undefined;
@@ -107,12 +117,20 @@ function easternOffsetMinutes(utcMillis) {
   return Math.round((utcMillis - asIfUtc) / 60000);
 }
 
-/** Google's "10/23/2026 14:05:09" (Tampa time) as UTC "2026-10-23 18:05:09", or null. */
+/**
+ * Google's timestamp (Tampa time) as UTC "yyyy-mm-dd hh:mm:ss", or null. Forms' own download writes
+ * "10/23/2026 14:05:09"; a Sheets export writes "2026/10/23 2:05:09 PM EST".
+ */
 export function googleTimestamp(text) {
-  const match = String(text || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  const clean = String(text || "").trim().replace(/\s+[A-Z]{2,4}$/, "");
+  const match = clean.match(/^(\d{1,4})\/(\d{1,2})\/(\d{1,4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([AP]M))?$/i);
   if (!match) return null;
-  const [, month, day, year, hour, minute, second = "0"] = match.map((part) => part && Number(part));
-  const local = Date.UTC(year, month - 1, day, hour, minute, second);
+  const [, first, second, third, hourText, minuteText, secondText = "0", meridiem] = match;
+  const [year, month, day] = first.length === 4 ? [first, second, third].map(Number) : [third, first, second].map(Number);
+  let hour = Number(hourText);
+  if (meridiem) hour = (hour % 12) + (/pm/i.test(meridiem) ? 12 : 0);
+  const local = Date.UTC(year, month - 1, day, hour, Number(minuteText), Number(secondText));
+  if (Number.isNaN(local)) return null;
   const utc = local + easternOffsetMinutes(local) * 60000;
   // Correct once more in case the first guess landed on the other side of a clock change.
   const exact = local + easternOffsetMinutes(utc) * 60000;
@@ -158,7 +176,8 @@ export function readGoogleResponses(form, csvText) {
     const answers = {};
     for (const question of questions) {
       if (columns[question.id] === undefined) continue;
-      const value = toAnswer(question, cells[columns[question.id]]);
+      const detailsIndex = columns[`${question.id}__details`];
+      const value = toAnswer(question, cells[columns[question.id]], detailsIndex === undefined ? "" : cells[detailsIndex]);
       if (value !== undefined) answers[question.id] = value;
     }
     if (answers.email) answers.email = answers.email.toLowerCase();

@@ -602,6 +602,15 @@ async function handleFormsRoute(request, env, url, segments, method) {
         body: submissionPage({ form, submission, suggestions, clients }),
       }));
     }
+    // GET /admin/forms/submissions/:id/photos/:question/:index — a photo she sent with the form.
+    if (segments[4] === "photos" && segments.length === 7 && method === "GET") {
+      const submission = await forms.getSubmission(env, id);
+      const object = submission && await forms.getPhoto(env, submission, segments[5], Number(segments[6]));
+      if (!object) return notFound();
+      return new Response(object.body, {
+        headers: { "content-type": object.httpMetadata?.contentType || "image/jpeg", "cache-control": "private, max-age=86400", "x-content-type-options": "nosniff" },
+      });
+    }
     // POST /admin/forms/submissions/:id/link
     if (segments[4] === "link" && method === "POST") {
       const data = await request.formData().catch(() => null);
@@ -633,7 +642,7 @@ async function handleFormsRoute(request, env, url, segments, method) {
       if (csv.length > 5 * 1024 * 1024) return page(importPage({ form, preview: { error: "That file is too large to be a form's responses." } }));
       const preview = await forms.previewImport(env, form, csv);
       if (data.get("confirm") === "1" && !preview.error) {
-        return page(importPage({ form, result: await forms.runImport(env, form, preview) }));
+        return page(importPage({ form, result: await forms.runImport(env, form, preview, data.getAll("skip").map(String)) }));
       }
       return page(importPage({ form, preview, csv }));
     }

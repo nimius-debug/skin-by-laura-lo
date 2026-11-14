@@ -88,8 +88,34 @@ export async function unlinkSubmission(env, submissionId) {
  * always kept, even if Square can't be reached; linking is a bonus on top.
  * Returns { id, clientId }.
  */
+const PHOTO_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heif", "image/gif": "gif" };
+
+/** Store a submission's photos in R2 and put their keys in the answers in place of the files. */
+async function storePhotos(env, form, id, answers) {
+  for (const step of form.steps) {
+    for (const question of step.questions) {
+      if (question.type !== "photos" || !Array.isArray(answers[question.id])) continue;
+      const stored = [];
+      for (const [index, { slot, file }] of answers[question.id].entries()) {
+        const key = `forms/${id}/${question.id}-${index + 1}.${PHOTO_TYPES[file.type] || "img"}`;
+        await env.NOTES_BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type || "application/octet-stream" } });
+        stored.push({ slot, key });
+      }
+      answers[question.id] = stored;
+    }
+  }
+}
+
+/** One of a submission's photos, or null. Only the admin serves these. */
+export async function getPhoto(env, submission, questionId, index) {
+  const photo = submission.answers?.[questionId]?.[index];
+  if (!photo?.key) return null;
+  return env.NOTES_BUCKET.get(photo.key);
+}
+
 export async function saveSubmission(env, form, answers, { now = new Date() } = {}) {
   const id = newId("form");
+  if (form.steps.some((step) => step.questions.some((question) => question.type === "photos"))) await storePhotos(env, form, id, answers);
   const contact = contactOf(answers);
   const submittedAt = now.toISOString().slice(0, 19).replace("T", " ");
   await DB(env).prepare(
@@ -283,11 +309,12 @@ const IMPORT_METHOD = { email: "square", phone: "square", name: "import-name" };
  * one that matched a client goes into her notes. Returns how many were added
  * and how many of those were linked.
  */
-export async function runImport(env, form, preview) {
+export async function runImport(env, form, preview, skip = []) {
   const db = DB(env);
   let added = 0;
   let linked = 0;
-  const fresh = preview.rows.filter((row) => !row.alreadyImported && row.submittedAt);
+  const skipped = new Set(skip);
+  const fresh = preview.rows.filter((row) => !row.alreadyImported && row.submittedAt && !skipped.has(row.key));
   // Small batches: each one is a transaction, and a large file shouldn't become one huge statement list.
   for (let start = 0; start < fresh.length; start += 25) {
     const statements = [];
