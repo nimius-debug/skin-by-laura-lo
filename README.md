@@ -305,6 +305,14 @@ form is a new entry there.
   and every submission with its answers and a client picker. A client's page
   lists the forms she has sent.
 
+- **Importing old Google Forms answers.** On a form's admin page, **Import
+  from Google Forms** takes the form's "Download responses (.csv)" file. Each
+  question's `google` field in `definitions.js` names the Google question it
+  came from. Every response keeps its original date, is matched to a client by
+  Square email, then phone, then name (shown before anything is saved), and
+  goes into her notes like a new submission. Re-importing the same file adds
+  nothing twice (migration `0010_form_imports.sql`).
+
 **Setup.** Run migration `0007_form_submissions.sql` before deploying:
 
 ```bash

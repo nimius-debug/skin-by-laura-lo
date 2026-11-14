@@ -13,6 +13,9 @@ function formatDay(sqlTime) {
   return new Date(`${sqlTime.replace(" ", "T")}Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
 }
 
+/** True when the form says which Google Forms question each of its questions came from. */
+const canImport = (form) => form.steps.some((step) => step.questions.some((question) => question.google));
+
 const titleOf = (slug) => FORMS.find((form) => form.slug === slug)?.title || slug;
 
 function clientCell(row) {
@@ -74,6 +77,7 @@ export function formsHomePage({ counts, recent, siteUrl }) {
             <div class="forms-card-actions">
               <a class="btn btn-primary" href="/admin/forms/${form.slug}">See submissions</a>
               <a class="btn btn-secondary" href="/forms/${form.slug}" target="_blank" rel="noopener">Open the form</a>
+              ${canImport(form) ? html`<a class="btn btn-secondary" href="/admin/forms/${form.slug}/import">Import from Google Forms</a>` : ""}
             </div>
           </div>
         `;
@@ -94,7 +98,10 @@ export function formSubmissionsPage({ form, submissions }) {
         <h1 class="page-title">${form.title}</h1>
         <div class="camp-sub" style="margin-top: 2px;">${submissions.length} sent${unlinked ? ` · ${unlinked} need${unlinked === 1 ? "s" : ""} a client` : ""}</div>
       </div>
-      <a class="btn btn-secondary" href="/forms/${form.slug}" target="_blank" rel="noopener">Open the form</a>
+      <div class="forms-card-actions">
+        ${canImport(form) ? html`<a class="btn btn-secondary" href="/admin/forms/${form.slug}/import">Import from Google Forms</a>` : ""}
+        <a class="btn btn-secondary" href="/forms/${form.slug}" target="_blank" rel="noopener">Open the form</a>
+      </div>
     </div>
     ${submissionTable(submissions)}
   `;
@@ -104,6 +111,7 @@ const LINK_METHOD = {
   square: "matched by her email or phone in Square",
   sync: "matched after a Square sync",
   manual: "linked by hand",
+  "import-name": "imported from Google Forms and matched by name (check it's the right person)",
 };
 
 function linkCard(submission, { suggestions, clients }) {
@@ -203,5 +211,86 @@ export function clientFormsCard(submissions) {
         </a>
       `)}
     </div>
+  `;
+}
+
+const MATCH_LABEL = {
+  email: "by email in Square",
+  phone: "by phone in Square",
+  name: "by name only, check it",
+  waiting: "in Square, not a client yet: links after her first visit syncs",
+  none: "no match: pick her by hand after importing",
+};
+
+function uploadForm(form) {
+  return html`
+    <form method="post" action="/admin/forms/${form.slug}/import" enctype="multipart/form-data" class="card forms-import-upload">
+      <label class="field">Responses file (.csv)
+        <input type="file" name="file" accept=".csv,text/csv" required />
+      </label>
+      <button type="submit" class="btn btn-primary">Check the file</button>
+    </form>
+  `;
+}
+
+/** /admin/forms/:slug/import — upload a Google Forms CSV, then see who each response matches before importing. */
+export function importPage({ form, preview = null, csv = "", result = null }) {
+  const steps = html`
+    <ol class="camp-how">
+      <li>Open the ${form.title} in Google Forms and go to the <strong>Responses</strong> tab.</li>
+      <li>Click the three dots and choose <strong>Download responses (.csv)</strong>.</li>
+      <li>Upload the file here. You'll see who each response matches before anything is saved.</li>
+    </ol>
+  `;
+  const head = html`
+    <a href="/admin/forms/${form.slug}" class="back-link">← ${form.title}</a>
+    <div>
+      <h1 class="page-title">Import from Google Forms</h1>
+      <div class="camp-sub" style="margin-top: 2px;">${form.title}. Each response keeps its original date and goes into the client's notes, so her insights include it. Importing the same file again never adds anything twice.</div>
+    </div>
+  `;
+
+  if (result) {
+    return html`${head}
+      <div class="camp-notice">Imported ${result.added} response${result.added === 1 ? "" : "s"}${result.added ? `, ${result.linked} linked to a client` : ""}.${result.added - result.linked > 0 ? " The rest are marked \u201cNeeds a client\u201d on the form's page." : ""}</div>
+      <div class="forms-card-actions"><a class="btn btn-primary" href="/admin/forms/${form.slug}">See the submissions</a><a class="btn btn-secondary" href="/admin/forms/${form.slug}/import">Import another file</a></div>`;
+  }
+
+  if (!preview) return html`${head}<div class="card">${steps}</div>${uploadForm(form)}`;
+  if (preview.error) return html`${head}<div class="camp-error">${preview.error}</div>${uploadForm(form)}`;
+
+  const fresh = preview.rows.filter((row) => !row.alreadyImported);
+  const linked = fresh.filter((row) => row.match.clientId).length;
+  return html`${head}
+    ${preview.squareChecked ? "" : html`<div class="camp-error">Square couldn't be reached, so responses were matched by name only. Try again later for email and phone matching.</div>`}
+    ${preview.missing.length ? html`<div class="camp-setup card"><strong>These questions weren't found in the file</strong>, so they'll be left blank:<ul>${preview.missing.map((label) => html`<li>${label}</li>`)}</ul></div>` : ""}
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div class="camp-table-wrap" style="margin: 0;">
+        <table class="data">
+          <thead><tr><th>Name</th><th>Sent</th><th>Client</th></tr></thead>
+          <tbody>
+            ${preview.rows.map((row) => html`
+              <tr${row.alreadyImported ? raw(' class="forms-import-done"') : ""}>
+                <td><strong>${row.answers.full_name || row.answers.email}</strong>${row.answers.email ? html`<div class="history-meta">${row.answers.email}</div>` : ""}</td>
+                <td class="camp-nowrap" style="color: var(--ink-soft);">${row.submittedAt ? formatDay(row.submittedAt) : "No date"}</td>
+                <td>${row.alreadyImported
+                  ? html`<span class="pill pill-muted">Already imported</span>`
+                  : row.match.clientId
+                    ? html`<strong>${row.match.clientName}</strong><div class="history-meta${row.match.how === "name" ? " forms-check" : ""}">${MATCH_LABEL[row.match.how]}</div>`
+                    : html`<span class="pill pill-review">Needs a client</span><div class="history-meta">${MATCH_LABEL[row.match.how]}</div>`}</td>
+              </tr>
+            `)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${fresh.length
+      ? html`<form method="post" action="/admin/forms/${form.slug}/import" class="forms-import-confirm">
+          <textarea name="csv" hidden>${csv}</textarea>
+          <input type="hidden" name="confirm" value="1" />
+          <div class="camp-muted">${fresh.length} new response${fresh.length === 1 ? "" : "s"}, ${linked} matched to a client.</div>
+          <button type="submit" class="btn btn-primary">Import ${fresh.length} response${fresh.length === 1 ? "" : "s"}</button>
+        </form>`
+      : html`<div class="camp-notice">Everything in this file is already imported.</div>`}
   `;
 }

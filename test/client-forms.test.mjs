@@ -1,6 +1,7 @@
 import { createD1, schemaMigrations } from "./helpers/d1-sqlite.mjs";
 import { FORMS, formBySlug } from "../src/forms/definitions.js";
 import { readSubmission, noteFromSubmission, describeSubmission, visibleSteps } from "../src/forms/engine.js";
+import { parseCsv, readGoogleResponses, googleTimestamp } from "../src/forms/google-import.js";
 import { formPage } from "../src/pages/forms.js";
 import { toString } from "../src/html.js";
 import * as forms from "../src/admin/forms.js";
@@ -219,6 +220,94 @@ const post = (slug, fields) => worker.fetch(new Request(`https://x.test/forms/${
 
   const unauth = await handleAdminRequest(new Request("https://x.test/admin/forms"), env, new URL("https://x.test/admin/forms"));
   check("the submissions need the admin login", unauth.status, 303);
+}
+
+// --- importing old Google Forms responses ---------------------------------------------
+{
+  // Headers as Google Forms exports them for the original Brow + Lashes form (titles can hold line breaks).
+  const headers = [
+    "Timestamp", "Full Name", "Email", "Phone number", "Date of birth", "Address",
+    "What are your main goals for this appointment? (Check all that apply)",
+    "Are you currently using any of the following skincare products?\n(Check all that apply)",
+    "Do you have any known allergies?",
+    "Are you using any medications or creams prescribed by a dermatologist on or near the area to be treated?",
+    "Do you currently have or have you ever had any of the following conditions? (Check all that apply)",
+    "Are you pregnant?", "Do you have any autoimmune disorders that could impact healing or increase sensitivity?",
+    "Have you used any hair or skin dye products before?", "Have you ever experienced a reaction to hair or skin dye?",
+    "Have you had a lamination or lash lift service before?",
+    "Have you experienced any of the following during a previous lamination/lash lift treatment?",
+    "Do you wear eye contacts?", "Do you have any eye conditions, such as dry eye, conjunctivitis, or recent eye surgery?",
+    "Have you used any exfoliants or retinoids on your skin in the last 3 days?\n(This includes retinol, AHAs, BHAs, or scrubs)",
+    "Have you been exposed to direct sun or tanning beds in the last 48 hours?",
+    "Are you currently taking any blood thinners or medications that may impact skin sensitivity?",
+    "While every precaution will be implemented to guarantee your safety, please acknowledge these potential risks and sign below:\n_____I understand...",
+    "Do you consent to being photographed during or after your treatment?\n(Photos may be used for marketing purposes, including social media and website content.)",
+    "Please type your full name if you agree to the terms above.",
+    "____By submitting this form, I confirm that the information provided is accurate and complete.",
+  ];
+  const quote = (cell) => `"${String(cell).replace(/"/g, '""')}"`;
+  const line = (cells) => cells.map(quote).join(",");
+  const maya = ["3/9/2025 14:05:09", "Maya Lopez", "Maya@Example.com", "(813) 555-0142", "5/2/1994", "",
+    "Brow lamination/lift, Tinting (Brows or Lashes)", "Retinoids (e.g., Retin-A, Tretinoin), Exfoliating Acids (AHAs, BHAs)",
+    'Yes, please specify in "other", Lanolin', "No", "Eczema, rosacea", "No", "No", "Yes", "No", "No", "", "Yes", "No",
+    "Yes", "No", "No", "ML", "Yes, anonymously", "Maya Lopez", "Maya Lopez"];
+  const ana = ["11/14/2025 9:30:00", "Ana Ruiz", "", "", "", "", "Waxing", "None of the above", "No", "No", "", "No", "No",
+    "", "", "", "", "", "", "None", "No", "No", "AR", "No", "", "Ana Ruiz"];
+  const stranger = ["1/2/2025 10:00:00", "Nobody Known", "nobody@example.com", "", "", "", "Waxing", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
+  const csv = "﻿" + [headers, maya, ana, stranger].map(line).join("\r\n") + "\r\n";
+
+  check("CSV fields keep their commas, quotes and line breaks", parseCsv('a,"b, ""c""\nd"\r\n1,2\r\n')[0], ["a", 'b, "c"\nd']);
+  check("Google's timestamps are Tampa time, summer and winter", [googleTimestamp("7/4/2025 12:00:00"), googleTimestamp("1/4/2025 12:00:00"), googleTimestamp("junk")],
+    ["2025-07-04 16:00:00", "2025-01-04 17:00:00", null]);
+
+  const read = readGoogleResponses(form, csv);
+  check("every question finds its Google Forms column", [read.error, read.missing], ["", []]);
+  const m = read.rows[0].answers;
+  check("choices are read whole, even ones with commas in them", m.skincare_actives, ["Retinoids (e.g., Retin-A, Tretinoin)", "Exfoliating Acids (AHAs, BHAs)"]);
+  check("'Yes, please specify in other' plus what she typed becomes Yes with details", m.allergies, { answer: "Yes", details: "Lanolin" });
+  check("an Other answer to a checklist is kept", m.conditions, ["Eczema", "rosacea"]);
+  check("dates and emails are tidied", [m.date_of_birth, m.email], ["1994-05-02", "maya@example.com"]);
+  check("a typed name on the consent lines counts as agreeing, and signs it", [m.ack_risks, m.ack_aftercare, m.signature], [true, true, "Maya Lopez"]);
+  check("columns no question reads are kept, not lost", read.rows[0].extra, [{ label: "Please type your full name if you agree to the terms above.", value: "Maya Lopez" }]);
+  check("'None' reads as No", read.rows[1].answers.recent_exfoliation, { answer: "No" });
+  check("a file from another form is refused", readGoogleResponses(form, "Timestamp,Favourite colour\n1/1/2025 1:00:00,blue").error.startsWith("None of the columns"), true);
+  check("a file that isn't a Google Forms export is refused", readGoogleResponses(form, "Name,Email\nA,b").error.includes("Timestamp"), true);
+
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ customers: [{ id: "SQ_MAYA", email_address: "maya@example.com" }] }), { status: 200 });
+  const squareEnv = { ...env, SQUARE_ACCESS_TOKEN: "t", SQUARE_LOCATION_ID: "L1" };
+  const preview = await forms.previewImport(squareEnv, form, csv);
+  check("each response is matched: Square email, then name, else none", preview.rows.map((row) => [row.match.clientId, row.match.how]),
+    [["client_maya", "email"], ["client_ana", "name"], [null, "none"]]);
+
+  const before = (await d1.prepare("SELECT COUNT(*) AS n FROM form_submissions").first()).n;
+  const result = await forms.runImport(squareEnv, form, preview);
+  check("the import adds every response and links the matched ones", result, { added: 3, linked: 2 });
+  const row = await d1.prepare("SELECT * FROM form_submissions WHERE import_key IS NOT NULL AND name = 'Maya Lopez'").first();
+  check("an imported response keeps its original date and isn't shown as new", [row.submitted_at, row.status, row.link_method], ["2025-03-09 18:05:09", "reviewed", "square"]);
+  const note = await d1.prepare("SELECT note_date, summary FROM notes WHERE source_submission_id = ?").bind(row.id).first();
+  check("it goes into her notes, dated when she sent it", [note.note_date, note.summary.includes("Allergies: Lanolin"), note.summary.includes("Currently using: Retinoids")], ["2025-03-09", true, true]);
+  const anaNote = await d1.prepare("SELECT n.summary FROM notes n JOIN form_submissions s ON s.id = n.source_submission_id WHERE s.name = 'Ana Ruiz' AND s.import_key IS NOT NULL").first();
+  check("steps she answered are kept even if the service doesn't match", anaNote.summary.includes("No exfoliants or retinoids in the last 3 days"), true);
+  const display = JSON.parse(row.display_json);
+  check("the extra Google column shows on the submission", display.at(-1).title, "Other answers from Google Forms");
+
+  const again = await forms.previewImport(squareEnv, form, csv);
+  check("importing the same file again finds nothing new", [again.rows.every((r) => r.alreadyImported), (await forms.runImport(squareEnv, form, again)).added], [true, 0]);
+  check("nothing was added twice", (await d1.prepare("SELECT COUNT(*) AS n FROM form_submissions").first()).n, before + 3);
+  globalThis.fetch = realFetch;
+
+  // The admin pages: upload, preview, confirm.
+  const cookie = sessionCookie(await createSessionToken(env, Date.now(), {}), {}).split(";")[0];
+  const call = (path, init = {}) => handleAdminRequest(new Request(`https://x.test${path}`, { ...init, headers: { cookie } }), env, new URL(`https://x.test${path}`));
+  const upload = await (await call("/admin/forms/brows-lashes/import")).text();
+  check("the import page asks for the responses file", upload.includes('type="file" name="file"') && upload.includes("Download responses (.csv)"), true);
+  const listPage = await (await call("/admin/forms/brows-lashes")).text();
+  check("the form's page links to the import", listPage.includes('href="/admin/forms/brows-lashes/import"'), true);
+  const body = new FormData();
+  body.append("file", new File([csv], "responses.csv", { type: "text/csv" }));
+  const previewPage = await (await call("/admin/forms/brows-lashes/import", { method: "POST", body })).text();
+  check("uploading shows the preview; without Square here it says names only", [previewPage.includes("Already imported"), previewPage.includes("matched by name only")], [true, true]);
 }
 
 console.log(failures === 0 ? "\nAll client-forms tests passed." : `\n${failures} FAILURE(S)`);

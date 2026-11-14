@@ -16,6 +16,10 @@
 // allergies" is read as a negative, while "Allergies: none" would be flagged.
 // Questions without a `note` (contact details, consent) stay out of the notes.
 //
+// `google` is the start of the matching question's title in the original
+// Google Form, so past responses can be imported from its CSV export
+// (src/forms/google-import.js).
+//
 // A step with `showIf` only appears when one of those answers was picked, and
 // its questions are ignored when it is hidden.
 
@@ -33,11 +37,11 @@ const BROWS_LASHES = {
       id: "about",
       title: "About you",
       questions: [
-        { id: "full_name", type: "text", label: "Full name", required: true, autocomplete: "name" },
-        { id: "email", type: "email", label: "Email", required: true, autocomplete: "email" },
-        { id: "phone", type: "tel", label: "Phone number", autocomplete: "tel", hint: "Helps Laura match this form to your booking." },
-        { id: "date_of_birth", type: "date", label: "Date of birth", required: true, autocomplete: "bday" },
-        { id: "address", type: "textarea", label: "Address", autocomplete: "street-address", rows: 2 },
+        { id: "full_name", google: "Full Name", type: "text", label: "Full name", required: true, autocomplete: "name" },
+        { id: "email", google: "Email", type: "email", label: "Email", required: true, autocomplete: "email" },
+        { id: "phone", google: "Phone number", type: "tel", label: "Phone number", autocomplete: "tel", hint: "Helps Laura match this form to your booking." },
+        { id: "date_of_birth", google: "Date of birth", type: "date", label: "Date of birth", required: true, autocomplete: "bday" },
+        { id: "address", google: "Address", type: "textarea", label: "Address", autocomplete: "street-address", rows: 2 },
       ],
     },
     {
@@ -46,6 +50,7 @@ const BROWS_LASHES = {
       questions: [
         {
           id: "services",
+          google: "What are your main goals",
           type: "choices",
           label: "What are your main goals for this appointment?",
           hint: "Pick all that apply. You'll only see the questions for these services.",
@@ -62,6 +67,7 @@ const BROWS_LASHES = {
       questions: [
         {
           id: "skincare_actives",
+          google: "Are you currently using any of the following skincare products",
           type: "choices",
           label: "Are you currently using any of these?",
           options: ["Retinoids (e.g., Retin-A, Tretinoin)", "Exfoliating Acids (AHAs, BHAs)", "Accutane or other oral acne medications", "None of the above"],
@@ -71,6 +77,7 @@ const BROWS_LASHES = {
         },
         {
           id: "allergies",
+          google: "Do you have any known allergies",
           type: "yesno",
           label: "Do you have any known allergies?",
           required: true,
@@ -79,6 +86,7 @@ const BROWS_LASHES = {
         },
         {
           id: "prescriptions",
+          google: "Are you using any medications or creams prescribed",
           type: "yesno",
           label: "Are you using any medications or creams prescribed by a dermatologist on or near the area to be treated?",
           required: true,
@@ -87,6 +95,7 @@ const BROWS_LASHES = {
         },
         {
           id: "conditions",
+          google: "Do you currently have or have you ever had",
           type: "choices",
           label: "Do you currently have, or have you ever had, any of these?",
           hint: "Pick all that apply, or leave blank if none.",
@@ -95,6 +104,7 @@ const BROWS_LASHES = {
         },
         {
           id: "pregnant",
+          google: "Are you pregnant",
           type: "yesno",
           label: "Are you pregnant?",
           required: true,
@@ -102,6 +112,7 @@ const BROWS_LASHES = {
         },
         {
           id: "autoimmune",
+          google: "Do you have any autoimmune",
           type: "yesno",
           label: "Do you have any autoimmune disorders that could affect healing or increase sensitivity?",
           required: true,
@@ -118,6 +129,7 @@ const BROWS_LASHES = {
       questions: [
         {
           id: "dye_before",
+          google: "Have you used any hair or skin dye",
           type: "yesno",
           label: "Have you used hair or skin dye products before?",
           required: true,
@@ -125,6 +137,7 @@ const BROWS_LASHES = {
         },
         {
           id: "dye_reaction",
+          google: "Have you ever experienced a reaction to hair or skin dye",
           type: "yesno",
           label: "Have you ever had a reaction to hair or skin dye?",
           required: true,
@@ -141,6 +154,7 @@ const BROWS_LASHES = {
       questions: [
         {
           id: "lift_before",
+          google: "Have you had a lamination or lash lift service before",
           type: "yesno",
           label: "Have you had a lamination or lash lift before?",
           required: true,
@@ -148,6 +162,7 @@ const BROWS_LASHES = {
         },
         {
           id: "lift_reactions",
+          google: "Have you experienced any of the following during a previous",
           type: "choices",
           label: "Did you have any of these during a previous lamination or lash lift?",
           options: ["Redness", "Swelling", "Burning or itching sensation", "Eye irritation or watering", "None of the above"],
@@ -156,6 +171,7 @@ const BROWS_LASHES = {
         },
         {
           id: "contacts",
+          google: "Do you wear eye contacts",
           type: "yesno",
           label: "Do you wear contact lenses?",
           required: true,
@@ -163,6 +179,7 @@ const BROWS_LASHES = {
         },
         {
           id: "eye_conditions",
+          google: "Do you have any eye conditions",
           type: "yesno",
           label: "Do you have any eye conditions, such as dry eye, conjunctivitis or recent eye surgery?",
           required: true,
@@ -178,6 +195,7 @@ const BROWS_LASHES = {
       questions: [
         {
           id: "recent_exfoliation",
+          google: "Have you used any exfoliants or retinoids",
           type: "yesno",
           label: "Have you used any exfoliants or retinoids on your skin in the last 3 days?",
           hint: "This includes retinol, AHAs, BHAs or scrubs.",
@@ -187,6 +205,7 @@ const BROWS_LASHES = {
         },
         {
           id: "recent_sun",
+          google: "Have you been exposed to direct sun",
           type: "yesno",
           label: "Have you been in direct sun or a tanning bed in the last 48 hours?",
           required: true,
@@ -194,6 +213,7 @@ const BROWS_LASHES = {
         },
         {
           id: "blood_thinners",
+          google: "Are you currently taking any blood thinners",
           type: "yesno",
           label: "Are you taking blood thinners or any medication that may affect skin sensitivity?",
           required: true,
@@ -207,23 +227,24 @@ const BROWS_LASHES = {
       title: "Consent & signature",
       intro: "While every precaution is taken to keep you safe, please read and tick each of these.",
       questions: [
-        { id: "ack_risks", type: "agree", required: true, label: "I understand that brow and lash services may carry risks, including allergic reactions, irritation or other side effects." },
-        { id: "ack_honest", type: "agree", required: true, label: "I agree to give complete and honest answers to the questions above, for a safe and optimal experience." },
-        { id: "ack_notify", type: "agree", required: true, label: "I will tell my esthetician right away if I feel any discomfort or have a reaction during or after the treatment." },
-        { id: "ack_liability", type: "agree", required: true, label: "My esthetician will take every precaution for my safety, but cannot be held liable for reactions caused by conditions or products I didn't mention." },
-        { id: "ack_tint_spot", type: "agree", required: true, label: "A faint dark spot may stay on the skin after tinting, and it fades soon after." },
-        { id: "ack_tint_color", type: "agree", required: true, label: "The final color may not exactly match what I expect, as each hair takes dye in its own way." },
+        { id: "ack_risks", google: "While every precaution", type: "agree", required: true, label: "I understand that brow and lash services may carry risks, including allergic reactions, irritation or other side effects." },
+        { id: "ack_honest", google: "While every precaution", type: "agree", required: true, label: "I agree to give complete and honest answers to the questions above, for a safe and optimal experience." },
+        { id: "ack_notify", google: "While every precaution", type: "agree", required: true, label: "I will tell my esthetician right away if I feel any discomfort or have a reaction during or after the treatment." },
+        { id: "ack_liability", google: "While every precaution", type: "agree", required: true, label: "My esthetician will take every precaution for my safety, but cannot be held liable for reactions caused by conditions or products I didn't mention." },
+        { id: "ack_tint_spot", google: "While every precaution", type: "agree", required: true, label: "A faint dark spot may stay on the skin after tinting, and it fades soon after." },
+        { id: "ack_tint_color", google: "While every precaution", type: "agree", required: true, label: "The final color may not exactly match what I expect, as each hair takes dye in its own way." },
         {
           id: "media_consent",
+          google: "Do you consent to being photographed",
           type: "choice",
           label: "Can Laura photograph your treatment?",
           hint: "Photos may be used for marketing, including social media and the website.",
           required: true,
           options: ["Yes, with my name", "Yes, anonymously", "No"],
         },
-        { id: "ack_accurate", type: "agree", required: true, label: "The information I've given is accurate and complete, and I've read and understood the risks of the services I'm booking." },
-        { id: "ack_aftercare", type: "agree", required: true, label: "I'll follow the pre- and post-care instructions my esthetician gives me, for the best results." },
-        { id: "signature", type: "signature", required: true, label: "Type your full name to sign", hint: "This is your digital signature for everything on this page." },
+        { id: "ack_accurate", google: "By submitting this form", type: "agree", required: true, label: "The information I've given is accurate and complete, and I've read and understood the risks of the services I'm booking." },
+        { id: "ack_aftercare", google: "By submitting this form", type: "agree", required: true, label: "I'll follow the pre- and post-care instructions my esthetician gives me, for the best results." },
+        { id: "signature", google: "By submitting this form", type: "signature", required: true, label: "Type your full name to sign", hint: "This is your digital signature for everything on this page." },
       ],
     },
   ],
