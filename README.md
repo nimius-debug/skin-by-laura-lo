@@ -120,29 +120,13 @@ or Dec 1.
 |---|---|
 | Package price ($897 item named "… Liquid Microneedling … Series …") | Square item |
 | 15% off skincare, Nov 27 to 30 | Square discount with dates (read like any sale) |
-| Gift card amounts | Square eGift settings |
-| Gift card bonus ($15 / $25 / $50 on the same card) | Code (`src/gift-bonus.js`), told by a Square webhook |
+| Gift card amounts and bonus cards | Square eGift settings, bonus sent by hand |
 | Free shipping, Nov 27 to 30 | Code (`settings()` in `src/config.js`) |
 | Banner, homepage block, `/black-friday`, promo terms | Code (`src/pages/black-friday.js`) |
 | Package on sale only Nov 23 to 30, never discounted, nothing to ship | Code |
 | Coupon box off at checkout, Nov 23 to 30 | Code |
 
 `BLACK_FRIDAY_ENABLED = "false"` in `wrangler.toml` turns the whole campaign off.
-
-**Gift card bonus.** Gift cards are sold on Square's eGift page, so Square
-tells the Worker about each sale. Setup, once:
-
-1. Square Developer Dashboard → your app → **Webhooks** → **Subscriptions** →
-   Add subscription (Production). URL: `https://<the Worker's live address>/square/webhook`.
-   Event: `gift_card.activity.created`.
-2. Copy the subscription's **Signature key** and run
-   `npx wrangler secret put SQUARE_WEBHOOK_SIGNATURE_KEY`.
-
-From Nov 23 to Nov 30 (Eastern), a card bought or topped up for exactly $100,
-$200 or $300 gets $15, $25 or $50 added to the same card. Each bonus is
-recorded in the `gift_card_bonuses` table and can never be added twice. To
-rehearse with a real purchase before Nov 23, set `GIFT_BONUS_TEST_DAY` in
-`wrangler.toml` to that day and deploy.
 
 **Preview links.** On any host except the live domain, add
 `?preview=2026-11-24` or `?preview=2026-11-28` to see the site as it will be

@@ -25,11 +25,6 @@ SHIPPING_LABEL = "U.S. shipping"
 # "false" and redeploy to pull the whole campaign at once.
 BLACK_FRIDAY_ENABLED = "true"
 
-# Gift card bonus rehearsal. On this one day (Eastern time, before Nov 23) a
-# $100/$200/$300 gift card also gets its bonus, so the flow can be tested with
-# a real purchase. Leave empty otherwise. Example: "2026-11-19"
-GIFT_BONUS_TEST_DAY = ""
-
 # Local pickup at the Tampa studio, offered as a no-fee alternative.
 PICKUP_ENABLED = "true"
 PICKUP_PREP_HOURS = "24"
@@ -75,7 +70,6 @@ EMAIL_MONTHLY_LIMIT = "3000"               # and 3,000 a month (test emails and 
 #   npx wrangler secret put ADMIN_USERNAME       (login for /admin)
 #   npx wrangler secret put ADMIN_PASSWORD       (login for /admin; changing it signs everyone out)
 #   npx wrangler secret put RESEND_API_KEY       (sends the email campaigns; from resend.com)
-#   npx wrangler secret put SQUARE_WEBHOOK_SIGNATURE_KEY (Square webhook signature key, for the gift card bonus)
 #   npx wrangler secret put RESEND_WEBHOOK_SECRET (Resend webhook signing secret, for delivery tracking)
 # ---------------------------------------------------------------------------
 

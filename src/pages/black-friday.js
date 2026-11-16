@@ -120,7 +120,7 @@ export function campaignTerms() {
     "The skincare discount does not apply to services, treatment packages, memberships or gift cards.",
     "Offers cannot be combined with other discounts, promotions or coupon codes.",
     "The Liquid Microneedling series is purchased online and its four treatments are scheduled with Laura at the Tampa studio.",
-    "Gift cards can be used toward both services and skincare products. Bonus value is added to the same gift card automatically, shortly after purchase, on gift cards bought for exactly $100, $200 or $300.",
+    "Gift cards can be used toward both services and skincare products. Bonus value is issued to the purchaser as a separate gift card after purchase.",
     "Packages and gift card balances purchased during the event remain valid after it ends.",
   ];
 }
@@ -233,7 +233,7 @@ function giftSection() {
         <ul class="bf-ticks bf-ticks-plain">
           <li><span>For yourself or as a gift</span></li>
           <li><span>Use it on treatments and skincare</span></li>
-          <li><span>Your bonus is added to the same card within minutes</span></li>
+          <li><span>Your bonus arrives by email as a separate gift card</span></li>
         </ul>
         <a class="button button-dark bf-cta" href="${EGIFT_URL}"><span>Buy a <span data-bf-gift-pay>${money(best.payCents)}</span> gift card</span> <span aria-hidden="true">&#8599;</span></a>
         <p class="bf-note">Sold on Square&#8217;s secure gift card page.</p>

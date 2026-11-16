@@ -23,7 +23,6 @@ import { productInsightFor } from "./product-insights.js";
 import { relatedProductsFor } from "./related-products.js";
 import { salePromo } from "./promo.js";
 import { previewFor } from "./campaign.js";
-import { handleSquareWebhook } from "./gift-bonus.js";
 import { blackFridayPage } from "./pages/black-friday.js";
 import { ROUTINES, routineBySlug, routinePath, resolveRoutine, routineShareImage } from "./routines.js";
 import {
@@ -312,11 +311,6 @@ async function route(request, env, state) {
     // Resend's delivery events for campaign emails. Public: each request is signed.
     if (path === "/email/resend-webhook") {
       return handleResendWebhook(request, env);
-    }
-
-    // Square's gift card events, for the Black Friday bonus. Public: each request is signed.
-    if (path === "/square/webhook") {
-      return handleSquareWebhook(request, env);
     }
 
     // ------------------------------------------------------------- assets
