@@ -4,17 +4,20 @@ import {
 } from "./config.js";
 import { FORMS } from "./forms/definitions.js";
 import { promoBanner } from "./promo.js";
+import { campaignBanner } from "./pages/black-friday.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261106-checker-photos";
+const ASSET_VERSION = "20261116-black-friday-page";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
     return cfg.pickupEnabled ? html`<span>Local pickup available in Tampa</span>` : "";
   }
   const free = cfg.freeShippingThresholdCents;
-  const primary = free > 0
+  const primary = cfg.freeShippingPromo
+    ? "Free U.S. shipping on every order through Nov 30"
+    : free > 0
     ? `Free U.S. shipping on orders $${(free / 100).toFixed(0)}+`
     : "Flat-rate U.S. shipping";
   return html`
@@ -26,7 +29,7 @@ function announcement(cfg) {
 function header(cfg, current, promo) {
   const mark = (path) => (current === path ? raw(' aria-current="page"') : "");
   return html`
-    ${promoBanner(promo)}
+    ${cfg.campaign ? campaignBanner(cfg.campaign) : promoBanner(promo)}
     <div class="announcement">${announcement(cfg)}</div>
     <header class="site-header">
       <a class="brand" href="/" aria-label="Skin by Laura Lo home">
@@ -126,6 +129,7 @@ ${typeof head === "string" ? raw(head) : head}
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
+${cfg.previewDay ? html`<div class="preview-note" role="status">Preview of ${cfg.previewDay} · add ?preview=off to exit</div>` : ""}
 ${header(cfg, current, promo)}
 <main id="main">${body}</main>
 ${footer()}

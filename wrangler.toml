@@ -19,6 +19,12 @@ SHIPPING_FEE_CENTS = "1000"            # $10.00 flat
 FREE_SHIPPING_THRESHOLD_CENTS = "10000" # free at $100.00+ subtotal. Set to "0" to always charge.
 SHIPPING_LABEL = "U.S. shipping"
 
+# Black Friday 2026 (Nov 23 to Nov 30, Eastern time). The dates and offers are
+# in src/campaign.js; the banners, /black-friday page, free shipping (Nov 27
+# to 30) and the checkout coupon box all switch on and off by date. Set to
+# "false" and redeploy to pull the whole campaign at once.
+BLACK_FRIDAY_ENABLED = "true"
+
 # Local pickup at the Tampa studio, offered as a no-fee alternative.
 PICKUP_ENABLED = "true"
 PICKUP_PREP_HOURS = "24"

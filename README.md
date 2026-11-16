@@ -110,6 +110,29 @@ Then point `test.skinbylauralo.com` at the Worker (uncomment the `[[routes]]`
 block in `wrangler.toml`), exactly as `audit.skinbylauralo.com` is set up today.
 WordPress DNS stays untouched until the Phase 4 cutover.
 
+## Black Friday 2026 (Nov 23 to Nov 30)
+
+Everything the campaign changes on the site switches by date in Eastern time,
+from one calendar in `src/campaign.js`. Nothing needs doing on Nov 23, Nov 27
+or Dec 1.
+
+| Part | Where it lives |
+|---|---|
+| Package price ($897 item named "… Liquid Microneedling … Series …") | Square item |
+| 15% off skincare, Nov 27 to 30 | Square discount with dates (read like any sale) |
+| Gift card amounts and bonus cards | Square eGift settings, bonus sent by hand |
+| Free shipping, Nov 27 to 30 | Code (`settings()` in `src/config.js`) |
+| Banner, homepage block, `/black-friday`, promo terms | Code (`src/pages/black-friday.js`) |
+| Package on sale only Nov 23 to 30, never discounted, nothing to ship | Code |
+| Coupon box off at checkout, Nov 23 to 30 | Code |
+
+`BLACK_FRIDAY_ENABLED = "false"` in `wrangler.toml` turns the whole campaign off.
+
+**Preview links.** On any host except the live domain, add
+`?preview=2026-11-24` or `?preview=2026-11-28` to see the site as it will be
+that day (`?preview=off` to return to today). The day is kept in a cookie so
+it follows you from page to page.
+
 ## Images
 
 Files in `public/media/` are served directly by Cloudflare's static-asset
