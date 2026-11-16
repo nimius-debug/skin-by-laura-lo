@@ -10,7 +10,7 @@
 import { LAURA_EMAIL_VOICE } from "./voice.js";
 
 const ANTHROPIC_VERSION = "2023-06-01";
-const DEFAULT_MODEL = "claude-sonnet-5-5";
+const DEFAULT_MODEL = "claude-haiku-5-5";
 // Response limits. The cost estimate uses them for its worst case.
 export const SHARED_MAX_TOKENS = 6000;
 export const PERSONAL_MAX_TOKENS = 12000;

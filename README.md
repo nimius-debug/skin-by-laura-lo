@@ -311,6 +311,12 @@ form is a new entry there.
   steps for the services she picked. Each step is checked before moving on,
   and everything is checked again on the server. Without JavaScript the form
   shows as one long page and still sends.
+- **Three forms so far:** Facial, Virtual consultation and Brow + Lashes. The
+  facial and virtual forms show each question in Spanish under the English.
+  Choice questions can offer "Something else" with a box to type in.
+- **Photos.** The virtual form asks for three face photos. Big phone photos
+  are shrunk in the browser before sending, stored in R2 under
+  `forms/<submission>/`, and only shown inside the admin.
 - **Kept whole.** Every submission is saved in `form_submissions` exactly as
   sent, with the questions as she saw them.
 - **Linked to the client.** Her email, then her phone, is looked up in
@@ -327,6 +333,14 @@ form is a new entry there.
 - **Admin.** `/admin/forms` shows each form with its counts and a link to copy,
   and every submission with its answers and a client picker. A client's page
   lists the forms she has sent.
+
+- **Importing old Google Forms answers.** On a form's admin page, **Import
+  from Google Forms** takes the form's "Download responses (.csv)" file. Each
+  question's `google` field in `definitions.js` names the Google question it
+  came from. Every response keeps its original date, is matched to a client by
+  Square email, then phone, then name (shown before anything is saved), and
+  goes into her notes like a new submission. Re-importing the same file adds
+  nothing twice (migration `0010_form_imports.sql`).
 
 **Setup.** Run migration `0007_form_submissions.sql` before deploying:
 

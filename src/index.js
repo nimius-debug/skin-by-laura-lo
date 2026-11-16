@@ -1,11 +1,11 @@
-import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO } from "./config.js";
+import { settings, shippingFeeFor, BOOKING_URL, SUPPORT_EMAIL, STUDIO, formatMoney } from "./config.js";
 import { getCatalog, indexVariations, isConfigured, createPaymentLink } from "./square.js";
 import { page, htmlResponse, jsonResponse } from "./layout.js";
 import { STYLES } from "./styles.js";
 import { FORM_STYLES } from "./form-styles.js";
 import { CLIENT_JS } from "./client/cart.js";
 import { FORMS_JS } from "./client/forms.js";
-import { formPage, formThanksPage, formsIndexPage } from "./pages/forms.js";
+import { formPage, formThanksPage, formsIndexPage, hasPhotos } from "./pages/forms.js";
 import { formBySlug } from "./forms/definitions.js";
 import { readSubmission } from "./forms/engine.js";
 import { saveSubmission } from "./admin/forms.js";
@@ -13,6 +13,13 @@ import { homePage } from "./pages/home.js";
 import { shopPage } from "./pages/shop.js";
 import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
+import { checkerPage, ingredientPage, hasIngredientPage } from "./pages/ingredients.js";
+import {
+  betterAlternatives, checkIngredients, describeIngredient, findShopProduct, parseIngredientList,
+  productTypeFor, productTypeLabel, PRODUCT_TYPES, searchShopProducts, shopIngredientIndex,
+} from "./ingredient-checker.js";
+import { PORE_CLOGGERS } from "./data/pore-cloggers.js";
+import { productInsightFor } from "./product-insights.js";
 import { relatedProductsFor } from "./related-products.js";
 import { salePromo } from "./promo.js";
 import { previewFor } from "./campaign.js";
@@ -211,15 +218,17 @@ async function handleCheckout(request, env, cfg, url) {
   }
 }
 
-// A client form is a few KB; anything far bigger isn't one.
+// A client form is a few KB; anything far bigger isn't one. A form with photos
+// carries up to three, which the page shrinks before sending.
 const MAX_FORM_BYTES = 64 * 1024;
+const MAX_PHOTO_FORM_BYTES = 50 * 1024 * 1024;
 // Sent faster than a person could read the first step: almost certainly a bot.
 const MIN_FORM_MS = 4000;
 
 async function handleFormSubmission(request, env, cfg, slug) {
   const form = formBySlug(slug);
   if (!form) return htmlResponse(page({ title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
-  if (Number(request.headers.get("content-length") || 0) > MAX_FORM_BYTES) {
+  if (Number(request.headers.get("content-length") || 0) > (hasPhotos(form) ? MAX_PHOTO_FORM_BYTES : MAX_FORM_BYTES)) {
     return new Response("That form is too large to send.", { status: 413 });
   }
   const data = await request.formData().catch(() => null);
@@ -373,6 +382,77 @@ async function route(request, env, state) {
       }), { cacheSeconds: 60 });
     }
 
+    // The ingredient checker. Results are plain GET pages so a check works
+    // without JavaScript and can be shared as a link; nothing typed is stored.
+    if (path === "/ingredients") {
+      const { products } = catalog;
+      const shopIndex = shopIngredientIndex(products);
+      const params = url.searchParams;
+      const tab = params.get("tab") === "product" ? "product" : "";
+      const list = (params.get("list") || "").slice(0, 6000);
+      const query = (params.get("q") || "").slice(0, 120).trim();
+      const requestedType = PRODUCT_TYPES.some((item) => item.id === params.get("type")) ? params.get("type") : "";
+      let checked = null;
+      let matches = null;
+
+      const picked = findShopProduct(shopIndex.checked.map((entry) => entry.product), params.get("product") || query);
+      if (picked) {
+        const names = (productInsightFor(picked.name)?.ingredients || []).map((item) => item.name);
+        const result = checkIngredients(names);
+        const type = productTypeFor(picked.name, picked.category);
+        checked = {
+          result, type, checkedName: picked.name, checkedProduct: picked, typeNeeded: false,
+          alternatives: betterAlternatives(result, products, { type, exclude: picked.slug }),
+        };
+      } else if (tab === "product" && query) {
+        matches = searchShopProducts(products, query);
+      } else if (list.trim()) {
+        const result = checkIngredients(parseIngredientList(list));
+        const hasProblem = result.cloggers.length > 0 || result.notes.some((item) => /fragrance|sensory/i.test(item.role));
+        checked = {
+          result, type: requestedType, checkedName: "",
+          typeNeeded: hasProblem && !requestedType && result.helpers.length > 0,
+          alternatives: betterAlternatives(result, products, { type: requestedType }),
+        };
+      }
+
+      return htmlResponse(page({ promo,
+        title: "Ingredient checker",
+        body: checkerPage({
+          tab, list, type: requestedType, query, checked, matches, shopIndex,
+          suggestions: shopIndex.checked
+            .map(({ product, result }) => ({
+              name: product.name,
+              url: `/ingredients?tab=product&product=${encodeURIComponent(product.slug)}#result`,
+              image: product.image || "",
+              kind: productTypeLabel(productTypeFor(product.name, product.category)),
+              price: formatMoney(product.priceCents),
+              acneSafe: result.cloggers.length === 0,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        }),
+        cfg, current: "/ingredients", canonical,
+        description: "Paste any skincare ingredient list to find pore-clogging ingredients, learn what each ingredient does, and see acne-safe alternatives from Laura Lo's shop.",
+      }), { cacheSeconds: checked || matches ? 0 : 60 });
+    }
+
+    if (path.startsWith("/ingredients/")) {
+      const slug = decodeURIComponent(path.slice("/ingredients/".length));
+      const { products } = catalog;
+      const shopIndex = shopIngredientIndex(products);
+      if (!hasIngredientPage(slug, shopIndex)) {
+        return htmlResponse(page({ promo, title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+      }
+      const clogger = PORE_CLOGGERS.find((item) => describeIngredient(item.name).slug === slug);
+      const entry = shopIndex.ingredients.get(slug) || { ...describeIngredient(clogger.name), products: [] };
+      return htmlResponse(page({ promo,
+        title: `${entry.name}: what it does for skin`,
+        body: ingredientPage({ entry }),
+        cfg, current: "/ingredients", canonical,
+        description: `${entry.name} (${entry.role}): ${entry.description} ${entry.clogger ? "On the pore-clogging list." : "Not on the pore-clogging list."}`.slice(0, 160),
+      }), { cacheSeconds: 300 });
+    }
+
     if (path === "/shop") {
       const { products, connected } = catalog;
       return htmlResponse(page({ promo,
@@ -496,9 +576,10 @@ async function route(request, env, state) {
 
     if (path === "/sitemap.xml") {
       const { products } = catalog;
-      const paths = ["/", "/about", "/treatments", "/shop", "/gallery", "/terms", "/privacy"]
+      const paths = ["/", "/about", "/treatments", "/shop", "/ingredients", "/gallery", "/terms", "/privacy"]
         .concat(cfg.campaign ? ["/black-friday"] : [])
         .concat(ROUTINES.map((routine) => routinePath(routine.slug)))
+        .concat([...shopIngredientIndex(products).ingredients.keys()].map((slug) => `/ingredients/${slug}`))
         .concat(products.map((product) => `/product/${product.slug}`));
       const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

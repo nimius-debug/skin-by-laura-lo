@@ -50,5 +50,6 @@ export function schemaMigrations() {
     read("0007_form_submissions.sql"),
     read("0008_ipad_notes.sql"),
     read("0009_campaign_audience.sql"),
+    read("0010_form_imports.sql"),
   ];
 }

@@ -3,10 +3,11 @@
 // insight, the safety check and the email matching all take it into account.
 // The table is described in migrations/0007_form_submissions.sql.
 
-import { squareFetch, isConfigured } from "../square.js";
+import { squareFetch, squareGet, isConfigured } from "../square.js";
 import { newId } from "./db.js";
 import { formBySlug } from "../forms/definitions.js";
 import { contactOf, describeSubmission, noteFromSubmission } from "../forms/engine.js";
+import { importedView, readGoogleResponses } from "../forms/google-import.js";
 
 const DB = (env) => env.CLIENT_NOTES_DB;
 
@@ -87,8 +88,34 @@ export async function unlinkSubmission(env, submissionId) {
  * always kept, even if Square can't be reached; linking is a bonus on top.
  * Returns { id, clientId }.
  */
+const PHOTO_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heif", "image/gif": "gif" };
+
+/** Store a submission's photos in R2 and put their keys in the answers in place of the files. */
+async function storePhotos(env, form, id, answers) {
+  for (const step of form.steps) {
+    for (const question of step.questions) {
+      if (question.type !== "photos" || !Array.isArray(answers[question.id])) continue;
+      const stored = [];
+      for (const [index, { slot, file }] of answers[question.id].entries()) {
+        const key = `forms/${id}/${question.id}-${index + 1}.${PHOTO_TYPES[file.type] || "img"}`;
+        await env.NOTES_BUCKET.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type || "application/octet-stream" } });
+        stored.push({ slot, key });
+      }
+      answers[question.id] = stored;
+    }
+  }
+}
+
+/** One of a submission's photos, or null. Only the admin serves these. */
+export async function getPhoto(env, submission, questionId, index) {
+  const photo = submission.answers?.[questionId]?.[index];
+  if (!photo?.key) return null;
+  return env.NOTES_BUCKET.get(photo.key);
+}
+
 export async function saveSubmission(env, form, answers, { now = new Date() } = {}) {
   const id = newId("form");
+  if (form.steps.some((step) => step.questions.some((question) => question.type === "photos"))) await storePhotos(env, form, id, answers);
   const contact = contactOf(answers);
   const submittedAt = now.toISOString().slice(0, 19).replace("T", " ");
   await DB(env).prepare(
@@ -184,6 +211,139 @@ export async function clientsNamed(env, name) {
     "SELECT id, name FROM clients WHERE lower(trim(name)) = ? ORDER BY name",
   ).bind(clean).all();
   return results;
+}
+
+// ---------------------------------------------------------------- importing old Google Forms responses
+
+/**
+ * Every Square customer's email and phone, read once for a whole import
+ * rather than searching Square per response. Only unambiguous ones are kept:
+ * an email or phone shared by two customers matches neither.
+ */
+export async function squareCustomerIndex(env) {
+  const byEmail = new Map();
+  const byPhone = new Map();
+  if (!isConfigured(env)) return { byEmail, byPhone, available: false };
+  const add = (map, key, id) => {
+    if (!key) return;
+    map.set(key, map.has(key) && map.get(key) !== id ? null : id);
+  };
+  let cursor;
+  let pages = 0;
+  do {
+    const payload = await squareGet(env, "/v2/customers", { limit: 100, cursor });
+    for (const customer of payload.customers || []) {
+      add(byEmail, String(customer.email_address || "").trim().toLowerCase(), customer.id);
+      add(byPhone, e164(customer.phone_number), customer.id);
+    }
+    cursor = payload.cursor;
+    pages += 1;
+  } while (cursor && pages < 50);
+  return { byEmail, byPhone, available: true };
+}
+
+async function importKey(form, row) {
+  const who = row.answers.email || String(row.answers.full_name || "").toLowerCase().replace(/\s+/g, " ");
+  const bytes = new TextEncoder().encode(`${form.slug}|${row.timestampText}|${who}`);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Read a Google Forms CSV and work out, for each response, which client it
+ * belongs to and whether it was already imported. Saves nothing.
+ * Each row gets { match: { clientId, clientName, how, squareCustomerId } }
+ * where how is email | phone | name | waiting (a Square customer who isn't a client yet) | none.
+ */
+export async function previewImport(env, form, csvText) {
+  const parsed = readGoogleResponses(form, csvText);
+  if (parsed.error) return { ...parsed, squareChecked: false };
+
+  const { results: clients } = await DB(env).prepare("SELECT id, name, square_customer_id FROM clients").all();
+  const bySquareId = new Map(clients.map((client) => [client.square_customer_id, client]));
+  const byName = new Map();
+  for (const client of clients) {
+    const key = client.name.trim().toLowerCase().replace(/\s+/g, " ");
+    byName.set(key, byName.has(key) ? null : client);
+  }
+
+  let index = { byEmail: new Map(), byPhone: new Map(), available: false };
+  try {
+    index = await squareCustomerIndex(env);
+  } catch (error) {
+    console.error("Reading Square customers for an import failed:", error.message);
+  }
+
+  const { results: imported } = await DB(env).prepare("SELECT import_key FROM form_submissions WHERE import_key IS NOT NULL").all();
+  const done = new Set(imported.map((row) => row.import_key));
+
+  const rows = [];
+  for (const row of parsed.rows) {
+    const key = await importKey(form, row);
+    const viaEmail = row.answers.email ? index.byEmail.get(row.answers.email) : null;
+    const viaPhone = row.answers.phone ? index.byPhone.get(e164(row.answers.phone)) : null;
+    const customerId = viaEmail || viaPhone || null;
+    const how = viaEmail ? "email" : viaPhone ? "phone" : null;
+    const named = byName.get(String(row.answers.full_name || "").trim().toLowerCase().replace(/\s+/g, " "));
+    let match;
+    if (customerId && bySquareId.has(customerId)) {
+      const client = bySquareId.get(customerId);
+      match = { clientId: client.id, clientName: client.name, how, squareCustomerId: customerId };
+    } else if (named) {
+      match = { clientId: named.id, clientName: named.name, how: "name", squareCustomerId: customerId };
+    } else if (customerId) {
+      match = { clientId: null, clientName: "", how: "waiting", squareCustomerId: customerId };
+    } else {
+      match = { clientId: null, clientName: "", how: "none", squareCustomerId: null };
+    }
+    rows.push({ ...row, key, match, alreadyImported: done.has(key) });
+  }
+  return { rows, missing: parsed.missing, error: "", squareChecked: index.available };
+}
+
+const IMPORT_METHOD = { email: "square", phone: "square", name: "import-name" };
+
+/**
+ * Save the responses a preview found, skipping any already imported. Each is
+ * stored like a site submission (already seen, with its original date), and
+ * one that matched a client goes into her notes. Returns how many were added
+ * and how many of those were linked.
+ */
+export async function runImport(env, form, preview, skip = []) {
+  const db = DB(env);
+  let added = 0;
+  let linked = 0;
+  const skipped = new Set(skip);
+  const fresh = preview.rows.filter((row) => !row.alreadyImported && row.submittedAt && !skipped.has(row.key));
+  // Small batches: each one is a transaction, and a large file shouldn't become one huge statement list.
+  for (let start = 0; start < fresh.length; start += 25) {
+    const statements = [];
+    for (const row of fresh.slice(start, start + 25)) {
+      const view = importedView(form, row.answers);
+      const display = describeSubmission(view, row.answers);
+      if (row.extra.length) display.push({ title: "Other answers from Google Forms", rows: row.extra });
+      const noteText = noteFromSubmission(view, row.answers);
+      const contact = contactOf(row.answers);
+      const id = newId("form");
+      const { clientId, how, squareCustomerId } = row.match;
+      statements.push(db.prepare(
+        `INSERT OR IGNORE INTO form_submissions (id, form_slug, form_version, client_id, square_customer_id, link_method, name, email, phone,
+           answers_json, display_json, note_text, status, submitted_at, import_key)
+         VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reviewed', ?, ?)`,
+      ).bind(
+        id, form.slug, clientId, squareCustomerId, clientId ? IMPORT_METHOD[how] || "manual" : null,
+        contact.name || contact.email, contact.email, contact.phone,
+        JSON.stringify(row.answers), JSON.stringify(display), noteText, row.submittedAt, row.key,
+      ));
+      if (clientId) {
+        statements.push(...noteStatements(env, { id, submitted_at: row.submittedAt, note_text: noteText }, clientId));
+        linked += 1;
+      }
+      added += 1;
+    }
+    await db.batch(statements);
+  }
+  return { added, linked };
 }
 
 export { formBySlug };

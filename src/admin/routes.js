@@ -35,7 +35,7 @@ import { iconBytes } from "./icons.js";
 import { handleCampaignRoute } from "./campaigns/routes.js";
 import * as forms from "./forms.js";
 import { routinesPage } from "./pages/routines.js";
-import { formsHomePage, formSubmissionsPage, submissionPage, clientFormsCard } from "./pages/forms.js";
+import { formsHomePage, formSubmissionsPage, submissionPage, clientFormsCard, importPage } from "./pages/forms.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
 // sheet. Flip to true to bring the upload pages and routes back.
@@ -602,6 +602,15 @@ async function handleFormsRoute(request, env, url, segments, method) {
         body: submissionPage({ form, submission, suggestions, clients }),
       }));
     }
+    // GET /admin/forms/submissions/:id/photos/:question/:index — a photo she sent with the form.
+    if (segments[4] === "photos" && segments.length === 7 && method === "GET") {
+      const submission = await forms.getSubmission(env, id);
+      const object = submission && await forms.getPhoto(env, submission, segments[5], Number(segments[6]));
+      if (!object) return notFound();
+      return new Response(object.body, {
+        headers: { "content-type": object.httpMetadata?.contentType || "image/jpeg", "cache-control": "private, max-age=86400", "x-content-type-options": "nosniff" },
+      });
+    }
     // POST /admin/forms/submissions/:id/link
     if (segments[4] === "link" && method === "POST") {
       const data = await request.formData().catch(() => null);
@@ -617,6 +626,26 @@ async function handleFormsRoute(request, env, url, segments, method) {
       return redirect(`/admin/forms/submissions/${id}`);
     }
     return null;
+  }
+
+  // /admin/forms/:slug/import — bring in responses already sent through Google Forms.
+  if (segments.length === 4 && segments[3] === "import") {
+    const form = forms.formBySlug(segments[2]);
+    if (!form) return notFound();
+    const page = (body) => adminHtmlResponse(adminPage({ title: `Import · ${form.title}`, active: `form:${form.slug}`, back: { href: `/admin/forms/${form.slug}`, label: "Forms" }, body }));
+    if (method === "GET") return page(importPage({ form }));
+    if (method === "POST") {
+      const data = await request.formData().catch(() => null);
+      const file = data?.get("file");
+      const csv = file && typeof file === "object" ? await file.text() : String(data?.get("csv") || "");
+      if (!csv.trim()) return page(importPage({ form, preview: { error: "Choose the responses file to upload." } }));
+      if (csv.length > 5 * 1024 * 1024) return page(importPage({ form, preview: { error: "That file is too large to be a form's responses." } }));
+      const preview = await forms.previewImport(env, form, csv);
+      if (data.get("confirm") === "1" && !preview.error) {
+        return page(importPage({ form, result: await forms.runImport(env, form, preview, data.getAll("skip").map(String)) }));
+      }
+      return page(importPage({ form, preview, csv }));
+    }
   }
 
   // GET /admin/forms/:slug

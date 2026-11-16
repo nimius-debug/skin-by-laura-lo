@@ -7,13 +7,18 @@
 import { html, raw } from "../html.js";
 import { BOOKING_URL } from "../config.js";
 import { FORMS } from "../forms/definitions.js";
-import { detailsName } from "../forms/engine.js";
+import { detailsName, otherName, OTHER, photoName } from "../forms/engine.js";
 
 const attr = (condition, markup) => (condition ? raw(markup) : "");
 
 function errorFor(question, errors) {
   const message = errors[question.id];
   return html`<p class="form-error" id="${question.id}-error" data-error-for="${question.id}"${attr(!message, " hidden")}>${message || ""}</p>`;
+}
+
+/** The question in Spanish, under the English, for forms written in both. */
+function spanish(item) {
+  return item.es ? html`<span class="form-es" lang="es">${item.es}</span>` : "";
 }
 
 function hintFor(question) {
@@ -33,7 +38,7 @@ function textQuestion(question, value, errors) {
     : html`<input type="${INPUT_TYPES[question.type]}" ${common} value="${value || ""}" maxlength="200"${attr(question.type === "date", ` max="${new Date().toISOString().slice(0, 10)}"`)}${attr(question.type === "signature", ' class="form-signature" autocomplete="name" spellcheck="false"')}${attr(question.type === "email", ' autocapitalize="none" spellcheck="false" inputmode="email"')} />`;
   return html`
     <div class="form-question" data-question="${question.id}" data-type="${question.type}"${attr(question.required, " data-required")}>
-      <label class="form-label" for="${question.id}">${question.label}${question.required ? "" : html` <span class="form-optional">Optional</span>`}</label>
+      <label class="form-label" for="${question.id}">${question.label}${question.required ? "" : html` <span class="form-optional">Optional</span>`}${spanish(question)}</label>
       ${hintFor(question)}
       ${field}
       ${errorFor(question, errors)}
@@ -52,14 +57,49 @@ function optionTiles(question, picked, kind) {
   </div>`;
 }
 
+// "Other" as one more tile, with a box to type in that shows once it's picked.
+function otherField(question, value, multiple) {
+  const typed = multiple ? (value || []).find((item) => !question.options.includes(item)) : value && !question.options.includes(value) ? value : "";
+  return html`
+    <label class="form-option form-option-other">
+      <input type="${multiple ? "checkbox" : "radio"}" name="${question.id}" value="${OTHER}"${attr(typed, " checked")} />
+      <span>${question.other}</span>
+    </label>
+    <div class="form-details" data-other-for="${question.id}">
+      <label class="form-label form-label-small" for="${otherName(question)}">Please tell Laura</label>
+      <input type="text" id="${otherName(question)}" name="${otherName(question)}" value="${typed || ""}" maxlength="200" />
+    </div>
+  `;
+}
+
+function photosQuestion(question, errors) {
+  return html`
+    <fieldset class="form-question" data-question="${question.id}" data-type="photos"${attr(question.required, " data-required")} aria-describedby="${describedBy(question)}">
+      <legend class="form-label">${question.label}${spanish(question)}</legend>
+      ${hintFor(question)}
+      <div class="form-photos">
+        ${question.slots.map((slot, index) => html`
+          <label class="form-photo">
+            <input type="file" name="${photoName(question, index)}" accept="image/*" data-photo />
+            <span class="form-photo-frame" aria-hidden="true"><img alt="" hidden data-photo-preview /><span class="form-photo-plus">+</span></span>
+            <span class="form-photo-label">${slot}</span>
+          </label>
+        `)}
+      </div>
+      ${errorFor(question, errors)}
+    </fieldset>
+  `;
+}
+
 function choiceQuestion(question, value, errors) {
   const multiple = question.type === "choices";
   const picked = multiple ? value || [] : value ? [value] : [];
   return html`
     <fieldset class="form-question" data-question="${question.id}" data-type="${question.type}"${attr(question.required, " data-required")} aria-describedby="${describedBy(question)}">
-      <legend class="form-label">${question.label}${question.required ? "" : html` <span class="form-optional">Optional</span>`}</legend>
+      <legend class="form-label">${question.label}${question.required ? "" : html` <span class="form-optional">Optional</span>`}${spanish(question)}</legend>
       ${hintFor(question)}
       ${optionTiles(question, picked, multiple ? "checkbox" : "radio")}
+      ${question.other ? otherField(question, value, multiple) : ""}
       ${errorFor(question, errors)}
     </fieldset>
   `;
@@ -69,7 +109,7 @@ function yesNoQuestion(question, value, errors) {
   const answer = value?.answer || "";
   return html`
     <fieldset class="form-question" data-question="${question.id}" data-type="yesno"${attr(question.required, " data-required")} aria-describedby="${describedBy(question)}">
-      <legend class="form-label">${question.label}</legend>
+      <legend class="form-label">${question.label}${spanish(question)}</legend>
       ${hintFor(question)}
       <div class="form-options form-options-row form-yesno">
         ${["Yes", "No"].map((option, index) => html`
@@ -95,7 +135,7 @@ function agreeQuestion(question, value, errors) {
     <div class="form-question form-agree" data-question="${question.id}" data-type="agree"${attr(question.required, " data-required")}>
       <label class="form-check">
         <input type="checkbox" name="${question.id}" value="yes" aria-describedby="${question.id}-error"${attr(value === true, " checked")}${attr(question.required, " required")} />
-        <span>${question.label}</span>
+        <span>${question.label}${spanish(question)}</span>
       </label>
       ${errorFor(question, errors)}
     </div>
@@ -107,6 +147,7 @@ function question(q, answers, errors) {
   if (q.type === "choices" || q.type === "choice") return choiceQuestion(q, value, errors);
   if (q.type === "yesno") return yesNoQuestion(q, value, errors);
   if (q.type === "agree") return agreeQuestion(q, value, errors);
+  if (q.type === "photos") return photosQuestion(q, errors);
   return textQuestion(q, value, errors);
 }
 
@@ -114,13 +155,15 @@ function step(form, s, index, answers, errors) {
   return html`
     <section class="form-step" id="step-${s.id}" data-step="${s.id}" data-title="${s.title}"${s.showIf ? html` data-show-if="${JSON.stringify(s.showIf)}"` : ""} aria-labelledby="step-${s.id}-title">
       <p class="form-step-count" aria-hidden="true">Step ${index + 1}</p>
-      <h2 class="form-step-title" id="step-${s.id}-title" tabindex="-1">${s.title}</h2>
+      <h2 class="form-step-title" id="step-${s.id}-title" tabindex="-1">${s.title}${s.es ? html` <span class="form-step-es" lang="es">${s.es}</span>` : ""}</h2>
       ${s.showIf ? html`<p class="form-step-only">Only if you're booking: ${s.showIf.anyOf.join(" or ")}</p>` : ""}
       ${s.intro ? html`<p class="form-step-intro">${s.intro}</p>` : ""}
       <div class="form-questions">${s.questions.map((q) => question(q, answers, errors))}</div>
     </section>
   `;
 }
+
+export const hasPhotos = (form) => form.steps.some((s) => s.questions.some((q) => q.type === "photos"));
 
 /** The form itself. `answers` and `errors` refill it when the server sends it back with a problem. */
 export function formPage({ form, answers = {}, errors = {} }) {
@@ -140,7 +183,7 @@ export function formPage({ form, answers = {}, errors = {} }) {
 
       ${hasErrors ? html`<div class="form-alert" role="alert" tabindex="-1" data-form-alert>A few answers need another look. They're marked below.</div>` : ""}
 
-      <form class="client-form" method="post" action="/forms/${form.slug}" data-client-form novalidate>
+      <form class="client-form" method="post" action="/forms/${form.slug}"${attr(hasPhotos(form), ' enctype="multipart/form-data"')} data-client-form novalidate>
         <div class="form-trap" aria-hidden="true">
           <label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
         </div>
@@ -154,7 +197,7 @@ export function formPage({ form, answers = {}, errors = {} }) {
         <p class="form-privacy">Your answers go straight to Laura and are kept private. They're never shared or sold.</p>
       </form>
     </div>
-    <script src="/assets/forms.js?v=1" defer></script>
+    <script src="/assets/forms.js?v=2" defer></script>
   `;
 }
 

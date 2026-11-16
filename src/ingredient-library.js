@@ -537,7 +537,7 @@ const CATEGORY_PROFILES = [
   },
 ];
 
-function cleanIngredientName(value) {
+export function cleanIngredientName(value) {
   return String(value || "")
     .replace(/^(?:ingredients?|ingredient list|inactive ingredients?|main ingredients?|actives? disclosed):?\s*/i, "")
     .replace(/\s+/g, " ")

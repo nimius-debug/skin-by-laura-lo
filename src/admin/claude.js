@@ -13,7 +13,7 @@ import { productInsightFor } from "../product-insights.js";
 import { NOTE_FIELDS, cleanFields, noteFields, fieldsAsText } from "./note-fields.js";
 
 const ANTHROPIC_VERSION = "2023-06-01";
-const DEFAULT_MODEL = "claude-sonnet-5-5";
+const DEFAULT_MODEL = "claude-haiku-5-5";
 
 const SYSTEM_PROMPT = `You are reading scanned pages from a licensed esthetician's handwritten client consultation notebook, exported from a note-taking app. You will be shown one or more pages, in the order they appear in the notebook, each labelled with its page index.
 
