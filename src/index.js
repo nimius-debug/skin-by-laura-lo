@@ -506,7 +506,7 @@ async function route(request, env, state) {
       if (!cfg.campaign) return redirect("/shop", 302);
       return htmlResponse(page({ promo,
         title: "Black Friday · The Skin Investment Edit",
-        body: blackFridayPage({ phase: cfg.campaign, pkg: catalog.packages[0] || null }),
+        body: blackFridayPage({ phase: cfg.campaign, pkg: catalog.packages[0] || null, products: catalog.products, now: cfg.previewNow || null }),
         cfg, current: "/black-friday", canonical,
         description: "Black Friday at Skin by Laura Lo: the Liquid Microneedling series, gift cards with bonus value, and 15% off skincare with free shipping. November 23 to 30.",
       }), { cacheSeconds: 60 });

@@ -8,7 +8,7 @@ import { campaignBanner } from "./pages/black-friday.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261116-black-friday";
+const ASSET_VERSION = "20261116-black-friday-2";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {

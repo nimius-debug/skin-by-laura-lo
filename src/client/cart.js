@@ -914,6 +914,7 @@ export const CLIENT_JS = String.raw`
       // An in-studio treatment package has nothing to ship or collect, so it
       // stays out of the shipping fee and the free-shipping threshold. The
       // server applies the same rule when it builds the checkout.
+      var saved = lines.reduce(function (total, line) { return total + Math.max(line.regularTotal - line.total, 0); }, 0);
       var shippable = lines.filter(function (line) { return !line.entry.noShipping; });
       var needsDelivery = shippable.length > 0;
       var shipSubtotal = shippable.reduce(function (total, line) { return total + line.total; }, 0);
@@ -1007,6 +1008,7 @@ export const CLIENT_JS = String.raw`
                     (fulfillment === "pickup" ? "Free" : (shipping === 0 ? "Free" : money(shipping))) + "</span></p>"
                 : "") +
               "<p><span>Tax</span><span><small>Calculated by Square</small></span></p>" +
+              (saved > 0 ? '<p class="summary-saving"><span>You save</span><span>' + money(saved) + "</span></p>" : "") +
               '<p class="summary-total"><span>Total</span><span>' + money(subtotal + shipping) + "</span></p>" +
             "</div>" +
             '<button class="button button-dark checkout-button" type="button" data-checkout>Checkout with Square</button>' +
@@ -1180,6 +1182,88 @@ export const CLIENT_JS = String.raw`
     });
   }
 
+  /* --------------------------------------------------------- black friday */
+
+  // Countdown clocks, the gift card picker, and the scroll reveals on
+  // /black-friday. Every number is already in the page, so it reads fine
+  // without this; the script only makes it move.
+  function initBlackFriday() {
+    var root = document.querySelector("[data-bf]");
+    if (!root) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function countUp(el) {
+      var target = Number(el.getAttribute("data-bf-count"));
+      if (!target || reduce) return;
+      var start = null;
+      function frame(time) {
+        if (start === null) start = time;
+        var progress = Math.min((time - start) / 1200, 1);
+        var eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = "$" + Math.round(target * eased).toLocaleString("en-US");
+        if (progress < 1) window.requestAnimationFrame(frame);
+      }
+      window.requestAnimationFrame(frame);
+    }
+
+    var sections = root.querySelectorAll("[data-bf-reveal]");
+    if ("IntersectionObserver" in window) {
+      root.classList.add("bf-js");
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-in");
+          Array.prototype.forEach.call(entry.target.querySelectorAll("[data-bf-count]"), countUp);
+          observer.unobserve(entry.target);
+        });
+      }, { threshold: 0.15 });
+      Array.prototype.forEach.call(sections, function (section) { observer.observe(section); });
+    }
+
+    function pad(value) { return value < 10 ? "0" + value : String(value); }
+    Array.prototype.forEach.call(root.querySelectorAll("[data-bf-countdown]"), function (clock) {
+      var target = Date.parse(clock.getAttribute("data-bf-countdown"));
+      // On a preview link the page pretends it is another day; so does the clock.
+      var pretend = clock.getAttribute("data-bf-now");
+      var offset = pretend ? Date.parse(pretend) - Date.now() : 0;
+      var cells = {};
+      Array.prototype.forEach.call(clock.querySelectorAll("[data-bf-unit]"), function (cell) {
+        cells[cell.getAttribute("data-bf-unit")] = cell;
+      });
+      function tick() {
+        var left = Math.max(0, Math.floor((target - (Date.now() + offset)) / 1000));
+        cells.d.textContent = pad(Math.floor(left / 86400));
+        cells.h.textContent = pad(Math.floor((left % 86400) / 3600));
+        cells.m.textContent = pad(Math.floor((left % 3600) / 60));
+        cells.s.textContent = pad(left % 60);
+      }
+      tick();
+      window.setInterval(tick, 1000);
+    });
+
+    var card = root.querySelector("[data-bf-giftcard]");
+    var tiers = root.querySelectorAll("[data-bf-tier]");
+    function fill(selector, text) {
+      var el = root.querySelector(selector);
+      if (el) el.textContent = text;
+    }
+    Array.prototype.forEach.call(tiers, function (tier) {
+      tier.addEventListener("click", function () {
+        Array.prototype.forEach.call(tiers, function (other) {
+          other.setAttribute("aria-pressed", other === tier ? "true" : "false");
+        });
+        fill("[data-bf-gift-value]", tier.getAttribute("data-value"));
+        fill("[data-bf-gift-bonus]", tier.getAttribute("data-bonus"));
+        fill("[data-bf-gift-pay]", tier.getAttribute("data-pay"));
+        if (card && !reduce) {
+          card.classList.remove("is-swap");
+          void card.offsetWidth;
+          card.classList.add("is-swap");
+        }
+      });
+    });
+  }
+
   /* ---------------------------------------------------------------- boot */
 
   function init() {
@@ -1196,6 +1280,7 @@ export const CLIENT_JS = String.raw`
     initHero();
     initTilt();
     initCartPage();
+    initBlackFriday();
     if (window.__CLEAR_CART__) writeCart([]);
   }
 

@@ -136,9 +136,9 @@ check("Nov 23 to 26: banner leads with the series and teases the sale",
   [true, true, true, true]);
 const bfLaunch = await text("/black-friday", LAUNCH);
 check("Nov 23 to 26: the page sells the package with its values and terms",
-  [bfLaunch.includes('data-add-to-cart="V_PACK"'), bfLaunch.includes("$897.00"), bfLaunch.includes("$1,129"), bfLaunch.includes("$232"),
+  [bfLaunch.includes('data-add-to-cart="V_PACK"'), bfLaunch.includes("<strong>$897</strong>"), bfLaunch.includes("$1,129"), bfLaunch.includes("$232"),
     bfLaunch.includes("$115") && bfLaunch.includes("$225") && bfLaunch.includes("$350"), bfLaunch.includes("11:59 PM EST"),
-    bfLaunch.includes("Starts Friday, November 27")],
+    bfLaunch.includes("Starts Friday, Nov 27")],
   [true, true, true, true, true, true, true]);
 check("the package is never listed in the shop", (await text("/shop", LAUNCH)).includes("Microneedling |"), false);
 const api = await (await get("/api/catalog", LAUNCH)).json();
@@ -166,7 +166,14 @@ check("Nov 27 to 30: 15% on skincare only, free shipping, no coupon stacking",
     saleOrder.link.checkout_options.shipping_fee, saleOrder.link.checkout_options.enable_coupon],
   [undefined, 1, ["D1"], undefined, false]);
 const bfSale = await text("/black-friday", SALE);
-check("the package stays $897 during the sale", [bfSale.includes("$897.00"), bfSale.includes("$762.45")], [true, false]);
+check("the package stays $897 during the sale", [bfSale.includes("<strong>$897</strong>"), bfSale.includes("$762.45")], [true, false]);
+check("skincare on the page shows what each product saves",
+  [bfLaunch.includes("Save $5.10") && bfLaunch.includes("$28.90") && bfLaunch.includes("from Nov 27"), bfLaunch.includes('data-add-to-cart="V_CLEANSER"'),
+    bfSale.includes("Save $5.10") && bfSale.includes('data-add-to-cart="V_CLEANSER"')],
+  [true, false, true]);
+check("the page has its countdown and the gift card picker",
+  [bfSale.includes('data-bf-countdown="2026-12-01T05:00:00Z"'), bfLaunch.includes('data-bf-countdown="2026-11-27T05:00:00Z"'), (bfSale.match(/data-bf-tier/g) || []).length],
+  [true, true, 3]);
 check("the Terms page carries the promotion terms", (await text("/terms", SALE)).includes("Black Friday 2026 promotion"), true);
 
 // ------------------------------------------------------------------- after

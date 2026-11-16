@@ -19,6 +19,10 @@ export const BLACK_FRIDAY = {
   // Over at this moment, so the last second is Nov 30, 11:59:59 PM.
   end: "2026-12-01 00:00:00",
   endLabel: "November 30, 2026 at 11:59 PM EST",
+  // The same two moments in UTC (Eastern is UTC-5 in late November), for the
+  // countdown clocks, which run in the visitor's browser.
+  saleStartUtc: "2026-11-27T05:00:00Z",
+  endUtc: "2026-12-01T05:00:00Z",
 
   package: {
     title: "Green Sea Liquid Microneedling",
