@@ -1247,6 +1247,18 @@ export const CLIENT_JS = String.raw`
       var el = root.querySelector(selector);
       if (el) el.textContent = text;
     }
+    // Copy the discount code. The button only appears where copying works.
+    Array.prototype.forEach.call(root.querySelectorAll("[data-bf-copy]"), function (button) {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+      button.hidden = false;
+      button.addEventListener("click", function () {
+        navigator.clipboard.writeText(button.getAttribute("data-bf-copy")).then(function () {
+          button.textContent = "Copied";
+          window.setTimeout(function () { button.textContent = "Copy code"; }, 2000);
+        }, function () {});
+      });
+    });
+
     Array.prototype.forEach.call(tiers, function (tier) {
       tier.addEventListener("click", function () {
         Array.prototype.forEach.call(tiers, function (other) {

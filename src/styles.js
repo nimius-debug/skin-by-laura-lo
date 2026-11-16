@@ -1273,6 +1273,16 @@ html.result-viewer-open { overflow: hidden; }
 .bf-giftcard-label { margin-top: auto; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
 .bf-giftcard-value { font-family: var(--font-serif); font-size: clamp(44px, 6vw, 68px); font-weight: 400; line-height: 1; }
 .bf-giftcard-bonus { margin-top: 6px; font-size: 13px; font-weight: 700; }
+.bf-code { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 24px; padding: 16px 18px; border: 1px dashed var(--bf-gold); background: rgba(227,203,146,.06); }
+.bf-code-label { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--on-dark-muted); }
+.bf-code-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 24px; letter-spacing: .14em; color: var(--bf-gold); user-select: all; }
+.bf-code-copy { margin-left: auto; min-height: 36px; padding: 0 14px; border: 1px solid var(--bf-gold); background: transparent; color: var(--bf-gold); font: inherit; font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; transition: background .2s ease, color .2s ease; }
+.bf-code-copy:hover, .bf-code-copy:focus-visible { background: var(--bf-gold); color: var(--bf-bg); }
+.bf-tiers.bf-tiers-4 { grid-template-columns: repeat(2, 1fr); }
+.bf-steps { margin: 0 0 26px; padding: 0; list-style: none; counter-reset: bf-step; }
+.bf-steps li { counter-increment: bf-step; position: relative; padding: 9px 0 9px 38px; font-size: 15px; }
+.bf-steps li::before { content: counter(bf-step); position: absolute; left: 0; top: 7px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--bf-gold); color: var(--bf-bg); font-size: 12px; font-weight: 700; }
+.bf-steps b { color: var(--bf-gold); font-weight: 600; }
 .bf-pick-label { margin: 0 0 12px; color: var(--on-dark-muted); font-size: 13px; }
 .bf-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
 .bf-tier { padding: 16px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; border: 1px solid var(--bf-line); background: var(--bf-panel); color: var(--on-dark); font: inherit; cursor: pointer; transition: transform .2s ease, border-color .2s ease, background .2s ease; }

@@ -39,11 +39,14 @@ export const BLACK_FRIDAY = {
     ],
   },
 
-  giftCards: [
-    { payCents: 10000, valueCents: 11500 },
-    { payCents: 20000, valueCents: 22500 },
-    { payCents: 30000, valueCents: 35000 },
-  ],
+  // Gift cards: a discount code typed on Square's eGift page. The code and
+  // its dates are created in Square; the site only advertises it. `amounts`
+  // are the card values Square's page offers, used for the worked examples.
+  gift: {
+    code: "BLACKFRIDAY",
+    percent: 15,
+    amounts: [5500, 9900, 12900, 17000],
+  },
 
   salePercent: 15,
 };

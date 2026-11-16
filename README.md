@@ -120,7 +120,7 @@ or Dec 1.
 |---|---|
 | Package price ($897 item named "… Liquid Microneedling … Series …") | Square item |
 | 15% off skincare, Nov 27 to 30 | Square discount with dates (read like any sale) |
-| Gift card amounts and bonus cards | Square eGift settings, bonus sent by hand |
+| Gift cards 15% off with code BLACKFRIDAY | Square eGift discount code (the site only advertises it) |
 | Free shipping, Nov 27 to 30 | Code (`settings()` in `src/config.js`) |
 | Banner, homepage block, `/black-friday`, promo terms | Code (`src/pages/black-friday.js`) |
 | Package on sale only Nov 23 to 30, never discounted, nothing to ship | Code |
