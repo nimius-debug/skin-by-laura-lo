@@ -66,15 +66,21 @@ function offers(phase) {
 /** The bar above the header. Takes the place of the everyday sale banner. */
 export function campaignBanner(phase) {
   if (!phase) return "";
-  const [lead, ...rest] = offers(phase);
+  const list = offers(phase);
+  // The ticker scrolls one run after another. Three copies of the offers make
+  // a run wider than any screen, and two runs make the loop seamless. Only the
+  // first copy is read out and reachable by keyboard.
+  const copy = (first) => list.map((offer, index) => first
+    ? html`<a class="promo-bf-offer ${index === 0 ? "promo-bf-lead" : "promo-bf-more"}" href="${offer.href}">${offer.short}</a><span class="promo-bf-star" aria-hidden="true">&#10022;</span>`
+    : html`<a aria-hidden="true" tabindex="-1" class="promo-bf-offer ${index === 0 ? "promo-bf-lead" : "promo-bf-more"} promo-bf-dup" href="${offer.href}">${offer.short}</a><span class="promo-bf-star promo-bf-dup" aria-hidden="true">&#10022;</span>`);
+  const run = (first) => html`<span class="promo-bf-run">${copy(first)}${copy(false)}${copy(false)}</span>`;
   return html`
     <div class="promo promo-bf" data-campaign-banner>
-      <div class="promo-bf-inner">
-        <span class="promo-bf-tag">Black Friday</span>
-        <a class="promo-bf-offer promo-bf-lead" href="${lead.href}">${lead.short}</a>
-        ${rest.map((offer) => html`<a class="promo-bf-offer promo-bf-more" href="${offer.href}">${offer.short}</a>`)}
-        <a class="promo-cta promo-bf-all" href="${PAGE}">All offers <span aria-hidden="true">&rarr;</span></a>
+      <a class="promo-bf-tag" href="${PAGE}"><span>Black Friday</span></a>
+      <div class="promo-bf-ticker">
+        <div class="promo-track promo-bf-track">${run(true)}${run(false)}</div>
       </div>
+      <a class="promo-bf-all" href="${PAGE}">All offers <span aria-hidden="true">&rarr;</span></a>
     </div>
   `;
 }
