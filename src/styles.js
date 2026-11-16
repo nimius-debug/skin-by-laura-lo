@@ -1159,23 +1159,40 @@ html.result-viewer-open { overflow: hidden; }
 
 /* ------------------------------------------------ Black Friday 2026
    Banner, homepage block and /black-friday. Shown by date (src/campaign.js). */
-.promo-bf { --promo-bg: var(--shadow); --promo-fg: var(--on-dark); --promo-accent: var(--brass-hi); border-bottom: 1px solid var(--brass-deep); }
-.promo-bf-inner { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: safe center; gap: 22px; padding-inline: 16px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
-.promo-bf-tag { color: var(--promo-accent); font-weight: 700; letter-spacing: .2em; }
-.promo-bf-offer { border-bottom: 1px solid transparent; }
-.promo-bf-offer:hover, .promo-bf-offer:focus-visible { border-bottom-color: currentColor; }
+.promo-bf { --promo-bg: var(--shadow); --promo-fg: var(--on-dark); --promo-accent: var(--brass-hi); align-items: stretch; border-bottom: 1px solid var(--brass-deep); background: radial-gradient(60% 220% at 50% 120%, rgba(198,164,92,.2), transparent 70%), linear-gradient(90deg, #0b0c09, #1a1a12 50%, #0b0c09); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.promo-bf-tag { position: relative; z-index: 1; flex: 0 0 auto; display: flex; align-items: center; padding: 0 26px 0 18px; overflow: hidden; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--ink); font-weight: 800; letter-spacing: .2em; clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%); }
+.promo-bf-tag::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.65) 50%, transparent 65%); transform: translateX(-120%); animation: promo-bf-shine 4.5s ease-in-out infinite; }
+.promo-bf-ticker { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+.promo-bf-track { animation-duration: 75s; }
+.promo-bf-run { display: inline-flex; align-items: center; }
+.promo-bf-run > * { flex: 0 0 auto; }
+.promo-bf-offer { border-bottom: 1px solid transparent; transition: color .2s; }
+.promo-bf-offer:hover, .promo-bf-offer:focus-visible { color: var(--promo-accent); border-bottom-color: currentColor; }
 .promo-bf-lead { font-weight: 700; color: var(--promo-accent); }
-.promo-bf-more::before { content: "·"; margin-right: 22px; color: var(--on-dark-muted); }
-.promo-bf-all { flex: 0 0 auto; }
-.promo-bf-all:hover, .promo-bf-all:focus-visible { background: var(--promo-accent); color: var(--promo-bg); }
+.promo-bf-star { margin-inline: 20px; color: var(--brass); font-size: 10px; animation: promo-bf-twinkle 2.4s ease-in-out infinite; }
+.promo-bf-star:nth-of-type(2n) { animation-delay: .8s; }
+.promo-bf-star:nth-of-type(3n) { animation-delay: 1.6s; }
+.promo-bf-all { position: relative; z-index: 1; flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 6px; margin: 0 14px 0 6px; padding: 4px 12px; border-radius: 999px; background: linear-gradient(135deg, var(--brass), var(--brass-hi)); color: var(--ink); font-weight: 700; transition: transform .2s, box-shadow .2s; }
+.promo-bf-all span { transition: transform .2s; }
+.promo-bf-all:hover, .promo-bf-all:focus-visible { box-shadow: 0 0 14px rgba(227,203,146,.55); }
+.promo-bf-all:hover span, .promo-bf-all:focus-visible span { transform: translateX(3px); }
 .promo-bf a:focus-visible { outline: 2px solid var(--promo-accent); outline-offset: 2px; }
-@media (max-width: 1180px) { .promo-bf-more + .promo-bf-more { display: none; } }
-@media (max-width: 860px) { .promo-bf-more { display: none; } }
+.promo-bf-tag:focus-visible { outline-offset: -3px; outline-color: var(--ink); }
+@keyframes promo-bf-shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+@keyframes promo-bf-twinkle { 0%, 100% { opacity: .45; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
 @media (max-width: 640px) {
-  .promo-bf-inner { gap: 10px; font-size: 10px; letter-spacing: .08em; }
-  .promo-bf-tag { display: none; }
-  .promo-bf-lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .promo-bf-all { padding: 2px 8px; }
+  .promo-bf { font-size: 10px; letter-spacing: .08em; }
+  .promo-bf-tag { padding: 0 20px 0 12px; letter-spacing: .14em; }
+  .promo-bf-track { animation-duration: 60s; }
+  .promo-bf-star { margin-inline: 14px; }
+  .promo-bf-all { display: none; }
+  .promo-bf-ticker { -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo-bf-track { animation: none; width: 100%; justify-content: safe center; }
+  .promo-bf-dup, .promo-bf-run + .promo-bf-run, .promo-bf-run > .promo-bf-star:last-of-type { display: none; }
+  .promo-bf-tag::after, .promo-bf-star { animation: none; }
+  .promo-bf-ticker { -webkit-mask-image: none; mask-image: none; }
 }
 
 .preview-note { position: fixed; z-index: 1000; left: 12px; bottom: 12px; max-width: calc(100% - 24px); padding: 7px 12px; border-radius: 4px; background: #7a1f1f; color: #fff; font-size: 12px; line-height: 1.4; opacity: .92; }
@@ -1273,6 +1290,16 @@ html.result-viewer-open { overflow: hidden; }
 .bf-giftcard-label { margin-top: auto; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
 .bf-giftcard-value { font-family: var(--font-serif); font-size: clamp(44px, 6vw, 68px); font-weight: 400; line-height: 1; }
 .bf-giftcard-bonus { margin-top: 6px; font-size: 13px; font-weight: 700; }
+.bf-code { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 24px; padding: 16px 18px; border: 1px dashed var(--bf-gold); background: rgba(227,203,146,.06); }
+.bf-code-label { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--on-dark-muted); }
+.bf-code-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 24px; letter-spacing: .14em; color: var(--bf-gold); user-select: all; }
+.bf-code-copy { margin-left: auto; min-height: 36px; padding: 0 14px; border: 1px solid var(--bf-gold); background: transparent; color: var(--bf-gold); font: inherit; font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; transition: background .2s ease, color .2s ease; }
+.bf-code-copy:hover, .bf-code-copy:focus-visible { background: var(--bf-gold); color: var(--bf-bg); }
+.bf-tiers.bf-tiers-4 { grid-template-columns: repeat(2, 1fr); }
+.bf-steps { margin: 0 0 26px; padding: 0; list-style: none; counter-reset: bf-step; }
+.bf-steps li { counter-increment: bf-step; position: relative; padding: 9px 0 9px 38px; font-size: 15px; }
+.bf-steps li::before { content: counter(bf-step); position: absolute; left: 0; top: 7px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--bf-gold); color: var(--bf-bg); font-size: 12px; font-weight: 700; }
+.bf-steps b { color: var(--bf-gold); font-weight: 600; }
 .bf-pick-label { margin: 0 0 12px; color: var(--on-dark-muted); font-size: 13px; }
 .bf-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
 .bf-tier { padding: 16px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; border: 1px solid var(--bf-line); background: var(--bf-panel); color: var(--on-dark); font: inherit; cursor: pointer; transition: transform .2s ease, border-color .2s ease, background .2s ease; }

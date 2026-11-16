@@ -132,12 +132,12 @@ check("before Nov 23: usual $10 shipping and coupon box",
 const homeLaunch = await text("/", LAUNCH);
 check("Nov 23 to 26: banner leads with the series and teases the sale",
   [/promo-bf-lead" href="\/black-friday#series">Liquid Microneedling Series \$897</.test(homeLaunch),
-    homeLaunch.includes("Gift cards: up to $50 bonus"), homeLaunch.includes("15% off skincare + free shipping from Nov 27"), homeLaunch.includes("bf-home")],
+    homeLaunch.includes("Gift cards 15% off, code BLACKFRIDAY"), homeLaunch.includes("15% off skincare + free shipping from Nov 27"), homeLaunch.includes("bf-home")],
   [true, true, true, true]);
 const bfLaunch = await text("/black-friday", LAUNCH);
 check("Nov 23 to 26: the page sells the package with its values and terms",
   [bfLaunch.includes('data-add-to-cart="V_PACK"'), bfLaunch.includes("<strong>$897</strong>"), bfLaunch.includes("$1,129"), bfLaunch.includes("$232"),
-    bfLaunch.includes("$115") && bfLaunch.includes("$225") && bfLaunch.includes("$350"), bfLaunch.includes("11:59 PM EST"),
+    bfLaunch.includes("BLACKFRIDAY") && bfLaunch.includes("$84.15") && bfLaunch.includes("Save $14.85"), bfLaunch.includes("11:59 PM EST"),
     bfLaunch.includes("Starts Friday, Nov 27")],
   [true, true, true, true, true, true, true]);
 check("the package is never listed in the shop", (await text("/shop", LAUNCH)).includes("Microneedling |"), false);
@@ -156,7 +156,7 @@ check("package + skincare: the package doesn't earn free shipping for the rest",
 const homeSale = await text("/", SALE);
 check("Nov 27 to 30: banner leads with the skincare sale, all three offers",
   [/promo-bf-lead" href="\/shop">15% off skincare \+ free shipping</.test(homeSale),
-    homeSale.includes("Liquid Microneedling Series $897"), homeSale.includes("Gift cards: up to $50 bonus"),
+    homeSale.includes("Liquid Microneedling Series $897"), homeSale.includes("Gift cards 15% off, code BLACKFRIDAY"),
     homeSale.includes("Free U.S. shipping on every order through Nov 30")],
   [true, true, true, true]);
 const saleOrder = await checkout(PACK.concat(CLEANSER), SALE);
@@ -173,7 +173,7 @@ check("skincare on the page shows what each product saves",
   [true, false, true]);
 check("the page has its countdown and the gift card picker",
   [bfSale.includes('data-bf-countdown="2026-12-01T05:00:00Z"'), bfLaunch.includes('data-bf-countdown="2026-11-27T05:00:00Z"'), (bfSale.match(/data-bf-tier/g) || []).length],
-  [true, true, 3]);
+  [true, true, 4]);
 check("the Terms page carries the promotion terms", (await text("/terms", SALE)).includes("Black Friday 2026 promotion"), true);
 
 // ------------------------------------------------------------------- after
