@@ -4,6 +4,7 @@
 // and asks Square to create a hosted checkout link. It never stores an order,
 // and it never accepts a price from the browser.
 
+import { PACKAGE_NAME, localStamp } from "./campaign.js";
 import { salesRankFor, applySalesRank, topSellerSlugs } from "./sales-rank.js";
 
 // How many top sellers get a "Best seller" badge, within each category.
@@ -175,19 +176,6 @@ function presentAt(object, locationId) {
   }
   if (object.present_at_all_locations !== false) return true;
   return Array.isArray(object.present_at_location_ids) && object.present_at_location_ids.includes(locationId);
-}
-
-/** "YYYY-MM-DD HH:MM:SS" wall-clock time at the studio, to compare against rule dates. */
-function localStamp(now, timeZone) {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(now).map((part) => [part.type, part.value]),
-  );
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
 /**
@@ -371,6 +359,10 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
     if ((data.product_type || "REGULAR") !== "REGULAR") continue;
     if (data.ecom_visibility !== "VISIBLE") continue;
     if (NON_RETAIL_NAME.test(data.name || "")) continue;
+    // A prepaid treatment series (the Black Friday package). It is sold from
+    // its own page for a set window, is never part of a skincare sale, and
+    // has nothing to ship.
+    const promoPackage = PACKAGE_NAME.test(data.name || "");
 
     const variations = [];
     for (const variation of data.variations || []) {
@@ -381,7 +373,7 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
       const amount = Number(vd.price_money?.amount);
       if (!Number.isFinite(amount)) continue;
 
-      const sale = sales.length
+      const sale = sales.length && !promoPackage
         ? bestSale(sales, new Set([item.id, variation.id, ...categoryIdsFor(item)]), amount, productSets)
         : null;
       const offCents = sale ? sale.offCents : 0;
@@ -409,7 +401,7 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
     if (cfg.hideSoldOut && !available) continue;
 
     const category = categoryNameFor(item, categories);
-    if (cfg.hideUncategorized && category === UNCATEGORIZED_LABEL) continue;
+    if (cfg.hideUncategorized && category === UNCATEGORIZED_LABEL && !promoPackage) continue;
 
     const imageIds = [
       ...(Array.isArray(data.image_ids) ? data.image_ids : []),
@@ -448,6 +440,7 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
       regularPriceCents: defaultVariation.regularPriceCents,
       sale: defaultVariation.sale,
       available,
+      promoPackage,
     });
   }
 
@@ -458,10 +451,21 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
 // Per-isolate memo so a burst of requests on one edge node makes one Square call.
 let memo = { expires: 0, products: null };
 
-/** The full catalog, cached for cfg.catalogTtlSeconds. */
-export async function getCatalog(env, cfg, { force = false } = {}) {
+/**
+ * The catalog, cached for cfg.catalogTtlSeconds. Treatment packages are left
+ * out unless asked for: only the storefront sells them, and only in season.
+ *
+ * `at` prices the catalog as of another moment (campaign preview links). That
+ * read is never cached, so a preview can't leak into what shoppers see.
+ */
+export async function getCatalog(env, cfg, { force = false, includePackages = false, at = null } = {}) {
+  const all = await loadAll(env, cfg, { force, at });
+  return includePackages ? all : all.filter((product) => !product.promoPackage);
+}
+
+async function loadAll(env, cfg, { force, at }) {
   const now = Date.now();
-  if (!force && memo.products && now < memo.expires) return memo.products;
+  if (!force && !at && memo.products && now < memo.expires) return memo.products;
 
   const raw = await fetchAllItems(env);
 
@@ -489,7 +493,7 @@ export async function getCatalog(env, cfg, { force = false } = {}) {
     sales = {
       sales: activeSales(pricing, {
         locationId: env.SQUARE_LOCATION_ID,
-        now: new Date(),
+        now: at || new Date(),
         timeZone: cfg.timeZone,
       }),
       productSets: pricing.productSets,
@@ -508,7 +512,7 @@ export async function getCatalog(env, cfg, { force = false } = {}) {
   const bestSellerSlugs = topSellerSlugs(products, salesRank, BEST_SELLER_BADGE_COUNT);
   for (const product of products) product.bestSeller = bestSellerSlugs.has(product.slug);
 
-  if (cfg.catalogTtlSeconds > 0) {
+  if (cfg.catalogTtlSeconds > 0 && !at) {
     memo = { expires: now + cfg.catalogTtlSeconds * 1000, products };
   }
   return products;
@@ -549,12 +553,14 @@ export async function createPaymentLink(env, {
   supportEmail,
   pickupPrepHours,
   pickupNote,
+  allowCoupons = true,
 }) {
   const checkoutOptions = {
     redirect_url: redirectUrl,
     ask_for_shipping_address: fulfillment === "shipping",
     merchant_support_email: supportEmail,
-    enable_coupon: true,
+    // Off during a campaign so a coupon code can't stack on a promotion.
+    enable_coupon: allowCoupons,
   };
 
   if (fulfillment === "shipping" && shippingFeeCents > 0) {
@@ -618,7 +624,7 @@ export async function createPaymentLink(env, {
     idempotency_key: crypto.randomUUID(),
     order,
     checkout_options: checkoutOptions,
-    payment_note: `Skin by Laura Lo online order — ${fulfillment}`,
+    payment_note: `Skin by Laura Lo online order — ${fulfillment === "none" ? "in-studio treatment package" : fulfillment}`,
   });
 
   const url = payload.payment_link?.url;

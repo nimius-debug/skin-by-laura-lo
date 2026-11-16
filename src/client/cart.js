@@ -911,10 +911,16 @@ export const CLIENT_JS = String.raw`
       if (!lines.length) { root.innerHTML = emptyMarkup(); return; }
 
       var subtotal = lines.reduce(function (total, line) { return total + line.total; }, 0);
+      // An in-studio treatment package has nothing to ship or collect, so it
+      // stays out of the shipping fee and the free-shipping threshold. The
+      // server applies the same rule when it builds the checkout.
+      var shippable = lines.filter(function (line) { return !line.entry.noShipping; });
+      var needsDelivery = shippable.length > 0;
+      var shipSubtotal = shippable.reduce(function (total, line) { return total + line.total; }, 0);
       var shipping = 0;
-      if (fulfillment === "shipping" && rules.shippingEnabled) {
+      if (needsDelivery && fulfillment === "shipping" && rules.shippingEnabled) {
         var threshold = rules.freeShippingThresholdCents || 0;
-        shipping = (threshold > 0 && subtotal >= threshold) ? 0 : (rules.shippingFeeCents || 0);
+        shipping = (threshold > 0 && shipSubtotal >= threshold) ? 0 : (rules.shippingFeeCents || 0);
       }
 
       var rowsHtml = lines.map(function (line) {
@@ -948,7 +954,9 @@ export const CLIENT_JS = String.raw`
       }).join("");
 
       var fulfilHtml = "";
-      if (rules.shippingEnabled || rules.pickupEnabled) {
+      if (!needsDelivery) {
+        fulfilHtml = '<p class="cart-no-delivery">Nothing to ship. Laura will contact you to schedule your treatments in the Tampa studio.</p>';
+      } else if (rules.shippingEnabled || rules.pickupEnabled) {
         fulfilHtml =
           '<fieldset class="fulfillment-options">' +
             "<legend>How would you like it?</legend>" +
@@ -971,14 +979,15 @@ export const CLIENT_JS = String.raw`
 
       var progressHtml = "";
       var threshold = rules.freeShippingThresholdCents || 0;
-      if (fulfillment === "shipping" && rules.shippingEnabled && threshold > 0) {
-        var pct = Math.min(100, Math.round((subtotal / threshold) * 100));
+      if (needsDelivery && fulfillment === "shipping" && rules.shippingEnabled && threshold > 0) {
+        var subtotalForShipping = shipSubtotal;
+        var pct = Math.min(100, Math.round((subtotalForShipping / threshold) * 100));
         progressHtml =
           '<div class="shipping-progress">' +
             '<div><span style="width:' + pct + '%"></span></div>' +
-            "<p>" + (subtotal >= threshold
+            "<p>" + (subtotalForShipping >= threshold
               ? "You&#8217;ve earned free U.S. shipping."
-              : money(threshold - subtotal) + " away from free U.S. shipping.") + "</p>" +
+              : money(threshold - subtotalForShipping) + " away from free U.S. shipping.") + "</p>" +
           "</div>";
       }
 
@@ -993,8 +1002,10 @@ export const CLIENT_JS = String.raw`
             progressHtml +
             '<div class="summary-lines">' +
               "<p><span>Subtotal</span><span>" + money(subtotal) + "</span></p>" +
-              "<p><span>" + (fulfillment === "pickup" ? "Pickup" : "Shipping") + "</span><span>" +
-                (fulfillment === "pickup" ? "Free" : (shipping === 0 ? "Free" : money(shipping))) + "</span></p>" +
+              (needsDelivery
+                ? "<p><span>" + (fulfillment === "pickup" ? "Pickup" : "Shipping") + "</span><span>" +
+                    (fulfillment === "pickup" ? "Free" : (shipping === 0 ? "Free" : money(shipping))) + "</span></p>"
+                : "") +
               "<p><span>Tax</span><span><small>Calculated by Square</small></span></p>" +
               '<p class="summary-total"><span>Total</span><span>' + money(subtotal + shipping) + "</span></p>" +
             "</div>" +

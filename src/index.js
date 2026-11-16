@@ -15,6 +15,8 @@ import { productPage } from "./pages/product.js";
 import { cartPage, thankYouPage } from "./pages/cart.js";
 import { relatedProductsFor } from "./related-products.js";
 import { salePromo } from "./promo.js";
+import { previewFor } from "./campaign.js";
+import { blackFridayPage } from "./pages/black-friday.js";
 import { ROUTINES, routineBySlug, routinePath, resolveRoutine, routineShareImage } from "./routines.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
@@ -86,20 +88,25 @@ function redirect(location, status = 301) {
 
 /** Catalog read that degrades to an empty shop rather than an error page. */
 async function loadCatalog(env, cfg) {
-  if (!isConfigured(env)) return { products: [], connected: false };
+  if (!isConfigured(env)) return { products: [], packages: [], sellable: [], connected: false };
   try {
-    return { products: await getCatalog(env, cfg), connected: true };
+    const all = await getCatalog(env, cfg, { includePackages: true, at: cfg.previewNow });
+    const products = all.filter((product) => !product.promoPackage);
+    // The treatment package is only for sale while the campaign runs, even if
+    // its Square item is still visible afterwards.
+    const packages = cfg.campaign ? all.filter((product) => product.promoPackage) : [];
+    return { products, packages, sellable: products.concat(packages), connected: true };
   } catch (error) {
     console.error("Square catalog read failed:", error.message);
-    return { products: [], connected: true, failed: true };
+    return { products: [], packages: [], sellable: [], connected: true, failed: true };
   }
 }
 
 async function handleCatalogApi(env, cfg) {
-  const { products } = await loadCatalog(env, cfg);
+  const { sellable } = await loadCatalog(env, cfg);
   const variations = {};
 
-  for (const product of products) {
+  for (const product of sellable) {
     for (const variation of product.variations) {
       variations[variation.id] = {
         name: product.name,
@@ -110,6 +117,8 @@ async function handleCatalogApi(env, cfg) {
         priceCents: variation.priceCents,
         regularPriceCents: variation.regularPriceCents,
         inStock: variation.inStock,
+        // An in-studio treatment package: nothing to ship or pick up.
+        ...(product.promoPackage ? { noShipping: true } : {}),
       };
     }
   }
@@ -137,18 +146,15 @@ async function handleCheckout(request, env, cfg, url) {
   if (!requested.length || requested.length > MAX_LINES) {
     return jsonResponse({ message: "Your bag is empty or too large to check out." }, 400);
   }
-  if (fulfillment === "pickup" && !cfg.pickupEnabled) {
-    return jsonResponse({ message: "Local pickup isn't available right now." }, 400);
-  }
-  if (fulfillment === "shipping" && !cfg.shippingEnabled) {
-    return jsonResponse({ message: "Shipping isn't available right now. Please choose local pickup." }, 400);
-  }
 
-  const { products } = await loadCatalog(env, cfg);
-  const index = indexVariations(products);
+  const { sellable } = await loadCatalog(env, cfg);
+  const index = indexVariations(sellable);
 
   const lineItems = [];
+  // What has to be shipped or collected. A treatment package is neither, so
+  // it never counts toward the shipping fee or the free-shipping threshold.
   let subtotalCents = 0;
+  let needsDelivery = false;
 
   for (const entry of requested) {
     const id = typeof entry?.id === "string" ? entry.id : null;
@@ -167,16 +173,28 @@ async function handleCheckout(request, env, cfg, url) {
     }
 
     lineItems.push({ variationId: id, quantity, sale: match.variation.sale });
+    if (match.product.promoPackage) continue;
+    needsDelivery = true;
     // Priced from the catalog, never from the browser.
     subtotalCents += match.variation.priceCents * quantity;
   }
 
-  const shippingFeeCents = fulfillment === "shipping" ? shippingFeeFor(subtotalCents, cfg) : 0;
+  if (needsDelivery && fulfillment === "pickup" && !cfg.pickupEnabled) {
+    return jsonResponse({ message: "Local pickup isn't available right now." }, 400);
+  }
+  if (needsDelivery && fulfillment === "shipping" && !cfg.shippingEnabled) {
+    return jsonResponse({ message: "Shipping isn't available right now. Please choose local pickup." }, 400);
+  }
+
+  const delivery = needsDelivery ? fulfillment : "none";
+  const shippingFeeCents = delivery === "shipping" ? shippingFeeFor(subtotalCents, cfg) : 0;
 
   try {
     const checkoutUrl = await createPaymentLink(env, {
       lineItems,
-      fulfillment,
+      fulfillment: delivery,
+      // No coupon codes on top of a campaign's offers.
+      allowCoupons: !cfg.campaign,
       shippingFeeCents,
       shippingLabel: cfg.shippingLabel,
       redirectUrl: `${url.origin}/thank-you`,
@@ -229,10 +247,9 @@ async function handleFormSubmission(request, env, cfg, slug) {
   return redirect(`${thanks}?name=${encodeURIComponent(firstName)}`, 303);
 }
 
-export default {
-  async fetch(request, env) {
+async function route(request, env, state) {
     const url = new URL(request.url);
-    const cfg = settings(env);
+    let cfg = settings(env);
     let path = url.pathname;
 
     // Production has one canonical origin. Keep workers.dev usable for safe
@@ -244,6 +261,14 @@ export default {
     if (isProductionHost && url.origin !== canonicalOrigin.origin) {
       const cleanPath = path.length > 1 ? path.replace(/\/+$/, "") : path;
       return redirect(`${canonicalOrigin.origin}${cleanPath || "/"}${url.search}`);
+    }
+
+    // Campaign preview links (?preview=2026-11-27), never on the live domain.
+    const preview = previewFor(request, url, { allowed: !isProductionHost });
+    if (preview.redirect) return preview.redirect;
+    if (preview.date) {
+      cfg = { ...settings(env, preview.date), previewNow: preview.date, previewDay: preview.day };
+      state.preview = true;
     }
 
     // Normalise trailing slashes so old WordPress links resolve.
@@ -396,6 +421,17 @@ export default {
       }), { cacheSeconds: 60 });
     }
 
+    if (path === "/black-friday") {
+      // Only exists while the campaign runs; before and after, it's the shop.
+      if (!cfg.campaign) return redirect("/shop", 302);
+      return htmlResponse(page({ promo,
+        title: "Black Friday · The Skin Investment Edit",
+        body: blackFridayPage({ phase: cfg.campaign, pkg: catalog.packages[0] || null }),
+        cfg, current: "/black-friday", canonical,
+        description: "Black Friday at Skin by Laura Lo: the Liquid Microneedling series, gift cards with bonus value, and 15% off skincare with free shipping. November 23 to 30.",
+      }), { cacheSeconds: 60 });
+    }
+
     if (path === "/cart") {
       return htmlResponse(page({ promo,
         title: "Your bag", body: cartPage({ cfg }), cfg, current: "/cart", canonical,
@@ -461,6 +497,7 @@ export default {
     if (path === "/sitemap.xml") {
       const { products } = catalog;
       const paths = ["/", "/about", "/treatments", "/shop", "/gallery", "/terms", "/privacy"]
+        .concat(cfg.campaign ? ["/black-friday"] : [])
         .concat(ROUTINES.map((routine) => routinePath(routine.slug)))
         .concat(products.map((product) => `/product/${product.slug}`));
       const body = `<?xml version="1.0" encoding="UTF-8"?>
@@ -471,6 +508,17 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
     }
 
     return htmlResponse(page({ promo, title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+}
+
+export default {
+  async fetch(request, env) {
+    const state = {};
+    const response = await route(request, env, state);
+    if (!state.preview) return response;
+    // A preview is one person's pretend date. Never let a cache keep it.
+    const fresh = new Response(response.body, response);
+    fresh.headers.set("cache-control", "no-store");
+    return fresh;
   },
 
   // Every 15 minutes (wrangler.toml [triggers]): sends queued campaign emails

@@ -1,3 +1,4 @@
+import { campaignTerms } from "./black-friday.js";
 import { html } from "../html.js";
 import {
   BOOKING_URL, STUDIO, HOURS, SUPPORT_EMAIL, INSTAGRAM_URL, GALLERY_IMAGES,
@@ -195,8 +196,11 @@ export function legalPage({ kind, cfg }) {
     ["Who we are", html`Skin by Laura Lo operates a studio at ${STUDIO.street}, ${STUDIO.suite}, ${STUDIO.city}, ${STUDIO.state} ${STUDIO.zip}. Reach us at <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.`],
     ["Orders and payment", html`Product orders are processed by Square on Square-hosted checkout pages. We never receive or store your card details. Prices, taxes and availability are taken from our Square catalog at the time you check out.`],
     ["Shipping and pickup", cfg.shippingEnabled
-      ? html`We ship within the United States at a flat rate${cfg.freeShippingThresholdCents > 0 ? html`, free on orders over $${(cfg.freeShippingThresholdCents / 100).toFixed(0)}` : ""}. ${cfg.pickupEnabled ? "Local pickup at the Tampa studio is available at no charge." : ""} Orders are typically dispatched within a few business days.`
+      ? cfg.freeShippingPromo
+        ? html`Through November 30, 2026, standard shipping within the United States is free on every order, with no minimum. ${cfg.pickupEnabled ? "Local pickup at the Tampa studio is available at no charge." : ""} Orders are typically dispatched within a few business days.`
+        : html`We ship within the United States at a flat rate${cfg.freeShippingThresholdCents > 0 ? html`, free on orders over $${(cfg.freeShippingThresholdCents / 100).toFixed(0)}` : ""}. ${cfg.pickupEnabled ? "Local pickup at the Tampa studio is available at no charge." : ""} Orders are typically dispatched within a few business days.`
       : html`Orders are collected at the Tampa studio. ${STUDIO.street}, ${STUDIO.suite}.`],
+    ...(cfg.campaign ? [["Black Friday 2026 promotion", campaignTerms().join(" ")]] : []),
     ["Returns", html`Because these are skincare products, unopened items in original condition may be returned within 14 days of delivery. Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> before sending anything back.`],
     ["Appointments", html`Appointments are booked and managed through Square Appointments. Cancellation and rescheduling terms are shown to you at the time of booking.`],
     ["Advice is not medical care", html`Guidance provided in treatments, consults and on this site is cosmetic, not medical. Speak to a physician or dermatologist about any condition that concerns you.`],

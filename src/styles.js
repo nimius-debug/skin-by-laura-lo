@@ -1016,5 +1016,80 @@ html.result-viewer-open { overflow: hidden; }
   .ingredient-toggle { grid-column: 3; grid-row: 1 / span 2; }
   .ingredient-explanation { padding-inline: 18px; }
 }
-`;
 
+/* ------------------------------------------------ Black Friday 2026
+   Banner, homepage block and /black-friday. Shown by date (src/campaign.js). */
+.promo-bf { --promo-bg: var(--shadow); --promo-fg: var(--on-dark); --promo-accent: var(--brass-hi); border-bottom: 1px solid var(--brass-deep); }
+.promo-bf-inner { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: safe center; gap: 22px; padding-inline: 16px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.promo-bf-tag { color: var(--promo-accent); font-weight: 700; letter-spacing: .2em; }
+.promo-bf-offer { border-bottom: 1px solid transparent; }
+.promo-bf-offer:hover, .promo-bf-offer:focus-visible { border-bottom-color: currentColor; }
+.promo-bf-lead { font-weight: 700; color: var(--promo-accent); }
+.promo-bf-more::before { content: "·"; margin-right: 22px; color: var(--on-dark-muted); }
+.promo-bf-all { flex: 0 0 auto; }
+.promo-bf-all:hover, .promo-bf-all:focus-visible { background: var(--promo-accent); color: var(--promo-bg); }
+.promo-bf a:focus-visible { outline: 2px solid var(--promo-accent); outline-offset: 2px; }
+@media (max-width: 1180px) { .promo-bf-more + .promo-bf-more { display: none; } }
+@media (max-width: 860px) { .promo-bf-more { display: none; } }
+@media (max-width: 640px) {
+  .promo-bf-inner { gap: 10px; font-size: 10px; letter-spacing: .08em; }
+  .promo-bf-tag { display: none; }
+  .promo-bf-lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .promo-bf-all { padding: 2px 8px; }
+}
+
+.preview-note { position: fixed; z-index: 1000; left: 12px; bottom: 12px; max-width: calc(100% - 24px); padding: 7px 12px; border-radius: 4px; background: #7a1f1f; color: #fff; font-size: 12px; line-height: 1.4; opacity: .92; }
+
+.bf-home { padding-block: 70px 20px; }
+.bf-home-heading { margin-bottom: 34px; }
+.bf-home-heading h2 { font-size: clamp(38px, 5vw, 60px); }
+.bf-cards { display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 20px; }
+.bf-card { display: flex; flex-direction: column; align-items: flex-start; padding: 32px; background: var(--white); border: 1px solid var(--line); }
+.bf-card .eyebrow { margin-bottom: 14px; }
+.bf-card h3 { margin-bottom: 0; font-size: 26px; line-height: 1.15; }
+.bf-figure { margin: 10px 0 14px; font-family: var(--font-serif); font-style: italic; font-size: 30px; color: var(--clay-deep); }
+.bf-copy { margin: 0 0 26px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.bf-card .button { margin-top: auto; }
+.bf-card-lead { background: var(--ink); border-color: var(--ink); color: var(--on-dark); }
+.bf-card-lead .eyebrow, .bf-card-lead .bf-figure { color: var(--brass-hi); }
+.bf-card-lead h3 { font-size: 34px; color: var(--on-dark); }
+.bf-card-lead .bf-copy { color: var(--on-dark); }
+
+.bf-page { padding-top: 80px; padding-bottom: 120px; }
+.bf-hero { max-width: 760px; margin-bottom: 30px; }
+.bf-hero h1 { font-size: clamp(48px, 7vw, 88px); margin-bottom: 18px; }
+.bf-lede { margin: 0 0 22px; max-width: 620px; color: var(--muted); font-size: 16px; line-height: 1.7; }
+.bf-section { display: grid; grid-template-columns: 1.2fr 1fr; gap: 48px; align-items: start; padding: 56px 0; border-top: 1px solid var(--line); scroll-margin-top: 150px; }
+.bf-section h2 { margin-bottom: 18px; font-size: clamp(32px, 4vw, 48px); line-height: 1.1; }
+.bf-includes { margin: 0; padding: 0; list-style: none; }
+.bf-includes li { padding: 12px 0 12px 26px; border-top: 1px solid var(--line); position: relative; font-size: 15px; }
+.bf-includes li::before { content: ""; position: absolute; left: 4px; top: 20px; width: 8px; height: 8px; border-radius: 50%; background: var(--brass); }
+.bf-buy { padding: 32px; background: var(--panel-stone); display: flex; flex-direction: column; align-items: stretch; gap: 20px; }
+.bf-price { margin: 0; font-family: var(--font-serif); font-size: 52px; line-height: 1; }
+.bf-values { margin: 0; }
+.bf-values > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.bf-values dt { color: var(--muted); }
+.bf-values dd { margin: 0; font-variant-numeric: tabular-nums; }
+.bf-values-total { font-weight: 700; }
+.bf-values-total dt { color: var(--ink); }
+.bf-note { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.bf-tiers { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+.bf-tiers th { padding: 0 0 10px; text-align: left; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--clay-deep); }
+.bf-tiers td { padding: 12px 0; border-top: 1px solid var(--line); }
+.bf-tiers td strong { font-family: var(--font-serif); font-size: 24px; font-weight: 400; }
+.bf-tiers th:last-child, .bf-tiers td:last-child { text-align: right; color: var(--clay-deep); }
+.bf-terms { padding-top: 46px; border-top: 1px solid var(--line); scroll-margin-top: 150px; }
+.bf-terms h2 { margin-bottom: 18px; font-size: 26px; }
+.bf-terms ul { margin: 0; padding-left: 18px; max-width: 820px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.cart-no-delivery { margin: 0 0 24px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+@media (max-width: 900px) {
+  .bf-cards { grid-template-columns: 1fr; }
+  .bf-section { grid-template-columns: 1fr; gap: 28px; padding: 44px 0; }
+  .bf-page { padding-top: 56px; padding-bottom: 80px; }
+  .bf-home { padding-top: 50px; }
+}
+@media (max-width: 640px) {
+  .bf-card, .bf-buy { padding: 24px; }
+  .bf-price { font-size: 44px; }
+}
+`;

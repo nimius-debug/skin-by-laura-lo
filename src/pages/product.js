@@ -218,9 +218,11 @@ export function productPage({ product, related, cfg }) {
     </div>
 
     <div class="buy-reassurance">
-      ${cfg.shippingEnabled && freeAt > 0
-        ? html`<span>Free U.S. shipping over ${formatMoney(freeAt)}</span>`
-        : ""}
+      ${cfg.freeShippingPromo
+        ? html`<span>Free U.S. shipping through Nov 30</span>`
+        : cfg.shippingEnabled && freeAt > 0
+          ? html`<span>Free U.S. shipping over ${formatMoney(freeAt)}</span>`
+          : ""}
       ${cfg.pickupEnabled ? html`<span>Local pickup in Tampa</span>` : ""}
       <span>Secure checkout by Square</span>
     </div>

@@ -2,6 +2,8 @@
 // Anything a business owner might reasonably want to change lives here or in
 // wrangler.toml [vars] — not buried in page markup.
 
+import { campaignPhase } from "./campaign.js";
+
 export const BOOKING_URL =
   "https://book.squareup.com/appointments/rlfhvfyu6b6ltd/location/L8PR20K5XBXVQ";
 export const VIRTUAL_CONSULTATION_URL =
@@ -81,13 +83,22 @@ function bool(value, fallback) {
 }
 
 /** Resolve runtime settings from env vars, with safe defaults. */
-export function settings(env = {}) {
+export function settings(env = {}, now = new Date()) {
   const shippingEnabled = bool(env.SHIPPING_ENABLED, true);
-  const feeCents = num(env.SHIPPING_FEE_CENTS, 1000);
-  const thresholdCents = num(env.FREE_SHIPPING_THRESHOLD_CENTS, 10000);
+  const timeZone = env.STORE_TIMEZONE || "America/New_York";
+
+  // Black Friday 2026 (src/campaign.js). Off unless BLACK_FRIDAY_ENABLED is
+  // "true", which is also the switch to pull the whole campaign in a hurry.
+  const campaign = bool(env.BLACK_FRIDAY_ENABLED, false) ? campaignPhase(now, timeZone) : null;
+  // Nov 27 to 30: free standard shipping on every order, no minimum.
+  const freeShippingPromo = campaign === "sale" && shippingEnabled;
+  const feeCents = freeShippingPromo ? 0 : num(env.SHIPPING_FEE_CENTS, 1000);
+  const thresholdCents = freeShippingPromo ? 0 : num(env.FREE_SHIPPING_THRESHOLD_CENTS, 10000);
 
   return {
     siteUrl: env.SITE_URL || "https://skinbylauralo.com",
+    campaign,
+    freeShippingPromo,
     shippingEnabled,
     shippingFeeCents: feeCents,
     freeShippingThresholdCents: thresholdCents,
@@ -107,7 +118,7 @@ export function settings(env = {}) {
     // far higher than CATALOG_TTL_SECONDS on purpose.
     salesRankTtlSeconds: num(env.SALES_RANK_TTL_SECONDS, 21600), // 6 hours
     // Square sale start/end dates are studio wall-clock times.
-    timeZone: env.STORE_TIMEZONE || "America/New_York",
+    timeZone,
   };
 }
 

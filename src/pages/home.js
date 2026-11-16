@@ -1,3 +1,4 @@
+import { campaignHomeBlock } from "./black-friday.js";
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
 import { routineTile, routineDialog } from "./routineComponents.js";
@@ -100,6 +101,8 @@ export function homePage({ products, cfg }) {
         </figure>
       </div>
     </dialog>
+
+    ${campaignHomeBlock(cfg.campaign)}
 
     ${marquee([
       "Barrier-first care", "Korean-infused facials", "Real guidance", "Nationwide product delivery",
