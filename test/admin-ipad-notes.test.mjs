@@ -338,6 +338,45 @@ globalThis.fetch = realFetch;
   const homeAfter = await (await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"))).text();
   check("once today's note is saved, Today says so with Edit and a way to write another", [homeAfter.includes("Note saved"), /href="\/admin\/notes\/[^"]+\/edit"/.test(homeAfter), homeAfter.includes('href="/admin/clients/client_maya/write"')], [true, true, true]);
   d1.raw.exec(`DELETE FROM notes WHERE id = 'note_today_ipad'`);
+
+  // Someone on her first visit isn't a client yet, but a note can still be started before her appointment.
+  const later = new Date(Date.now() + 2 * 3600000).toISOString();
+  const tomorrow = new Date(Date.parse(salonDay().end) + 3600000).toISOString();
+  const squareBookings = {
+    b1: { id: "b1", status: "ACCEPTED", start_at: new Date().toISOString(), customer_id: "SQ_MAYA" },
+    b_new: { id: "b_new", status: "ACCEPTED", start_at: later, customer_id: "SQ_NORA" },
+    b_gone: { id: "b_gone", status: "CANCELLED_BY_CUSTOMER", start_at: later, customer_id: "SQ_GONE" },
+    b_tomorrow: { id: "b_tomorrow", status: "ACCEPTED", start_at: tomorrow, customer_id: "SQ_LATER" },
+  };
+  globalThis.fetch = async (url) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/v2/bookings") return new Response(JSON.stringify({ bookings: [squareBookings.b1, squareBookings.b_new] }));
+    if (path.startsWith("/v2/bookings/")) {
+      const booking = squareBookings[path.split("/").pop()];
+      return booking ? new Response(JSON.stringify({ booking })) : new Response(JSON.stringify({ errors: [{ code: "NOT_FOUND" }] }), { status: 404 });
+    }
+    if (path === "/v2/customers/bulk-retrieve") return new Response(JSON.stringify({ responses: { SQ_NORA: { customer: { given_name: "Nora", family_name: "Patel" } } } }));
+    if (path === "/v2/catalog/batch-retrieve") return new Response(JSON.stringify({ objects: [] }));
+    return new Response(JSON.stringify({}), { status: 500 });
+  };
+  const adminGet = (path) => handleAdminRequest(new Request(`https://x.test${path}`, { headers: { cookie } }), squareEnv, new URL(`https://x.test${path}`));
+  const withNew = await (await adminGet("/admin")).text();
+  check("a first-visit client on today's list has Write a note too", [withNew.includes("Nora Patel"), withNew.includes('href="/admin/today/b_new/write"'), withNew.includes("shows up after her visit")], [true, true, false]);
+  const opened = await adminGet("/admin/today/b_new/write");
+  const nora = d1.raw.prepare("SELECT id, name FROM clients WHERE square_customer_id = 'SQ_NORA'").get();
+  check("tapping it adds her from the booking and opens her writing screen", [opened.status, nora?.name, opened.headers.get("location")], [303, "Nora Patel", `/admin/clients/${nora?.id}/write`]);
+  const page = await adminGet(`/admin/clients/${nora.id}/write`);
+  check("and the writing screen opens for her", page.status, 200);
+  const again = await adminGet("/admin/today/b_new/write");
+  check("tapping it again opens the same client", [again.headers.get("location"), d1.raw.prepare("SELECT COUNT(*) AS n FROM clients WHERE square_customer_id = 'SQ_NORA'").get().n], [`/admin/clients/${nora.id}/write`, 1]);
+  const homeNow = await (await adminGet("/admin")).text();
+  check("after that she shows on today's list as a client", homeNow.includes(`href="/admin/clients/${nora.id}/write"`), true);
+  const existing = await adminGet("/admin/today/b1/write");
+  check("a returning client's booking opens her own page", existing.headers.get("location"), "/admin/clients/client_maya/write");
+  const refused = await Promise.all(["b_gone", "b_tomorrow", "b_missing"].map(async (id) => (await adminGet(`/admin/today/${id}/write`)).status));
+  check("cancelled, later-than-today and unknown bookings don't add anyone", [refused, d1.raw.prepare("SELECT COUNT(*) AS n FROM clients WHERE square_customer_id IN ('SQ_GONE', 'SQ_LATER')").get().n], [[404, 404, 502], 0]);
+  d1.raw.exec(`DELETE FROM clients WHERE square_customer_id = 'SQ_NORA'`);
+
   globalThis.fetch = async () => { throw new Error("Square down"); };
   const down = await handleAdminRequest(new Request("https://x.test/admin", { headers: { cookie } }), squareEnv, new URL("https://x.test/admin"));
   check("when Square is down the clients page still opens and says so", [down.status, (await down.text()).includes("Couldn't read today's bookings")], [200, true]);
