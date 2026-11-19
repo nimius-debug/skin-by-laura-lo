@@ -45,7 +45,7 @@ export const BLACK_FRIDAY = {
   gift: {
     code: "BLACKFRIDAY",
     percent: 15,
-    amounts: [5500, 9900, 12900, 17000],
+    amounts: [9000, 12500, 20000, 35000],
   },
 
   salePercent: 15,

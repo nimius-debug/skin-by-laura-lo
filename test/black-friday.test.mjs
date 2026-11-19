@@ -137,7 +137,7 @@ check("Nov 23 to 26: banner leads with the series and teases the sale",
 const bfLaunch = await text("/black-friday", LAUNCH);
 check("Nov 23 to 26: the page sells the package with its values and terms",
   [bfLaunch.includes('data-add-to-cart="V_PACK"'), bfLaunch.includes("<strong>$897</strong>"), bfLaunch.includes("$1,129"), bfLaunch.includes("$232"),
-    bfLaunch.includes("BLACKFRIDAY") && bfLaunch.includes("$84.15") && bfLaunch.includes("Save $14.85"), bfLaunch.includes("11:59 PM EST"),
+    bfLaunch.includes("BLACKFRIDAY") && bfLaunch.includes("$106.25") && bfLaunch.includes("Save $18.75") && bfLaunch.includes("$350 card"), bfLaunch.includes("11:59 PM EST"),
     bfLaunch.includes("Starts Friday, Nov 27")],
   [true, true, true, true, true, true, true]);
 check("the package is never listed in the shop", (await text("/shop", LAUNCH)).includes("Microneedling |"), false);
