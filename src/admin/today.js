@@ -1,9 +1,11 @@
 // Today's appointments, read live from Square bookings, so the iPad opens on the clients Laura is
-// about to see. Each booking is matched to a client by Square customer id; someone booked for
-// the first time is shown by name but can't have a note yet (clients only come from a sync).
+// about to see. Each booking is matched to a client by Square customer id. Someone booked for
+// the first time isn't a client yet (a sync only adds people after a visit), so their Write a note
+// button goes through clientForBooking, which adds them from the booking first.
 // Fails soft: if Square can't be reached the list is just missing, never the page.
 
 import { squareFetch, squareGet, isConfigured } from "../square.js";
+import { upsertClientFromSquare } from "./db.js";
 
 export const SALON_TIME_ZONE = "America/New_York";
 
@@ -157,4 +159,23 @@ async function readAppointments(env, window, now) {
     console.error("Reading today's bookings failed:", error.message);
     return { day: window.day, rows: [], failed: true };
   }
+}
+
+/**
+ * The client id to write a note for at a booking, adding the person as a client first if this is
+ * their first visit. Any booked appointment up to the end of today counts, so a note can be started
+ * before a same-day appointment. Returns null when the booking can't be used (cancelled, no
+ * customer, later than today, or not found).
+ */
+export async function clientForBooking(env, bookingId, { now = new Date() } = {}) {
+  if (!isConfigured(env) || !/^[A-Za-z0-9_-]{1,64}$/.test(bookingId || "")) return null;
+  const payload = await squareGet(env, `/v2/bookings/${encodeURIComponent(bookingId)}`);
+  const booking = payload.booking;
+  const customerId = booking?.customer_id;
+  if (!customerId || !SHOWN_STATUSES.has(booking.status) || !booking.start_at) return null;
+  if (Date.parse(booking.start_at) >= Date.parse(salonDay(now).end)) return null;
+  const known = await env.CLIENT_NOTES_DB.prepare("SELECT id FROM clients WHERE square_customer_id = ?").bind(customerId).first();
+  if (known) return known.id;
+  const names = await customerNamesFor(env, [customerId]).catch(() => new Map());
+  return upsertClientFromSquare(env, { squareCustomerId: customerId, name: names.get(customerId) || "Unnamed client" });
 }

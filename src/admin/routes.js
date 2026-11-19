@@ -19,7 +19,7 @@ import { splitPdfPages, diffPages, hashImageBytes } from "./pdf.js";
 import { extractNoteEntries, readInkNote, summarizeClient, summaryInputHash, summaryModel } from "./claude.js";
 import { cleanFields, cleanTyped, fieldsAsText, noteFields, typedFields, NOTE_FIELDS } from "./note-fields.js";
 import { notebookPage, noteEditPage } from "./pages/notebook.js";
-import { todaysAppointments } from "./today.js";
+import { clientForBooking, todaysAppointments } from "./today.js";
 import { remindersOn, setRemindersOn, visitsNeedingNotes } from "./note-reminders.js";
 import { recentMessages } from "./campaigns/push.js";
 import { NOTEBOOK_JS } from "./notebook-client.js";
@@ -765,6 +765,28 @@ async function handleSignedIn(request, env, url, segments, method) {
   // What a notification should say. The push itself is empty, so the service worker asks here.
   if (url.pathname === "/admin/push/messages" && method === "GET") {
     return jsonResponse({ messages: await recentMessages(env) });
+  }
+
+  // GET /admin/today/<booking>/write — Write a note for someone on today's list who isn't a client
+  // yet (her first visit): she's added from the booking, then the writing screen opens.
+  if (segments[1] === "today" && segments[3] === "write" && segments.length === 4 && method === "GET") {
+    let clientId = null;
+    let failed = false;
+    try {
+      clientId = await clientForBooking(env, segments[2]);
+    } catch (error) {
+      console.error("Adding a client from a booking failed:", error.message);
+      failed = true;
+    }
+    if (clientId) return redirect(`/admin/clients/${clientId}/write`);
+    const message = failed
+      ? "Couldn't read this booking from Square just now, so the note page didn't open. Go back and try again in a moment."
+      : "This booking was cancelled or moved, so the note page didn't open. Go back to see today's list as it is now.";
+    return adminHtmlResponse(adminPage({
+      title: "Couldn't open a note",
+      back: { href: "/admin", label: "Clients" },
+      body: `<section class="card"><p>${message}</p></section>`,
+    }), { status: failed ? 502 : 404 });
   }
 
   // POST /admin/sync — pulls clients + seller notes from Square bookings

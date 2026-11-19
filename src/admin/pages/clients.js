@@ -7,7 +7,8 @@ function formatDate(iso) {
 
 /** A client's buttons on the Today list: write today's note, or, once it's saved, see it or write another. */
 function todayActions(row) {
-  if (!row.clientId) return "";
+  // Someone on her first visit isn't a client yet; this link adds her from the booking, then opens the page.
+  if (!row.clientId) return row.customerId ? html`<a class="btn btn-primary today-write" href="/admin/today/${encodeURIComponent(row.bookingId)}/write">Write a note</a>` : "";
   const write = `/admin/clients/${row.clientId}/write`;
   if (!row.todayNote) return html`<a class="btn btn-primary today-write" href="${write}" data-write-client="${row.clientId}">Write a note</a>`;
   const edit = row.todayNote.source === "ipad" ? `/admin/notes/${row.todayNote.id}/edit` : `/admin/clients/${row.clientId}`;
@@ -34,7 +35,7 @@ function todayCard(today) {
           <span class="today-time">${row.time}${row.next ? html`<span class="today-next">Next</span>` : ""}</span>
           <span class="today-who">
             ${row.clientId ? html`<a href="/admin/clients/${row.clientId}">${row.name}</a>` : html`<span>${row.name}</span>`}
-            <span class="today-service">${row.services.length ? row.services.join(", ") : ""}${row.clientId ? "" : `${row.services.length ? " · " : ""}First visit: shows up after her visit and a sync`}</span>
+            <span class="today-service">${row.services.length ? row.services.join(", ") : ""}${row.clientId ? "" : `${row.services.length ? " · " : ""}First visit`}</span>
           </span>
           ${todayActions(row)}
         </li>
