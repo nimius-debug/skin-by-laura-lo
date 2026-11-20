@@ -29,6 +29,18 @@ export const BLACK_FRIDAY = {
 
   package: {
     title: "Liquid Microneedling Series",
+    // The before-and-after slider on the package. Use a consenting client's
+    // real result and describe it truthfully. Either one "stacked" image with
+    // the after on top and the before below (like the hero results), or two
+    // matching photos as { before, after } taken from the same angle.
+    // From Laura's Canva "Longer Before and Afters", page 111 (the labelled
+    // left photo is the after); the before is shifted to line up with it.
+    result: {
+      before: "/media/microneedling-before.webp",
+      after: "/media/microneedling-after.webp",
+      ratio: 772 / 965,
+      caption: "Real client · after 2 Liquid Microneedling treatments",
+    },
     subtitle: "Corrective Series of 4",
     priceCents: 89700,
     treatmentValueCents: 102800,
