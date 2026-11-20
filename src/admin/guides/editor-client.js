@@ -1042,7 +1042,10 @@ function editorFailed(error) {
 }
 
 /** The editor script, with the drawing functions it shares with the server. */
+// The deploy's bundler (esbuild with keepNames) adds __name(fn, "fn") calls inside these functions
+// bodies. That helper lives in the worker, not the browser, so the script brings a stand-in.
 export const GUIDE_EDITOR_JS = `(function () {
+var __name = function (target) { return target; };
 ${guideElementHtml.toString()}
 ${guideSheetHtml.toString()}
 ${editorFailed.toString()}
