@@ -33,10 +33,13 @@ export const BLACK_FRIDAY = {
     // real result and describe it truthfully. Either one "stacked" image with
     // the after on top and the before below (like the hero results), or two
     // matching photos as { before, after } taken from the same angle.
+    // From Laura's Canva "Longer Before and Afters", page 111 (the labelled
+    // left photo is the after); the before is shifted to line up with it.
     result: {
-      stacked: "/media/result-composite-02.webp",
-      ratio: 900 / 562.5,
-      caption: "Real client · 6 months acne bootcamp + 3 scar revision sessions",
+      before: "/media/microneedling-before.webp",
+      after: "/media/microneedling-after.webp",
+      ratio: 772 / 965,
+      caption: "Real client · after 2 Liquid Microneedling treatments",
     },
     subtitle: "Corrective Series of 4",
     priceCents: 89700,

@@ -163,7 +163,7 @@ check("Nov 23 to 26: routines follow the package, each with its total struck out
     (homeLaunch.match(/id="routines"/g) || []).length, homeLaunch.includes("routines-section")],
   [true, true, true, 1, false]);
 check("Nov 23 to 26: the package shows a real before-and-after to drag, captioned truthfully, usable from the keyboard",
-  [/id="packages"[\s\S]*?data-bf-compare[\s\S]*?result-composite-02\.webp[\s\S]*?type="range"[\s\S]*?6 months acne bootcamp \+ 3 scar revision sessions[\s\S]*?class="bf-offer"/.test(homeLaunch),
+  [/id="packages"[\s\S]*?data-bf-compare[\s\S]*?microneedling-before\.webp[\s\S]*?microneedling-after\.webp[\s\S]*?type="range"[\s\S]*?after 2 Liquid Microneedling treatments[\s\S]*?class="bf-offer"/.test(homeLaunch),
     homeLaunch.includes("bf-sessions")],
   [true, false]);
 check("Nov 23 to 26: the package card shows the value struck out, then the price, and adds to the bag",
