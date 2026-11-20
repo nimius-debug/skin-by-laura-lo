@@ -263,6 +263,30 @@ const textOf = (page) => page.elements.filter((e) => e.type === "text").map((e) 
   check("the editor page renders without a client", guideEditorPage({ guide: { id: "g", version: 1, document: buildGuideDraft({ clientName: "Mo", routine: null }) }, client: null }).includes("Mo\u2019s Skincare Guide"), true);
 }
 
+// --- the editor as the deploy builds it -----------------------------------------
+// Cloudflare bundles the worker with esbuild's keepNames, which puts __name(fn, "fn") calls inside
+// the functions the editor script is made from. They must still run in a browser.
+{
+  const { build } = await import("esbuild");
+  const vm = await import("node:vm");
+  const out = await build({ entryPoints: [new URL("../src/admin/guides/editor-client.js", import.meta.url).pathname], bundle: true, keepNames: true,
+    format: "esm", write: false, platform: "neutral", mainFields: ["module", "main"], logLevel: "silent" });
+  const bundled = await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString("base64")}`);
+  const js = bundled.GUIDE_EDITOR_JS;
+  // A stand-in page: every element and property answers with another stand-in.
+  const fake = () => new Proxy(function () {}, {
+    get: (target, key) => (key === Symbol.toPrimitive ? () => "" : key === "dataset" ? {} : key === "textContent" ? '{"document":{"pages":[]},"version":1}' : fake()),
+    apply: () => fake(), set: () => true,
+  });
+  let failure = null;
+  try {
+    vm.runInNewContext(js, { document: fake(), window: fake(), localStorage: fake(), CSS: { escape: (text) => text }, performance: { now: () => 0 },
+      getComputedStyle: () => fake(), setTimeout, clearTimeout });
+  } catch (error) { failure = error.message; }
+  check("the bundled editor script has the bundler's __name calls", js.includes("__name("), true);
+  check("the bundled editor script starts in a browser without the worker's helpers", failure, null);
+}
+
 if (failures) {
   console.log(`\n${failures} check(s) failed`);
   process.exit(1);

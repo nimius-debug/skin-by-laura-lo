@@ -3,7 +3,8 @@
 //
 // Works like Canva on a fixed A4 page: tap a box to select it, drag to move it,
 // pull its dots to resize it, tap a selected text box again to type in it.
-// "+ Product" adds a shop product to every page it belongs on. Every change is
+// "+ Product" adds a shop product to every page it belongs on; "+ Page" ticks
+// resource pages (What is Acne, Hormones…) in or out. Every change is
 // saved to the dashboard a moment later; undo/redo keep the last 80 changes.
 // "Save as PDF" opens the browser's print window, which saves the pages as an
 // A4 PDF.
@@ -14,10 +15,11 @@
 
 import { contentVersion } from "../pwa.js";
 import { FONT_CSS, guideElementHtml, guideSheetHtml } from "./render.js";
+import { placeResourcePages } from "./resources.js";
 import { PAGE_HEIGHT, PAGE_WIDTH } from "./model.js";
 
 /* eslint-disable no-undef */
-function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
+function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml, placeResourcePages) {
   "use strict";
 
   const root = document.getElementById("guide-editor");
@@ -29,7 +31,8 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   const offPageButton = root.querySelector("[data-action='next-off-page']");
   const zoomOutput = root.querySelector("[data-zoom]");
   const toastEl = root.querySelector(".toast");
-  const picker = root.querySelector(".picker");
+  const picker = root.querySelector(".picker:not(.pages-dialog)");
+  const pagesDialog = root.querySelector(".pages-dialog");
   const moreMenu = root.querySelector("details.more");
   const saveUrl = root.dataset.saveUrl;
 
@@ -38,6 +41,9 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   let version = boot.version;
   let wordings = boot.wordings || {};
   const products = boot.products || [];
+  const resources = boot.resources || [];
+  const resourceOrder = resources.map((resource) => resource.id);
+  const afterCover = boot.afterCover || [];
 
   let selectedId = null;
   let editingId = null;
@@ -420,6 +426,9 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     if (!found || found.element.type !== "text") return;
     editingId = id;
     const node = nodeFor(id);
+    // A box that is a link (the PDF's shop buttons) is typed into without its link wrapper.
+    const link = node.querySelector(":scope > .el-link");
+    if (link) node.innerHTML = link.innerHTML;
     node.contentEditable = "true";
     node.classList.add("editing");
     node.dataset.startHeight = String(node.offsetHeight);
@@ -803,6 +812,73 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     if (result) toast(`${name} removed from the guide.`);
   }
 
+  // ── resource pages ───────────────────────────────────────────────────────
+  function resourceInGuide(id) {
+    return doc.pages.some((page) => page.kind === "resource" && page.resource === id);
+  }
+
+  /** Why a page was put in for her (its title's "to check" note), while nobody has confirmed it yet. */
+  function resourceReason(id) {
+    const page = doc.pages.find((entry) => entry.kind === "resource" && entry.resource === id);
+    const title = page && page.elements.find((element) => element.role === "title" && element.origin === "check");
+    return ((title && title.note) || "").replace(/\s*Keep the page.*$/, "");
+  }
+
+  function renderPagesList() {
+    const list = pagesDialog.querySelector("[data-pages-list]");
+    list.innerHTML = resources.map((resource) => {
+      const on = resourceInGuide(resource.id);
+      const reason = on ? resourceReason(resource.id) : "";
+      return `<li><label class="page-option${on ? " on" : ""}">
+        <input type="checkbox" data-resource="${escapeText(resource.id)}" ${on ? "checked" : ""}>
+        <span class="text"><span class="name">${escapeText(resource.label)}${resource.pages.length > 1 ? ` <span class="count">${resource.pages.length} pages</span>` : ""}</span>
+        <span class="about">${escapeText(resource.about)}</span>${reason ? `<span class="why">${escapeText(reason)}</span>` : ""}</span>
+      </label></li>`;
+    }).join("");
+  }
+
+  function openPages() {
+    finishEditing();
+    if (moreMenu) moreMenu.open = false;
+    renderPagesList();
+    pagesDialog.showModal();
+  }
+
+  async function addResource(id) {
+    const resource = resources.find((entry) => entry.id === id);
+    if (!resource || resourceInGuide(id)) return;
+    finishEditing();
+    remember();
+    const pages = clone(resource.pages).map((page) => {
+      page.id = newId("p");
+      page.elements.forEach((element) => { element.id = newId("c"); });
+      if (page.flows) page.relayout = Object.keys(page.flows);
+      return page;
+    });
+    const at = placeResourcePages(doc.pages, id, pages, resourceOrder, afterCover);
+    renderAll();
+    await layoutFlows({ only: "relayout" });
+    scheduleSave();
+    renderPagesList();
+    const frame = stackEl.querySelectorAll(".sheet-frame")[at];
+    if (frame) frame.scrollIntoView({ block: "start", behavior: "smooth" });
+    toast(`Added ${resource.label} as page ${at + 1}.`);
+  }
+
+  function removeResource(id) {
+    const resource = resources.find((entry) => entry.id === id);
+    const left = doc.pages.filter((page) => !(page.kind === "resource" && page.resource === id));
+    if (!left.length || left.length === doc.pages.length) return;
+    finishEditing();
+    remember();
+    doc.pages = left;
+    if (selectedId && !find(selectedId)) selectedId = null;
+    renderAll();
+    scheduleSave();
+    renderPagesList();
+    toast(`${resource ? resource.label : "The page"} taken out. Undo brings it back.`);
+  }
+
   // ── wiring ───────────────────────────────────────────────────────────────
   root.addEventListener("click", (event) => {
     const pageButton = event.target.closest("[data-page-action]");
@@ -824,6 +900,8 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
       case "redo": redo(); break;
       case "add-text": addText(); break;
       case "add-product": openPicker(); break;
+      case "add-page": openPages(); break;
+      case "close-pages": pagesDialog.close(); break;
       case "close-picker": picker.close(); break;
       case "next-check": nextOf(updateChecks()); break;
       case "next-off-page": nextOf(offPageIds()); break;
@@ -881,6 +959,16 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   });
   picker.querySelector(".search").addEventListener("input", renderPickerList);
   picker.addEventListener("click", (event) => { if (event.target === picker) picker.close(); });
+  if (pagesDialog) {
+    pagesDialog.addEventListener("click", (event) => { if (event.target === pagesDialog) pagesDialog.close(); });
+    pagesDialog.addEventListener("change", (event) => {
+      const box = event.target.closest("[data-resource]");
+      if (!box) return;
+      if (blocked) { box.checked = !box.checked; return; }
+      if (box.checked) addResource(box.dataset.resource);
+      else removeResource(box.dataset.resource);
+    });
+  }
 
   // The "⋯" menu: placed under its button, closed by a tap anywhere else.
   if (moreMenu) {
@@ -931,7 +1019,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
 
   // Typing ends, and the box is let go, when she taps outside the pages.
   document.addEventListener("pointerdown", (event) => {
-    if (!event.target.closest(".page-stack, .format-bar, .top-bar, .picker, .toast")) {
+    if (!event.target.closest(".page-stack, .format-bar, .top-bar, .picker, .pages-dialog, .toast")) {
       finishEditing();
       select(null);
     }
@@ -991,13 +1079,18 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     // Still too long: carry the boxes that don't fit over to the next page, or a new one.
     page.elements = page.elements.filter((element) => !overflow.includes(element));
     let next = doc.pages[pageIndex + 1];
-    if (!next || next.kind !== page.kind || !next.flows || !next.flows[name]) {
+    if (!next || next.kind !== page.kind || next.resource !== page.resource || !next.flows || !next.flows[name]) {
       const footer = page.elements.find((element) => element.role === "footer");
       next = { id: newId("p"), kind: page.kind, flows: { [name]: { ...flow, bottom: 1045 } }, elements: footer ? [{ ...clone(footer), id: newId("c") }] : [] };
+      if (page.resource) next.resource = page.resource;
       doc.pages.splice(pageIndex + 1, 0, next);
     }
     const firstY = Math.min(70, ...next.elements.filter((element) => element.flow === name).map((element) => element.y));
-    overflow.forEach((element, index) => { element.x = 42; element.w = 700; element.y = firstY - overflow.length + index; });
+    // Product boxes take the full width on the new page; a resource page keeps its columns.
+    overflow.forEach((element, index) => {
+      if (!page.resource) { element.x = 42; element.w = 700; }
+      element.y = firstY - overflow.length + index;
+    });
     next.elements.unshift(...overflow);
     next.relayout = [...new Set([...(next.relayout || []), name])];
     renderAll();
@@ -1042,12 +1135,16 @@ function editorFailed(error) {
 }
 
 /** The editor script, with the drawing functions it shares with the server. */
+// The deploy's bundler (esbuild with keepNames) adds __name(fn, "fn") calls inside these functions
+// bodies. That helper lives in the worker, not the browser, so the script brings a stand-in.
 export const GUIDE_EDITOR_JS = `(function () {
+var __name = function (target) { return target; };
 ${guideElementHtml.toString()}
 ${guideSheetHtml.toString()}
+${placeResourcePages.toString()}
 ${editorFailed.toString()}
 try {
-  (${editorMain.toString()})(${JSON.stringify(FONT_CSS)}, ${PAGE_WIDTH}, ${PAGE_HEIGHT}, guideElementHtml, guideSheetHtml);
+  (${editorMain.toString()})(${JSON.stringify(FONT_CSS)}, ${PAGE_WIDTH}, ${PAGE_HEIGHT}, guideElementHtml, guideSheetHtml, placeResourcePages);
 } catch (error) {
   editorFailed(error);
   throw error;

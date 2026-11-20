@@ -6,14 +6,16 @@
 // Document:
 //   { version: 1, clientName, needsLayout, pages: [Page], createdFrom }
 // Page:
-//   { id, kind: "cover" | "overview" | "am" | "pm" | "notes" | "blank", elements: [Element],
+//   { id, kind: "cover" | "overview" | "am" | "pm" | "notes" | "resource" | "blank", elements: [Element],
+//     resource? (which resource page: "hormones", "makeup"… see src/data/guide-resources.js),
 //     flows?: { [name]: { gap, bottom, minFontSize } } }
 // Element:
 //   { id, type: "text" | "image" | "line", x, y, w, h?,
 //     html (text: only <b>, <i>, <u> and <br>), src + alt + fit (image),
 //     style: { font, fontSize, fontWeight, lineHeight, letterSpacing, align, uppercase, opacity, color },
 //     origin: "library" (Laura's own words) | "check" (needs a look) | "edited" | "template",
-//     role?, productId?, flow?, step? (how-to boxes), snippet? (notes) }
+//     role?, productId?, flow?, step? (how-to boxes), snippet? (notes),
+//     link? (an https address the box opens in the PDF: the shop buttons) }
 //
 // "flow" boxes (the product descriptions, the how-to steps) are stacked under
 // each other the first time the editor opens a new draft, once it can measure
@@ -32,7 +34,7 @@ export const FONTS = {
 
 export const GOOGLE_FONTS_URL = "https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,700&family=Allura&family=Allison&display=swap";
 
-const PAGE_KINDS = new Set(["cover", "overview", "am", "pm", "notes", "blank"]);
+const PAGE_KINDS = new Set(["cover", "overview", "am", "pm", "notes", "resource", "blank"]);
 const ELEMENT_TYPES = new Set(["text", "image", "line"]);
 const ORIGINS = new Set(["library", "check", "edited", "template"]);
 const ALIGNS = new Set(["left", "center", "right", "justify"]);
@@ -93,6 +95,12 @@ export function plainText(markup) {
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+}
+
+/** Links in the PDF may only be plain https addresses. */
+export function safeLink(value) {
+  const link = String(value || "").trim();
+  return /^https:\/\/[^\s"'<>()\\]+$/.test(link) && link.length <= 500 ? link : null;
 }
 
 /** Images may only come from the shop's own /media folder or an https address (Square's product photos). */
@@ -156,6 +164,8 @@ function cleanElement(element, index) {
     const value = shortString(element[key], key === "note" ? 300 : 80);
     if (value) clean[key] = value;
   }
+  const link = safeLink(element.link);
+  if (link) clean.link = link;
   return clean;
 }
 
@@ -189,6 +199,7 @@ export function cleanDocument(document) {
       kind: PAGE_KINDS.has(page?.kind) ? page.kind : "blank",
       elements,
     };
+    if (clean.kind === "resource" && /^[a-z0-9-]{1,40}$/.test(page?.resource)) clean.resource = page.resource;
     const flows = cleanFlows(page?.flows);
     if (flows) clean.flows = flows;
     // Flows the editor should stack again (after a product was added or removed).
