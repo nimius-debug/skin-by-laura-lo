@@ -27,6 +27,7 @@ export function guideElementHtml(element, fonts) {
     if (style.align) css.push(`text-align:${style.align}`);
     if (style.uppercase) css.push("text-transform:uppercase");
     if (style.italic) css.push("font-style:italic");
+    if (style.underline) css.push("text-decoration:underline");
     if (style.color) css.push(`color:${style.color}`);
     inner = element.html || "";
   } else if (element.type === "image") {

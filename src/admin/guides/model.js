@@ -13,7 +13,7 @@
 //     html (text: only <b>, <i>, <u> and <br>), src + alt + fit (image),
 //     style: { font, fontSize, fontWeight, lineHeight, letterSpacing, align, uppercase, opacity, color },
 //     origin: "library" (Laura's own words) | "check" (needs a look) | "edited" | "template",
-//     role?, productId?, flow? }
+//     role?, productId?, flow?, step? (how-to boxes), snippet? (notes) }
 //
 // "flow" boxes (the product descriptions, the how-to steps) are stacked under
 // each other the first time the editor opens a new draft, once it can measure
@@ -123,6 +123,7 @@ function cleanStyle(style = {}) {
   if (ALIGNS.has(style.align)) clean.align = style.align;
   if (style.uppercase) clean.uppercase = true;
   if (style.italic) clean.italic = true;
+  if (style.underline) clean.underline = true;
   if (style.opacity !== undefined) clean.opacity = num(style.opacity, { min: 0, max: 1, fallback: 1 });
   if (typeof style.color === "string" && /^#[0-9a-fA-F]{6}$/.test(style.color)) clean.color = style.color.toLowerCase();
   if (style.strokeWidth !== undefined) clean.strokeWidth = num(style.strokeWidth, { min: 0.5, max: 10, fallback: 1 });
@@ -151,7 +152,7 @@ function cleanElement(element, index) {
   }
   clean.style = cleanStyle(element.style);
   clean.origin = ORIGINS.has(element.origin) ? element.origin : "edited";
-  for (const key of ["role", "productId", "flow", "note"]) {
+  for (const key of ["role", "productId", "flow", "note", "step", "snippet"]) {
     const value = shortString(element[key], key === "note" ? 300 : 80);
     if (value) clean[key] = value;
   }
@@ -190,6 +191,9 @@ export function cleanDocument(document) {
     };
     const flows = cleanFlows(page?.flows);
     if (flows) clean.flows = flows;
+    // Flows the editor should stack again (after a product was added or removed).
+    const relayout = Array.isArray(page?.relayout) ? page.relayout.filter((name) => flows && name in flows) : [];
+    if (relayout.length) clean.relayout = [...new Set(relayout)];
     return clean;
   });
   return {

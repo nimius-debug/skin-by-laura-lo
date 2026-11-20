@@ -20,11 +20,11 @@ export const QUOTE_AUTHOR = "–Erno Laszlo";
 export const FOOTER = "Skin by Laura Lo";
 
 // The words used on the AM / PM pages for each step.
-const LIST_LABELS = {
+export const LIST_LABELS = {
   firstCleanse: "Cleanse", cleanse: "Cleanse", secondCleanse: "Double Cleanse", exfoliate: "Exfoliate", mask: "Mask",
   tone: "Tone", serum: "Serum", treat: "Treat", moisturize: "Moisturize", protect: "SPF", spot: "Spot trmt.",
 };
-const HEADINGS = {
+export const HEADINGS = {
   firstCleanse: "First cleanse", cleanse: "Cleanse", secondCleanse: "Second cleanse", exfoliate: "Exfoliate", mask: "Mask",
   tone: "Tone", serum: "Serum", treat: "Treat", moisturize: "Moisturize", protect: "Sunscreen", spot: "Spot treatment",
 };
@@ -109,9 +109,15 @@ export function planRoutine(products) {
 
 // ── Boxes ────────────────────────────────────────────────────────────────────
 
-function idMaker() {
+/** Makes box ids. `base` keeps ids added to an existing guide apart from the ones already in it. */
+export function idMaker(base = "") {
   let next = 0;
-  return (prefix = "e") => `${prefix}${(next += 1)}`;
+  return (prefix = "e") => `${prefix}${base}${(next += 1)}`;
+}
+
+/** The id that ties a product's boxes together: its library id, or its Square name for products the library doesn't know. */
+export function productKey(product) {
+  return (product.entry?.id || product.key).slice(0, 80);
 }
 
 const text = (id, x, y, w, html, style = {}, extra = {}) => ({
@@ -138,7 +144,7 @@ function stack(elements, startY, gap) {
   return elements;
 }
 
-function footer(id) {
+export function footer(id) {
   return text(id("f"), 35, 1066, 300, FOOTER, { font: "sign", fontSize: 21.3, lineHeight: 1, opacity: 0.43 }, { role: "footer" });
 }
 
@@ -167,7 +173,7 @@ export function coverPage(id, clientName) {
 }
 
 // The six photo cells of the "Full skincare Routine" grid, as placed in Canva.
-const GRID_CELLS = [
+export const GRID_CELLS = [
   { label: "Cleansers", x: 35, labelY: 521 },
   { label: "Toners & Serums", x: 256, labelY: 520 },
   { label: "Moisturizer", x: 35, labelY: 720 },
@@ -176,20 +182,48 @@ const GRID_CELLS = [
   { label: "Lips & Eyes", x: 242, labelY: 920 },
 ];
 
-function gridCells(products) {
+export const GRID_AREA = { top: 180, height: 174, gap: 6, width: (x) => (x < 200 ? 196 : 150) };
+
+/** Places a grid cell's product photos side by side above its label. */
+export function layoutCellPhotos(photos, labelX, labelY) {
+  const areaW = GRID_AREA.width(labelX);
+  const each = photos.length ? (areaW - GRID_AREA.gap * (photos.length - 1)) / photos.length : 0;
+  photos.forEach((photo, index) => {
+    Object.assign(photo, { x: Math.round(labelX + index * (each + GRID_AREA.gap)), y: labelY - GRID_AREA.top, w: Math.round(each), h: GRID_AREA.height });
+  });
+  return photos;
+}
+
+export const STRIP = { x: 379, width: 335, top: 298, bottom: 556 };
+
+/** Places the product photos above the how-to steps, alternating heights like the Canva pages. */
+export function layoutStripPhotos(photos) {
+  const slot = photos.length ? STRIP.width / photos.length : 0;
+  photos.forEach((photo, index) => {
+    const h = index % 2 ? Math.round((STRIP.bottom - STRIP.top) * 0.82) : STRIP.bottom - STRIP.top;
+    Object.assign(photo, { x: Math.round(STRIP.x + index * slot + slot * 0.05), y: STRIP.bottom - h, w: Math.round(slot * 0.9), h });
+  });
+  return photos;
+}
+
+export function productPhoto(id, product) {
+  return image(id(), 0, 0, 10, 10, product.image, product.name, { role: "product-photo", productId: productKey(product) });
+}
+
+export function gridCells(products) {
   const hasMasks = products.some((p) => p.grid === "Masks & Exfoliants");
   const hasLips = products.some((p) => p.grid === "Lips & Eyes");
   return GRID_CELLS.map((cell) => (cell.label === "Lips & Eyes" && hasMasks && !hasLips ? { ...cell, label: "Masks & Exfoliants" } : cell));
 }
 
-function whyBox(id, product) {
+export function whyBox(id, product) {
   const known = product.entry?.why;
   const body = known ? escape(known) : "Description needed: what this product does and why she's using it.";
   return text(id(), 426, 334, 327, `<b>${escape(product.name)}</b><br>${body}`,
     { fontSize: 16, lineHeight: 1.19, letterSpacing: -0.02, align: "justify" },
     {
       origin: known && product.entry.status !== "check-match" ? "library" : "check",
-      role: "why", productId: product.entry?.id || product.key.slice(0, 80), flow: "why",
+      role: "why", productId: productKey(product), flow: "why",
       ...(known ? (product.entry.status === "check-match" ? { note: "Check this is the right product." } : {}) : { note: "No description of this product yet." }),
     });
 }
@@ -203,13 +237,7 @@ export function overviewPage(id, clientName, products) {
   for (const row of [541, 741, 941]) elements.push(line(id(), 35, row, 354));
   for (const cell of gridCells(products)) {
     const inCell = products.filter((p) => p.grid === cell.label && p.image);
-    const areaW = cell.x < 200 ? 196 : 150;
-    const gap = 6;
-    const each = inCell.length ? (areaW - gap * (inCell.length - 1)) / inCell.length : 0;
-    inCell.forEach((product, index) => {
-      elements.push(image(id(), Math.round(cell.x + index * (each + gap)), cell.labelY - 180, Math.round(each), 174, product.image, product.name,
-        { role: "product-photo", productId: product.entry?.id || undefined }));
-    });
+    elements.push(...layoutCellPhotos(inCell.map((product) => productPhoto(id, product)), cell.x, cell.labelY));
     elements.push(text(id(), cell.x, cell.labelY, 190, escape(cell.label), { fontSize: 17.35, letterSpacing: -0.02, lineHeight: 1.15 }, { role: "grid-label" }));
   }
   elements.push(...stack(products.map((product) => whyBox(id, product)), 334, 14));
@@ -217,7 +245,7 @@ export function overviewPage(id, clientName, products) {
   return { id: id("p"), kind: "overview", flows: { why: { gap: 14, bottom: 1045, minFontSize: 12 } }, elements };
 }
 
-function howToBox(id, step, product, repeated) {
+export function howToBox(id, step, product, repeated) {
   const how = product.entry ? howToFor(product.entry, step) : null;
   const fallback = !how;
   const lines = [escape(how || STEP_DEFAULTS[step] || "How to use it.")];
@@ -228,7 +256,7 @@ function howToBox(id, step, product, repeated) {
   return text(id(), 42, 573, 673, `<b>${escape(heading).toUpperCase()}</b><br>${lines.join(" ")}`,
     { fontSize: 18.67, lineHeight: 1.17, letterSpacing: -0.02, align: "justify" },
     {
-      origin: fallback || !product.entry ? "check" : "library", role: "howto", productId: product.entry?.id || undefined, flow: "howto",
+      origin: fallback || !product.entry ? "check" : "library", role: "howto", productId: productKey(product), flow: "howto", step,
       ...(fallback ? { note: `Usual ${HEADINGS[step].toLowerCase()} wording; check it fits ${product.name}.` } : {}),
     });
 }
@@ -236,31 +264,60 @@ function howToBox(id, step, product, repeated) {
 export function routinePage(id, time, steps) {
   const am = time === "am";
   const spfTip = am && steps.some(({ product }) => product.entry?.guides?.includes("spf-two-finger-rule"));
-  const list = steps.map(({ step, product }, index) => `${index + 1}. ${LIST_LABELS[step]}—${escape(product.shortName)}`).join("<br>");
+  const list = steps.map(({ step, product }, index) => listLine(index + 1, step, product)).join("<br>");
   const elements = [
     text(id(), 41, 55, 700, am ? "AM Routine" : "PM Routine", { fontSize: 96, lineHeight: 1, letterSpacing: -0.02, uppercase: true }, { role: "title" }),
     text(id(), 35, 178, 428, list || "1. ", { fontSize: 24, fontWeight: 500, lineHeight: 1.25, letterSpacing: -0.02 }, { role: "step-list" }),
   ];
   const photos = [];
   for (const { product } of steps) if (product.image && !photos.includes(product)) photos.push(product);
-  const stripX = 379, stripW = 335, stripTop = 298, stripBottom = 556;
-  const slot = photos.length ? stripW / photos.length : 0;
-  photos.forEach((product, index) => {
-    const h = index % 2 ? Math.round((stripBottom - stripTop) * 0.82) : stripBottom - stripTop;
-    elements.push(image(id(), Math.round(stripX + index * slot + slot * 0.05), stripBottom - h, Math.round(slot * 0.9), h, product.image, product.name,
-      { role: "product-photo", productId: product.entry?.id || undefined }));
-  });
+  elements.push(...layoutStripPhotos(photos.map((product) => productPhoto(id, product))));
   elements.push(line(id(), 336, 561, 379));
   const repeated = (step) => steps.filter((entry) => entry.step === step).length > 1;
   elements.push(...stack(steps.map(({ step, product }) => howToBox(id, step, product, repeated(step))), 573, 10));
-  if (spfTip) {
-    const snippet = GUIDE_SNIPPETS["spf-two-finger-rule"];
-    elements.push(text(id(), 263, 927, 237, `<b>${escape(snippet.title).toUpperCase()}</b><br>${escape(snippet.text)}`,
-      { fontSize: 16, lineHeight: 1.25, letterSpacing: -0.02, align: "justify" }, { origin: "library", role: "tip" }));
-    elements.push(image(id(), 500, 896, 213, 138, SPF_TIP_PHOTO, "Two fingers with a line of sunscreen", { role: "tip-photo" }));
-  }
+  if (spfTip) elements.push(...spfTipBoxes(id));
   elements.push(footer(id));
-  return { id: id("p"), kind: time, flows: { howto: { gap: 10, bottom: spfTip ? 885 : 1045, minFontSize: 13 } }, elements };
+  return { id: id("p"), kind: time, flows: { howto: { gap: 10, bottom: spfTip ? SPF_TIP_FLOW_BOTTOM : 1045, minFontSize: 13 } }, elements };
+}
+
+export const SPF_TIP_FLOW_BOTTOM = 885;
+
+/** The SPF "two finger rule" tip and its photo, at the bottom of the AM page. */
+export function spfTipBoxes(id) {
+  const snippet = GUIDE_SNIPPETS["spf-two-finger-rule"];
+  return [
+    text(id(), 263, 927, 237, `<b>${escape(snippet.title).toUpperCase()}</b><br>${escape(snippet.text)}`,
+      { fontSize: 16, lineHeight: 1.25, letterSpacing: -0.02, align: "justify" }, { origin: "library", role: "tip" }),
+    image(id(), 500, 896, 213, 138, SPF_TIP_PHOTO, "Two fingers with a line of sunscreen", { role: "tip-photo" }),
+  ];
+}
+
+/** One line of the numbered step list: "1. Cleanse—Moist Foam Cleanser". */
+export function listLine(number, step, product) {
+  return `${number}. ${LIST_LABELS[step]}\u2014${escape(product.shortName)}`;
+}
+
+/** The product notes a product brings (not the SPF tip, which sits on the AM page). */
+export function snippetKeysFor(product) {
+  const guides = (product.entry?.guides || []).filter((key) => key !== "spf-two-finger-rule" && GUIDE_SNIPPETS[key]);
+  const choices = guides.filter((key) => GUIDE_SNIPPETS[key].title.startsWith("Guide to Using"));
+  // Two "Guide to Using …" versions are alternatives: only the first goes in, marked for Laura to pick.
+  return guides
+    .filter((key) => !(choices.length > 1 && choices.includes(key) && key !== choices[0]))
+    .map((key) => ({ key, alternatives: choices.length > 1 && key === choices[0] }));
+}
+
+export function snippetBox(id, key, product, alternatives) {
+  return text(id(), 42, 200, 700, snippetHtml(GUIDE_SNIPPETS[key]), { fontSize: 17, lineHeight: 1.22, letterSpacing: -0.02 }, {
+    origin: alternatives ? "check" : "library", role: "snippet", productId: productKey(product), flow: "notes", snippet: key,
+    ...(alternatives ? { note: "There are two ways she has written this (every night, or short contact). Pick the one that fits." } : {}),
+  });
+}
+
+export const NOTES_FLOW = { gap: 22, bottom: 1045, minFontSize: 12 };
+
+export function notesTitle(id) {
+  return text(id(), 41, 55, 700, "Good to know", { fontSize: 72, lineHeight: 1, letterSpacing: -0.02, uppercase: true }, { role: "title" });
 }
 
 function snippetHtml(snippet) {
@@ -284,27 +341,19 @@ export function notesPage(id, products) {
   const boxes = [];
   const used = new Set();
   for (const product of products) {
-    const guides = (product.entry?.guides || []).filter((key) => key !== "spf-two-finger-rule");
-    const choices = guides.filter((key) => GUIDE_SNIPPETS[key] && GUIDE_SNIPPETS[key].title.startsWith("Guide to Using"));
-    for (const key of guides) {
-      if (used.has(key) || !GUIDE_SNIPPETS[key]) continue;
-      // Two "Guide to Using …" versions are alternatives: only the first goes in.
-      if (choices.length > 1 && choices.includes(key) && key !== choices[0]) continue;
+    for (const { key, alternatives } of snippetKeysFor(product)) {
+      if (used.has(key)) continue;
       used.add(key);
-      const alternatives = choices.length > 1 && key === choices[0];
-      boxes.push(text(id(), 42, 200, 700, snippetHtml(GUIDE_SNIPPETS[key]), { fontSize: 17, lineHeight: 1.22, letterSpacing: -0.02 }, {
-        origin: alternatives ? "check" : "library", role: "snippet", productId: product.entry.id, flow: "notes",
-        ...(alternatives ? { note: "There are two ways she has written this (every night, or short contact). Pick the one that fits." } : {}),
-      }));
+      boxes.push(snippetBox(id, key, product, alternatives));
     }
   }
   if (!boxes.length) return null;
   return {
     id: id("p"),
     kind: "notes",
-    flows: { notes: { gap: 22, bottom: 1045, minFontSize: 12 } },
+    flows: { notes: { ...NOTES_FLOW } },
     elements: [
-      text(id(), 41, 55, 700, "Good to know", { fontSize: 72, lineHeight: 1, letterSpacing: -0.02, uppercase: true }, { role: "title" }),
+      notesTitle(id),
       ...stack(boxes, 175, 22),
       footer(id),
     ],

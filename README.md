@@ -367,17 +367,30 @@ come with notes (Clear Plex, mandelic, Booster Pads).
 - The editor (`/admin/guides/:id`) works like Canva on a fixed A4 page: tap a
   box to select it, drag to move it, pull the dots to resize, tap it again to
   type. Undo/redo, add text, duplicate/delete boxes and pages, "Other
-  wordings" for a product description. Changes save by themselves.
+  wordings" for a product description. Changes save by themselves. On iPad
+  and phone the formatting tools are one swipeable row along the bottom.
+- **+ Product** adds any shop product to a guide: its description and photo
+  on the overview, its line and how-to on the AM and/or PM page (in routine
+  order, renumbered), the SPF tip for sunscreens and its "Good to know"
+  notes. Products without library wording come in highlighted to write.
+  Select one of its boxes and **Remove product from guide** takes it all out.
+- **Skincare guides** in the admin menu lists every guide and starts one
+  without a client (a friend, a sample) from a typed name; add its products
+  with + Product.
 - **Save as PDF** opens the browser's print window: pick "Save as PDF", paper
   A4, margins None, background graphics on. The fonts are Jost (for Futura
   LT Pro), Allura and Allison, from Google Fonts.
 - Code: `src/admin/guides/` (build.js drafts, model.js checks every save,
-  render.js draws the pages, editor-client.js is the editor).
+  render.js draws the pages, products.js adds and removes products,
+  editor-client.js is the editor).
 
-**Setup.** Run migration `0012_client_guides.sql` before deploying:
+**Setup.** Run migrations `0012_client_guides.sql` and
+`0013_guides_without_client.sql` (lets a guide have no client) before
+deploying:
 
 ```bash
 npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0012_client_guides.sql
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0013_guides_without_client.sql
 ```
 
 ### Email campaigns

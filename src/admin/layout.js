@@ -555,6 +555,7 @@ const TAB_ICONS = {
   clients: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5"></path></svg>',
   routines: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"></path><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4L12 18.4"></path></svg>',
   forms: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="18" rx="2.5"></rect><path d="M9 3.5h6v3H9z"></path><path d="M8.5 11.5h7M8.5 15.5h4.5"></path></svg>',
+  guides: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h9l3.5 3.5v13.5H6z"></path><path d="M14.5 3.5V7.5h4"></path><path d="M9 12h6M9 15.5h6"></path></svg>',
   campaigns: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M3.5 6.5l8.5 6.5 8.5-6.5"></path></svg>',
 };
 
@@ -562,7 +563,7 @@ const TAB_ICONS = {
 function tabBar(active) {
   const on = (key) => active === key || (key === "forms" && active.startsWith("form")) || (key === "campaigns" && active.startsWith("campaigns"));
   const tab = (href, label, key) => html`<a href="${href}" class="tab${on(key) ? " on" : ""}"${on(key) ? raw(' aria-current="page"') : ""}>${raw(TAB_ICONS[key])}<span>${label}</span></a>`;
-  return html`<nav class="tab-bar" aria-label="Sections">${tab("/admin", "Clients", "clients")}${tab("/admin/campaigns", "Email", "campaigns")}${tab("/admin/forms", "Forms", "forms")}${tab("/admin/routines", "Routines", "routines")}</nav>`;
+  return html`<nav class="tab-bar" aria-label="Sections">${tab("/admin", "Clients", "clients")}${tab("/admin/campaigns", "Email", "campaigns")}${tab("/admin/forms", "Forms", "forms")}${tab("/admin/routines", "Routines", "routines")}${tab("/admin/guides", "Guides", "guides")}</nav>`;
 }
 
 function nav(active, back) {
@@ -578,6 +579,7 @@ function nav(active, back) {
       ${link("/admin/forms", "Forms", "forms")}
       ${FORMS.map((form) => html`<a class="nav-sub${active === `form:${form.slug}` ? " active" : ""}" href="/admin/forms/${form.slug}">${form.navLabel}</a>`)}
       ${link("/admin/routines", "Routines", "routines")}
+      ${link("/admin/guides", "Skincare guides", "guides")}
       <div class="spacer"></div>
       <form method="post" action="/admin/logout" style="margin: 0;">
         <button type="submit" class="logout-btn">Log out</button>
