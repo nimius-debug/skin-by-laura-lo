@@ -244,7 +244,7 @@ function insightCard(client, saved) {
   `;
 }
 
-export function clientProfilePage({ client, notes, routine, history = [], services = [], spend = null, flags = [], sourceFiles = [], savedSummary = null, purchases = null, formsCard = "", now = Date.now() }) {
+export function clientProfilePage({ client, notes, routine, history = [], services = [], spend = null, flags = [], sourceFiles = [], savedSummary = null, purchases = null, formsCard = "", guidesCard = "", now = Date.now() }) {
   return html`
     <a href="/admin" class="back-link">← All clients</a>
 
@@ -268,6 +268,7 @@ export function clientProfilePage({ client, notes, routine, history = [], servic
       <div class="side">
         ${formsCard}
         ${routineCard(routine, now)}
+        ${guidesCard}
         ${spendCard(client, spend, purchases, now)}
 
         <div class="card" style="display: flex; flex-direction: column; gap: 10px;">

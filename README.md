@@ -351,6 +351,35 @@ npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations
 For the Square lookup the access token also needs **Customers read**
 (`CUSTOMERS_READ`), which the client sync already uses.
 
+### Skincare guides
+
+On a client's page, **Create guide** drafts her Skincare Guide from her
+current routine (the products she bought in the 4 months up to her last
+product order) in the beige Alina / Marline design: the cover with a personal
+note, "Full skincare Routine" with the product photos and "Why these
+products?", the AM and PM pages, and a "Good to know" page when her products
+come with notes (Clear Plex, mandelic, Booster Pads).
+
+- Every description and how-to step is Laura's own wording from the guide
+  library (`src/data/guide-library.js`). The personal note, products the
+  library has never described, and choices Laura has to make are highlighted
+  in yellow ("to check") until they are edited or marked "Looks good".
+- The editor (`/admin/guides/:id`) works like Canva on a fixed A4 page: tap a
+  box to select it, drag to move it, pull the dots to resize, tap it again to
+  type. Undo/redo, add text, duplicate/delete boxes and pages, "Other
+  wordings" for a product description. Changes save by themselves.
+- **Save as PDF** opens the browser's print window: pick "Save as PDF", paper
+  A4, margins None, background graphics on. The fonts are Jost (for Futura
+  LT Pro), Allura and Allison, from Google Fonts.
+- Code: `src/admin/guides/` (build.js drafts, model.js checks every save,
+  render.js draws the pages, editor-client.js is the editor).
+
+**Setup.** Run migration `0012_client_guides.sql` before deploying:
+
+```bash
+npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0012_client_guides.sql
+```
+
 ### Email campaigns
 
 `/admin/campaigns` writes and sends the twice-weekly client email (Tuesday
