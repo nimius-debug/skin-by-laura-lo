@@ -4,8 +4,9 @@ import { cleanDocument, itemsToCheck, plainText, safeImageSrc, sanitizeHtml } fr
 import { buildGuideDraft, matchProducts, planRoutine, wordingChoices } from "../src/admin/guides/build.js";
 import { guideElementHtml, FONT_CSS } from "../src/admin/guides/render.js";
 import { GUIDE_EDITOR_JS } from "../src/admin/guides/editor-client.js";
-import { guideEditorPage, clientGuidesCard } from "../src/admin/guides/page.js";
-import { handleGuideRoute } from "../src/admin/guides/routes.js";
+import { guideEditorPage, clientGuidesCard, guidesListPage } from "../src/admin/guides/page.js";
+import { handleGuideRoute, pickerProducts } from "../src/admin/guides/routes.js";
+import { addProductToGuide, productsInGuide, removeProductFromGuide } from "../src/admin/guides/products.js";
 import * as store from "../src/admin/guides/store.js";
 import { guideProductFor } from "../src/data/guide-library.js";
 import { toString } from "../src/html.js";
@@ -134,6 +135,45 @@ const textOf = (page) => page.elements.filter((e) => e.type === "text").map((e) 
   check("the editor script is valid JavaScript", parses, true);
 }
 
+// --- adding and removing products ---------------------------------------------
+{
+  const doc = cleanDocument(buildGuideDraft({ clientName: "Mo", routine: { items: [item("Corthe Dermo Essential Cleansing Oil", "cleanse"), item("Mixi Dew Drops")] } }));
+  const page = (kind) => doc.pages.find((p) => p.kind === kind);
+  const list = (kind) => plainText(page(kind).elements.find((e) => e.role === "step-list").html).split("\n").filter(Boolean);
+
+  const sunscreen = addProductToGuide(doc, item("Pfect-A Solar Elixir Serum Sunscreen"));
+  check("a sunscreen goes on the overview and the morning only", [sunscreen.added, sunscreen.pages.sort()], [true, ["am", "overview"]]);
+  check("the morning list gets an SPF line at the end, numbered", list("am").at(-1).startsWith(`${list("am").length}. SPF`), true);
+  check("a sunscreen brings the two finger rule to the morning", page("am").elements.some((e) => e.role === "tip"), true);
+  check("the night has no sunscreen", productsInGuide({ pages: [page("pm")] }).has(sunscreen.key), false);
+  check("the overview gets its description and a photo", page("overview").elements.filter((e) => e.productId === sunscreen.key).map((e) => e.role).sort(), ["product-photo", "why"]);
+  check("the pages it changed are laid out again by the editor", page("overview").relayout.includes("why"), true);
+
+  const cleanser = addProductToGuide(doc, item("Dermathod Moist Morning Touch Foam Cleanser", "cleanse"));
+  check("a water cleanser after an oil is the second cleanse at night", page("pm").elements.some((e) => e.role === "howto" && e.productId === cleanser.key && e.step === "secondCleanse"), true);
+  const howtoOrder = page("pm").elements.filter((e) => e.role === "howto").sort((a, b) => a.y - b.y).map((e) => e.productId);
+  check("the night steps stay in routine order", howtoOrder.indexOf(cleanser.key) < howtoOrder.indexOf("mixi-dew-drops"), true);
+  check("list numbers stay in order after inserting", list("pm").map((line) => Number(line.split(".")[0])), list("pm").map((_, i) => i + 1));
+
+  check("a product already in the guide isn't added twice", addProductToGuide(doc, item("Mixi Dew Drops")).reason, "already-in");
+  const plex = addProductToGuide(doc, item("Mixi Clear Plex 2.8%"));
+  check("a treatment with notes brings a Good to know page", [plex.pages.includes("notes"), doc.pages.some((p) => p.kind === "notes")], [true, true]);
+  check("the guide still passes its save checks", Boolean(cleanDocument(doc)), true);
+  check("element ids stay unique", new Set(doc.pages.flatMap((p) => p.elements.map((e) => e.id))).size, doc.pages.reduce((n, p) => n + p.elements.length, 0));
+
+  const removed = removeProductFromGuide(doc, plex.key);
+  check("removing the only product with notes drops the notes page", [removed.removed > 0, doc.pages.some((p) => p.kind === "notes")], [true, false]);
+  removeProductFromGuide(doc, sunscreen.key);
+  check("removing the sunscreen takes its line out and renumbers", [list("am").some((line) => line.includes("SPF")), list("am").map((line) => Number(line.split(".")[0]))], [false, list("am").map((_, i) => i + 1)]);
+  check("nothing of a removed product is left", productsInGuide(doc).has(sunscreen.key), false);
+
+  const unknown = addProductToGuide(doc, item("Brand New Serum"));
+  check("a shop product without Laura's words can still be added, marked to check", [unknown.added, unknown.inLibrary], [true, false]);
+
+  const picker = pickerProducts([{ name: "Zeta Thing", slug: "zeta" }, { name: "Mixi Dew Drops", image: "a.png" }, { name: "Mixi Dew Drops" }]);
+  check("the picker lists each shop product once, library products first", picker.map((p) => [p.name, p.inLibrary]), [["Mixi Dew Drops", true], ["Zeta Thing", false]]);
+}
+
 // --- storage and routes -------------------------------------------------------
 {
   const env = { CLIENT_NOTES_DB: createD1({ migrations: schemaMigrations() }) };
@@ -180,10 +220,47 @@ const textOf = (page) => page.elements.filter((e) => e.type === "text").map((e) 
   check("no draft is made when her purchases can't be read", [failed.status, (await store.listGuidesForClient(env, "c1")).length], [502, 1]);
   check("an unknown client gets no guide", await route("POST", "/admin/clients/nobody/guides"), null);
 
+  // A guide for someone who isn't a client.
+  const form = new FormData(); form.set("name", "  Friend   Name ");
+  const friendCreated = await handleGuideRoute(new Request("https://x.test/admin/guides", { method: "POST", body: form }), env,
+    new URL("https://x.test/admin/guides"), ["admin", "guides"], "POST", { loadClientPurchases });
+  const friendId = friendCreated.headers.get("location").split("/").pop();
+  const friend = await store.getGuide(env, friendId);
+  check("a guide can be started for a typed name, with no client", [friendCreated.status, friend.clientId, friend.document.clientName], [303, null, "Friend Name"]);
+  const blank = new FormData(); blank.set("name", "   ");
+  const noName = await handleGuideRoute(new Request("https://x.test/admin/guides", { method: "POST", body: blank }), env,
+    new URL("https://x.test/admin/guides"), ["admin", "guides"], "POST", {});
+  check("a blank name sends her back to say so", noName.headers.get("location"), "/admin/guides?missing=1");
+  check("every guide is listed with who it's for", (await store.listAllGuides(env)).map((g) => g.name).sort(), ["Friend Name", "Sofia <Ramirez>"]);
+  const listPage = toString(guidesListPage({ guides: await store.listAllGuides(env), missingName: false }));
+  check("the guides list escapes names and offers a new guide", [listPage.includes("Sofia &lt;Ramirez&gt;"), listPage.includes('action="/admin/guides"')], [true, true]);
+  const listResponse = await route("GET", "/admin/guides");
+  check("the guides page opens", listResponse.status, 200);
+  const friendEditor = await route("GET", `/admin/guides/${friendId}`);
+  check("a friend's guide opens in the editor, back to the guides list", [friendEditor.status, (await friendEditor.text()).includes('href="/admin/guides"')], [200, true]);
+
+  // Adding and removing products through the editor.
+  const loadCatalog = async () => ({ products: [{ name: "Mixi Dew Drops", slug: "mixi-dew-drops", image: "https://x.test/d.png", category: "Serums" }] });
+  const products = (body) => handleGuideRoute(new Request(`https://x.test/admin/guides/${friendId}/products`, { method: "POST", body: JSON.stringify(body) }), env,
+    new URL(`https://x.test/admin/guides/${friendId}/products`), ["admin", "guides", friendId, "products"], "POST", { loadCatalog });
+  const add = await products({ action: "add", name: "Mixi Dew Drops", version: friend.version });
+  const addBody = await add.json();
+  check("adding a product saves the guide and sends it back", [add.status, addBody.version, productsInGuide(addBody.document).has("mixi-dew-drops")], [200, friend.version + 1, true]);
+  check("adding from an old copy is refused", (await products({ action: "add", name: "Mixi Dew Drops", version: friend.version })).status, 409);
+  const twice = await products({ action: "add", name: "Mixi Dew Drops", version: addBody.version });
+  check("adding it twice says it's already in", [twice.status, (await twice.json()).message.includes("already")], [400, true]);
+  check("a product that isn't in the shop is refused", (await products({ action: "add", name: "Nope", version: addBody.version })).status, 400);
+  const remove = await products({ action: "remove", productId: "mixi-dew-drops", version: addBody.version });
+  const removeBody = await remove.json();
+  check("removing a product saves the guide without it", [remove.status, productsInGuide(removeBody.document).has("mixi-dew-drops")], [200, false]);
+  check("removing one that isn't there is refused", (await products({ action: "remove", productId: "mixi-dew-drops", version: removeBody.version })).status, 400);
+  const friendDeleted = await route("POST", `/admin/guides/${friendId}/delete`);
+  check("deleting a friend's guide goes back to the guides list", friendDeleted.headers.get("location"), "/admin/guides");
+
   const deleted = await route("POST", `/admin/guides/${id}/delete`);
   check("deleting goes back to her page and removes the guide", [deleted.headers.get("location"), await store.getGuide(env, id)], ["/admin/clients/c1", null]);
   check("a deleted guide's page is not found", await route("GET", `/admin/guides/${id}`), null);
-  check("the editor page renders without a client", guideEditorPage({ guide: { id: "g", version: 1, document: buildGuideDraft({ clientName: "Mo", routine: null }) }, client: null }).includes("Mo&#39;s Skincare Guide"), true);
+  check("the editor page renders without a client", guideEditorPage({ guide: { id: "g", version: 1, document: buildGuideDraft({ clientName: "Mo", routine: null }) }, client: null }).includes("Mo\u2019s Skincare Guide"), true);
 }
 
 if (failures) {

@@ -810,7 +810,7 @@ async function handleSignedIn(request, env, url, segments, method) {
     if (formsResponse) return formsResponse;
   }
 
-  const guideResponse = await handleGuideRoute(request, env, url, segments, method, { loadClientPurchases });
+  const guideResponse = await handleGuideRoute(request, env, url, segments, method, { loadClientPurchases, loadCatalog });
   if (guideResponse) return guideResponse;
 
   const clientMatch = segments[1] === "clients" ? segments[2] : null;

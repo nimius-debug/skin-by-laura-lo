@@ -2,10 +2,11 @@
 // JavaScript, no build step, like the admin's other scripts.
 //
 // Works like Canva on a fixed A4 page: tap a box to select it, drag to move it,
-// pull its handles to resize it, tap a selected text box again to type in it.
-// Every change is saved to the dashboard a moment later; undo/redo keep the
-// last 80 changes. "Save as PDF" opens the browser's print window, which saves
-// the pages as an A4 PDF.
+// pull its dots to resize it, tap a selected text box again to type in it.
+// "+ Product" adds a shop product to every page it belongs on. Every change is
+// saved to the dashboard a moment later; undo/redo keep the last 80 changes.
+// "Save as PDF" opens the browser's print window, which saves the pages as an
+// A4 PDF.
 //
 // `editorMain` runs in the browser only. It is written as a normal function so
 // it can be checked like the rest of the code; GUIDE_EDITOR_JS embeds its source
@@ -25,19 +26,26 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   const formatBar = root.querySelector(".format-bar");
   const statusEl = root.querySelector("[data-status]");
   const checkButton = root.querySelector("[data-action='next-check']");
-  const offPageEl = root.querySelector("[data-off-page]");
+  const offPageButton = root.querySelector("[data-action='next-off-page']");
+  const zoomOutput = root.querySelector("[data-zoom]");
+  const toastEl = root.querySelector(".toast");
+  const picker = root.querySelector(".picker");
+  const moreMenu = root.querySelector("details.more");
   const saveUrl = root.dataset.saveUrl;
 
   const boot = JSON.parse(document.getElementById("guide-data").textContent);
   let doc = boot.document;
   let version = boot.version;
-  const wordings = boot.wordings || {};
+  let wordings = boot.wordings || {};
+  const products = boot.products || [];
 
   let selectedId = null;
   let editingId = null;
   let scale = 1;
+  let zoom = null; // null: fit the screen width
   const undoStack = [];
   const redoStack = [];
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
 
   // ── helpers ──────────────────────────────────────────────────────────────
   const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -55,7 +63,19 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     return null;
   }
   const nodeFor = (id) => stackEl.querySelector(`.el[data-id="${CSS.escape(id)}"]`);
-  const sheetFor = (pageIndex) => stackEl.querySelectorAll(".sheet")[pageIndex];
+  const heightOf = (element) => {
+    if (element.type !== "text") return element.h || 0;
+    const node = nodeFor(element.id);
+    return node ? node.offsetHeight : 0;
+  };
+
+  let toastTimer = null;
+  function toast(message, ms = 3200) {
+    toastEl.textContent = message;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, ms);
+  }
 
   /** A text box's markup cut down to bold, italic, underline and line breaks. */
   function cleanMarkup(node) {
@@ -67,7 +87,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
         const tag = child.tagName.toLowerCase();
         if (tag === "br") { out += "<br>"; return; }
         const block = tag === "div" || tag === "p";
-        if (block && index > 0 && !out.endsWith("<br>")) out += "<br>";
+        if (block && index > 0 && out && !out.endsWith("<br>")) out += "<br>";
         const weight = child.style && child.style.fontWeight;
         const wrap = tag === "b" || tag === "strong" || weight === "bold" || Number(weight) >= 600 ? "b"
           : tag === "i" || tag === "em" ? "i" : tag === "u" ? "u" : null;
@@ -77,33 +97,35 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
       });
     };
     walk(node);
-    return out.replace(/(<br>)+$/, "");
+    return out.replace(/(<br>)+$/, "").replace(/<(b|i|u)><\/\1>/g, "");
   }
+  const isBlank = (markup) => !markup.replace(/<[^>]+>/g, "").replace(/&nbsp;|\s/g, "");
 
   // ── history and saving ───────────────────────────────────────────────────
+  let lastNudgeAt = 0;
   function remember() {
     undoStack.push(JSON.stringify(doc));
     if (undoStack.length > 80) undoStack.shift();
     redoStack.length = 0;
     updateHistoryButtons();
   }
-  function undo() {
-    if (!undoStack.length) return;
-    finishEditing();
-    redoStack.push(JSON.stringify(doc));
-    doc = JSON.parse(undoStack.pop());
+  function restore(json) {
+    doc = JSON.parse(json);
     if (selectedId && !find(selectedId)) selectedId = null;
     renderAll();
     scheduleSave();
   }
-  function redo() {
-    if (!redoStack.length) return;
+  function undo() {
     finishEditing();
+    if (!undoStack.length) return;
+    redoStack.push(JSON.stringify(doc));
+    restore(undoStack.pop());
+  }
+  function redo() {
+    finishEditing();
+    if (!redoStack.length) return;
     undoStack.push(JSON.stringify(doc));
-    doc = JSON.parse(redoStack.pop());
-    if (selectedId && !find(selectedId)) selectedId = null;
-    renderAll();
-    scheduleSave();
+    restore(redoStack.pop());
   }
   function updateHistoryButtons() {
     root.querySelector("[data-action='undo']").disabled = !undoStack.length;
@@ -125,27 +147,35 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 900);
   }
+  async function postJson(url, payload) {
+    const response = await fetch(url, {
+      method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(payload), credentials: "same-origin",
+    });
+    const result = await response.json().catch(() => ({}));
+    return { response, result };
+  }
+  function stopFor(status) {
+    if (status === 409) { blocked = true; setStatus("Changed in another tab. Reload to see the latest.", "bad"); return true; }
+    if (status === 404) { blocked = true; setStatus("This guide was deleted.", "bad"); return true; }
+    if (status === 401) { setStatus("Signed out. Log in again in another tab; this will save after.", "bad"); return false; }
+    return false;
+  }
   async function saveNow() {
     clearTimeout(saveTimer);
     if (blocked || !unsaved) return saving;
     if (saving) { await saving; return saveNow(); }
     unsaved = false;
-    const body = JSON.stringify({ document: doc, version });
+    const payload = { document: doc, version };
     saving = (async () => {
       try {
-        const response = await fetch(saveUrl, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body, credentials: "same-origin" });
-        const result = await response.json().catch(() => ({}));
-        if (response.status === 409) {
-          blocked = true;
-          setStatus("Changed in another tab. Reload to see the latest.", "bad");
-          return;
-        }
+        const { response, result } = await postJson(saveUrl, payload);
+        if (stopFor(response.status)) return;
         if (!response.ok) throw new Error(result.message || `HTTP ${response.status}`);
         version = result.version;
         if (!unsaved) setStatus("Saved", "good");
       } catch (error) {
         unsaved = true;
-        setStatus("Couldn't save. Trying again…", "bad");
+        if (statusEl.dataset.tone !== "bad" || !/Signed out/.test(statusEl.textContent)) setStatus("Couldn't save. Trying again…", "bad");
         clearTimeout(saveTimer);
         saveTimer = setTimeout(saveNow, 4000);
       } finally {
@@ -157,16 +187,17 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   window.addEventListener("beforeunload", (event) => {
     if (unsaved || saving) { event.preventDefault(); event.returnValue = ""; }
   });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") saveNow(); });
 
   // ── drawing ──────────────────────────────────────────────────────────────
   function frameHtml(page, index) {
     const tools = `<div class="sheet-tools no-print">
-      <span>Page ${index + 1}</span>
-      <button type="button" data-page-action="up" ${index === 0 ? "disabled" : ""} title="Move page up">↑</button>
-      <button type="button" data-page-action="down" ${index === doc.pages.length - 1 ? "disabled" : ""} title="Move page down">↓</button>
+      <span>Page ${index + 1} of ${doc.pages.length}</span>
+      <button type="button" data-page-action="up" ${index === 0 ? "disabled" : ""} aria-label="Move page ${index + 1} up" title="Move up">↑</button>
+      <button type="button" data-page-action="down" ${index === doc.pages.length - 1 ? "disabled" : ""} aria-label="Move page ${index + 1} down" title="Move down">↓</button>
       <button type="button" data-page-action="duplicate">Duplicate</button>
-      <button type="button" data-page-action="add">Add blank page</button>
-      <button type="button" data-page-action="delete" class="danger">Delete page</button>
+      <button type="button" data-page-action="add">+ Blank page</button>
+      <button type="button" data-page-action="delete" class="danger" ${doc.pages.length === 1 ? "disabled" : ""}>Delete</button>
     </div>`;
     return `<div class="sheet-frame" data-index="${index}">${tools}<div class="sheet-box">${guideSheetHtml(page, index, FONTS)}</div></div>`;
   }
@@ -190,31 +221,65 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     updateChecks();
   }
 
-  function applyScale() {
-    const available = stackEl.clientWidth - 8;
-    scale = Math.min(1, Math.max(0.2, available / PAGE_W));
-    stackEl.style.setProperty("--scale", scale);
+  function fitScale() {
+    const style = getComputedStyle(stackEl);
+    const available = stackEl.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return Math.min(1, Math.max(0.2, available / PAGE_W));
   }
-  window.addEventListener("resize", () => { applyScale(); drawSelection(); });
+  function applyScale() {
+    scale = zoom || fitScale();
+    stackEl.style.setProperty("--scale", scale);
+    stackEl.classList.toggle("zoomed", Boolean(zoom) && zoom > fitScale());
+    zoomOutput.textContent = zoom ? `${Math.round(scale * 100)}%` : "Fit";
+  }
+  const ZOOMS = [0.35, 0.5, 0.75, 1, 1.25, 1.5, 2];
+  function changeZoom(direction) {
+    const fit = fitScale();
+    const now = scale;
+    const steps = [...new Set([...ZOOMS, fit])].sort((a, b) => a - b);
+    const next = direction > 0 ? steps.find((value) => value > now + 0.001) : [...steps].reverse().find((value) => value < now - 0.001);
+    if (!next) return;
+    zoom = Math.abs(next - fit) < 0.001 ? null : next;
+    applyScale();
+    drawSelection();
+  }
+  // Anything scrolled into view lands clear of the top bar (and the format bar at the bottom).
+  const topBarEl = root.querySelector(".top-bar");
+  const measureTop = () => { if (topBarEl) document.documentElement.style.setProperty("--top-h", `${topBarEl.offsetHeight}px`); };
+  measureTop();
+  window.addEventListener("resize", () => { measureTop(); applyScale(); drawSelection(); });
+
+  // The keyboard on an iPad or phone covers the bottom bar; lift the bar above it.
+  if (window.visualViewport) {
+    const lift = () => {
+      const covered = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+      document.documentElement.style.setProperty("--keyboard", `${Math.round(covered)}px`);
+    };
+    window.visualViewport.addEventListener("resize", lift);
+    window.visualViewport.addEventListener("scroll", lift);
+  }
+
+  function offPageIds() {
+    const ids = [];
+    doc.pages.forEach((page) => page.elements.forEach((element) => {
+      const node = nodeFor(element.id);
+      if (!node) return;
+      const height = heightOf(element);
+      const off = element.x < -1 || element.y < -1 || element.x + element.w > PAGE_W + 1 || element.y + height > PAGE_H + 1;
+      node.classList.toggle("off-page", off);
+      if (off) ids.push(element.id);
+    }));
+    return ids;
+  }
 
   function updateChecks() {
     const checks = [];
-    let offPage = 0;
-    doc.pages.forEach((page, pageIndex) => {
-      page.elements.forEach((element) => {
-        if (element.origin === "check") checks.push(element.id);
-        const node = nodeFor(element.id);
-        if (!node) return;
-        const height = element.type === "text" ? node.offsetHeight : element.h;
-        const off = element.x < -1 || element.y < -1 || element.x + element.w > PAGE_W + 1 || element.y + height > PAGE_H + 1;
-        node.classList.toggle("off-page", off);
-        if (off) offPage += 1;
-      });
-    });
+    doc.pages.forEach((page) => page.elements.forEach((element) => { if (element.origin === "check") checks.push(element.id); }));
     checkButton.hidden = !checks.length;
     checkButton.textContent = checks.length === 1 ? "1 to check" : `${checks.length} to check`;
-    offPageEl.hidden = !offPage;
-    offPageEl.textContent = offPage === 1 ? "1 box runs off the page" : `${offPage} boxes run off the page`;
+    const off = offPageIds();
+    offPageButton.hidden = !off.length;
+    offPageButton.textContent = off.length === 1 ? "1 box off the page" : `${off.length} boxes off the page`;
     return checks;
   }
 
@@ -251,28 +316,57 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     drawSelection();
   }
 
+  function productName(productId) {
+    for (const page of doc.pages) {
+      const why = page.elements.find((element) => element.role === "why" && element.productId === productId);
+      if (why) return why.html.split("<br>")[0].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
+    }
+    const listed = products.find((product) => product.key === productId);
+    return listed ? listed.label : "this product";
+  }
+
   function updateFormatBar() {
     const found = selectedId && find(selectedId);
+    const wasHidden = formatBar.hidden;
     formatBar.hidden = !found;
+    document.documentElement.style.setProperty("--bar-h", found && getComputedStyle(formatBar).position === "fixed" ? `${formatBar.offsetHeight}px` : "0px");
     if (!found) return;
+    if (wasHidden) {
+      formatBar.scrollLeft = 0;
+      // On iPad and phone the bar sits along the bottom: lift a box it would cover.
+      if (getComputedStyle(formatBar).position === "fixed") {
+        const node = root.querySelector(`.el[data-id="${CSS.escape(selectedId)}"]`);
+        const bar = formatBar.getBoundingClientRect();
+        if (node) {
+          const box = node.getBoundingClientRect();
+          const under = Math.min(box.bottom, box.top + 120) - bar.top + 12;
+          if (under > 0) window.scrollBy({ top: under, behavior: "smooth" });
+        }
+      }
+    }
     const { element } = found;
     const style = element.style || {};
-    formatBar.dataset.type = element.type;
     formatBar.querySelectorAll("[data-for]").forEach((node) => {
       node.hidden = !node.dataset.for.split(" ").includes(element.type);
     });
+    formatBar.querySelector("[data-what]").textContent = editingId ? "Typing" : { text: "Text", image: "Photo", line: "Line" }[element.type];
     formatBar.querySelector("[name='font']").value = style.font || "body";
     formatBar.querySelector("[name='fontSize']").value = style.fontSize || 16;
+    formatBar.querySelector("[name='color']").value = style.color || (element.type === "line" ? "#000000" : "#231f20");
     formatBar.querySelectorAll("[data-align]").forEach((node) => node.setAttribute("aria-pressed", String((style.align || "left") === node.dataset.align)));
     formatBar.querySelector("[data-action='uppercase']").setAttribute("aria-pressed", String(Boolean(style.uppercase)));
     formatBar.querySelector("[data-action='bold']").setAttribute("aria-pressed", String((style.fontWeight || 400) >= 600));
     formatBar.querySelector("[data-action='italic']").setAttribute("aria-pressed", String(Boolean(style.italic)));
-    formatBar.querySelector("[data-action='fit']").textContent = element.fit === "cover" ? "Fit whole photo" : "Fill the box";
-    const looksGood = formatBar.querySelector("[data-action='looks-good']");
-    looksGood.hidden = element.origin !== "check";
+    formatBar.querySelector("[data-action='underline']").setAttribute("aria-pressed", String(Boolean(style.underline)));
+    formatBar.querySelector("[data-action='edit-text']").hidden = element.type !== "text" || editingId === element.id;
+    formatBar.querySelector("[data-action='fit']").textContent = element.fit === "cover" ? "Show whole photo" : "Fill the box";
+    formatBar.querySelector("[data-action='looks-good']").hidden = element.origin !== "check";
     const note = formatBar.querySelector("[data-note]");
     note.hidden = !(element.origin === "check" && element.note);
     note.textContent = element.note || "";
+    const removeProduct = formatBar.querySelector("[data-action='remove-product']");
+    removeProduct.hidden = !element.productId;
+    if (element.productId) removeProduct.textContent = `Remove ${productName(element.productId)} from guide`;
     const wording = formatBar.querySelector("[name='wording']");
     const choice = element.role === "why" && wordings[element.productId];
     wording.hidden = !(choice && choice.texts.length > 1);
@@ -287,9 +381,29 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const found = find(id);
     if (!found) return;
     if (history) remember();
+    const before = heightOf(found.element);
     mutate(found.element, found);
     if (redraw) renderElement(id);
+    if (redraw) keepFlowStacked(found.page, found.element, before);
     scheduleSave();
+  }
+
+  /** When a stacked box (a description, a how-to step) grows or shrinks, the boxes under it move with it. */
+  function keepFlowStacked(page, element, before) {
+    if (!element.flow || element.type !== "text") return;
+    const after = heightOf(element);
+    const delta = after - before;
+    if (Math.abs(delta) < 1) return;
+    let moved = false;
+    for (const other of page.elements) {
+      if (other !== element && other.flow === element.flow && other.y > element.y) {
+        other.y = Math.round(other.y + delta);
+        const node = nodeFor(other.id);
+        if (node) node.style.top = `${other.y}px`;
+        moved = true;
+      }
+    }
+    if (moved) { drawSelection(); updateChecks(); }
   }
 
   function setStyle(key, value) {
@@ -308,23 +422,23 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const node = nodeFor(id);
     node.contentEditable = "true";
     node.classList.add("editing");
-    node.dataset.before = found.element.html;
+    node.dataset.startHeight = String(node.offsetHeight);
     drawSelection();
     node.focus({ preventScroll: true });
-    const range = point && (document.caretRangeFromPoint
-      ? document.caretRangeFromPoint(point.x, point.y)
-      : document.caretPositionFromPoint && (() => {
-        const position = document.caretPositionFromPoint(point.x, point.y);
-        if (!position) return null;
-        const r = document.createRange();
-        r.setStart(position.offsetNode, position.offset);
-        return r;
-      })());
-    if (range && node.contains(range.startContainer)) {
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
+    let range = null;
+    if (point && document.caretRangeFromPoint) range = document.caretRangeFromPoint(point.x, point.y);
+    else if (point && document.caretPositionFromPoint) {
+      const position = document.caretPositionFromPoint(point.x, point.y);
+      if (position) { range = document.createRange(); range.setStart(position.offsetNode, position.offset); }
     }
+    if (!range || !node.contains(range.startContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(node);
+      range.collapse(false);
+    }
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   function finishEditing() {
@@ -336,7 +450,19 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     if (!node || !found) return;
     node.contentEditable = "false";
     node.classList.remove("editing");
+    const before = Number(node.dataset.startHeight) || node.offsetHeight;
     const markup = cleanMarkup(node);
+    if (isBlank(markup)) {
+      // An emptied box would be invisible and impossible to tap again: it goes (undo brings it back).
+      remember();
+      undoStack[undoStack.length - 1] = undoStack[undoStack.length - 1];
+      found.page.elements.splice(found.index, 1);
+      selectedId = null;
+      renderAll();
+      scheduleSave();
+      toast("Empty text box removed. Undo brings it back.");
+      return;
+    }
     if (markup !== found.element.html) {
       remember();
       found.element.html = markup;
@@ -344,18 +470,15 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
       scheduleSave();
     }
     renderElement(id);
+    keepFlowStacked(found.page, found.element, before);
   }
 
   stackEl.addEventListener("input", (event) => {
     const node = event.target.closest && event.target.closest(".el.editing");
     if (!node) return;
-    drawSelectionSize(node);
-  });
-  // Keep the selection outline around a box as it grows while typing, without redrawing the box.
-  function drawSelectionSize(node) {
     const box = node.parentElement.querySelector(".selection");
     if (box) box.style.height = `${node.offsetHeight}px`;
-  }
+  });
 
   // ── dragging and resizing ────────────────────────────────────────────────
   let gesture = null;
@@ -391,7 +514,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const found = find(id);
     gesture = {
       kind: "move", id, startX: event.clientX, startY: event.clientY, start: clone(found.element),
-      moved: false, wasSelected, pointerId: event.pointerId,
+      startHeight: node.offsetHeight, moved: false, wasSelected, pointerId: event.pointerId,
     };
     // Captured on the page stack: the selection handles are redrawn while dragging.
     stackEl.setPointerCapture(event.pointerId);
@@ -402,7 +525,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const dx = (event.clientX - gesture.startX) / scale;
     const dy = (event.clientY - gesture.startY) / scale;
-    if (!gesture.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+    if (!gesture.moved && Math.abs(dx) + Math.abs(dy) < (event.pointerType === "touch" ? 6 : 3)) return;
     if (!gesture.moved) { gesture.moved = true; remember(); }
     const found = find(gesture.id);
     if (!found) return;
@@ -411,7 +534,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     if (gesture.kind === "move") {
       element.x = Math.round(start.x + dx);
       element.y = Math.round(start.y + dy);
-      snap(element, nodeFor(gesture.id), event.shiftKey);
+      snap(element, gesture.startHeight, event.shiftKey);
     } else {
       resize(element, start, gesture.handle, dx, dy, gesture.startHeight, event.shiftKey);
     }
@@ -443,9 +566,8 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   });
 
   // Snaps to the page's centre line and side margins; hold Shift to place freely.
-  function snap(element, node, free) {
+  function snap(element, height, free) {
     if (free) return;
-    const height = element.type === "text" ? node.offsetHeight : element.h;
     const centre = element.x + element.w / 2;
     if (Math.abs(centre - PAGE_W / 2) < 6) element.x = Math.round(PAGE_W / 2 - element.w / 2);
     const middle = element.y + height / 2;
@@ -490,11 +612,13 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const frames = [...stackEl.querySelectorAll(".sheet-frame")];
     const middle = window.innerHeight / 2;
     let best = 0;
-    frames.forEach((frame, index) => {
-      const rect = frame.getBoundingClientRect();
-      if (rect.top < middle) best = index;
-    });
+    frames.forEach((frame, index) => { if (frame.getBoundingClientRect().top < middle) best = index; });
     return best;
+  }
+
+  function reveal(id) {
+    const node = nodeFor(id);
+    if (node) node.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   }
 
   function addText() {
@@ -509,7 +633,14 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     selectedId = element.id;
     renderAll();
     scheduleSave();
-    nodeFor(element.id).scrollIntoView({ block: "center", behavior: "smooth" });
+    reveal(element.id);
+    // Straight into typing, with the placeholder selected so the first key replaces it.
+    startEditing(element.id);
+    const range = document.createRange();
+    range.selectNodeContents(nodeFor(element.id));
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   function duplicateSelected() {
@@ -518,6 +649,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     finishEditing();
     remember();
     const copy = { ...clone(found.element), id: newId("c"), x: found.element.x + 16, y: found.element.y + 16 };
+    delete copy.flow;
     found.page.elements.push(copy);
     selectedId = copy.id;
     renderAll();
@@ -533,15 +665,13 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     selectedId = null;
     renderAll();
     scheduleSave();
+    toast("Deleted. Undo brings it back.");
   }
 
   function pageAction(action, index) {
     finishEditing();
     const pages = doc.pages;
-    if (action === "delete") {
-      if (pages.length === 1) return;
-      if (!window.confirm(`Delete page ${index + 1}? Undo brings it back.`)) return;
-    }
+    if (action === "delete" && pages.length === 1) return;
     remember();
     if (action === "up" && index > 0) [pages[index - 1], pages[index]] = [pages[index], pages[index - 1]];
     if (action === "down" && index < pages.length - 1) [pages[index + 1], pages[index]] = [pages[index], pages[index + 1]];
@@ -559,15 +689,18 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     if (selectedId && !find(selectedId)) selectedId = null;
     renderAll();
     scheduleSave();
+    if (action === "delete") toast(`Page ${index + 1} deleted. Undo brings it back.`);
+    const target = action === "up" ? index - 1 : action === "down" ? index + 1 : action === "delete" ? Math.max(0, index - 1) : index + 1;
+    const frame = stackEl.querySelectorAll(".sheet-frame")[target];
+    if (frame && action !== "delete") frame.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
-  function nextCheck() {
-    const checks = updateChecks();
-    if (!checks.length) return;
-    const at = checks.indexOf(selectedId);
-    const id = checks[(at + 1) % checks.length];
+  function nextOf(ids) {
+    if (!ids.length) return;
+    const at = ids.indexOf(selectedId);
+    const id = ids[(at + 1) % ids.length];
     select(id);
-    nodeFor(id).scrollIntoView({ block: "center", behavior: "smooth" });
+    reveal(id);
   }
 
   function chooseWording(index) {
@@ -585,32 +718,129 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   async function saveAsPdf() {
     finishEditing();
     select(null);
+    if (moreMenu) moreMenu.open = false;
     await saveNow();
     window.print();
   }
 
+  // ── products ─────────────────────────────────────────────────────────────
+  function productKeysInGuide() {
+    const keys = new Set();
+    doc.pages.forEach((page) => page.elements.forEach((element) => { if (element.productId) keys.add(element.productId); }));
+    return keys;
+  }
+
+  function renderPickerList() {
+    const list = picker.querySelector("[data-picker-list]");
+    const query = picker.querySelector(".search").value.trim().toLowerCase();
+    const inGuide = productKeysInGuide();
+    const shown = products.filter((product) => !query || product.label.toLowerCase().includes(query) || product.name.toLowerCase().includes(query)).slice(0, 120);
+    list.innerHTML = shown.length ? shown.map((product) => {
+      const added = inGuide.has(product.key);
+      const badge = added ? `<span class="badge in">In the guide</span>`
+        : product.inLibrary ? `<span class="badge lib">Laura's words</span>` : `<span class="badge new">No description yet</span>`;
+      const thumb = product.image ? `<img class="thumb" src="${escapeText(product.image)}" alt="" loading="lazy">` : `<span class="thumb"></span>`;
+      return `<li><button type="button" data-product="${escapeText(product.name)}" ${added ? "disabled" : ""}>${thumb}<span class="name">${escapeText(product.label)}</span>${badge}</button></li>`;
+    }).join("") : `<li class="empty">No product matches “${escapeText(query)}”.</li>`;
+  }
+
+  function openPicker() {
+    finishEditing();
+    if (moreMenu) moreMenu.open = false;
+    picker.querySelector(".search").value = "";
+    renderPickerList();
+    picker.showModal();
+    if (!coarse) picker.querySelector(".search").focus();
+  }
+
+  let changingProducts = false;
+  async function changeProducts(payload, busyText) {
+    if (changingProducts || blocked) return;
+    changingProducts = true;
+    setStatus(busyText);
+    try {
+      await saveNow();
+      const { response, result } = await postJson(`${saveUrl}/products`, { ...payload, version });
+      if (stopFor(response.status)) return;
+      if (!response.ok) { setStatus("Saved", "good"); toast(result.message || "That didn't work. Try again."); return; }
+      remember();
+      doc = result.document;
+      version = result.version;
+      wordings = result.wordings || wordings;
+      if (selectedId && !find(selectedId)) selectedId = null;
+      renderAll();
+      await layoutFlows({ only: "relayout" });
+      setStatus("Saved", "good");
+      return result.result;
+    } catch (error) {
+      setStatus("Couldn't reach the dashboard. Try again.", "bad");
+      return null;
+    } finally {
+      changingProducts = false;
+    }
+  }
+
+  async function addProduct(name) {
+    const result = await changeProducts({ action: "add", name }, "Adding…");
+    if (!result) return;
+    picker.close();
+    // Show where it went: its description on the overview, or its first box anywhere.
+    const mine = doc.pages.flatMap((page) => page.elements).filter((element) => element.productId === result.key);
+    const first = mine.find((element) => element.role === "why") || mine[0];
+    const placed = first && root.querySelector(`.el[data-id="${CSS.escape(first.id)}"]`);
+    if (placed) placed.scrollIntoView({ block: "center", behavior: "smooth" });
+    const where = (result.pages || []).map((page) => ({ overview: "overview", am: "AM", pm: "PM", notes: "Good to know" }[page])).filter(Boolean);
+    const listed = where.length > 1 ? `${where.slice(0, -1).join(", ")} and ${where.at(-1)}` : where[0];
+    toast(`Added ${result.name}${where.length ? ` to the ${listed} page${where.length === 1 ? "" : "s"}` : ""}.${result.inLibrary ? "" : " It has no description yet: it's highlighted to write."}`, 4500);
+  }
+
+  async function removeProduct(productId) {
+    const name = productName(productId);
+    if (!window.confirm(`Take ${name} out of this guide? Its description, photos and steps are removed. Undo brings them back.`)) return;
+    finishEditing();
+    selectedId = null;
+    const result = await changeProducts({ action: "remove", productId }, "Removing…");
+    if (result) toast(`${name} removed from the guide.`);
+  }
+
+  // ── wiring ───────────────────────────────────────────────────────────────
   root.addEventListener("click", (event) => {
     const pageButton = event.target.closest("[data-page-action]");
     if (pageButton) {
       pageAction(pageButton.dataset.pageAction, Number(pageButton.closest(".sheet-frame").dataset.index));
       return;
     }
+    const productButton = event.target.closest("[data-product]");
+    if (productButton) { addProduct(productButton.dataset.product); return; }
     const button = event.target.closest("[data-action], [data-align]");
     if (!button || button.disabled) return;
     if (button.closest(".format-bar") && performance.now() - selectedAt < 450) return;
     const found = selectedId && find(selectedId);
     const style = (found && found.element.style) || {};
     if (button.dataset.align) { setStyle("align", button.dataset.align); return; }
+    if (button.closest(".menu") && moreMenu) moreMenu.open = false;
     switch (button.dataset.action) {
       case "undo": undo(); break;
       case "redo": redo(); break;
       case "add-text": addText(); break;
-      case "next-check": nextCheck(); break;
+      case "add-product": openPicker(); break;
+      case "close-picker": picker.close(); break;
+      case "next-check": nextOf(updateChecks()); break;
+      case "next-off-page": nextOf(offPageIds()); break;
+      case "zoom-in": changeZoom(1); break;
+      case "zoom-out": changeZoom(-1); break;
       case "pdf": saveAsPdf(); break;
-      case "review": root.classList.toggle("review", button.getAttribute("aria-pressed") !== "true");
-        button.setAttribute("aria-pressed", String(root.classList.contains("review")));
-        try { localStorage.setItem("guide-review", root.classList.contains("review") ? "1" : "0"); } catch (error) { /* private mode */ }
+      case "pdf-help":
+        toast("In the print window choose “Save as PDF”, paper size A4, margins None, and turn on background graphics. On an iPad: Print, then Share › Save to Files.", 9000);
         break;
+      case "review": {
+        const on = !root.classList.contains("review");
+        root.classList.toggle("review", on);
+        button.textContent = on ? "Hide the yellow highlights" : "Show the yellow highlights";
+        try { localStorage.setItem("guide-review", on ? "1" : "0"); } catch (error) { /* private mode */ }
+        break;
+      }
+      case "edit-text": if (selectedId) startEditing(selectedId); break;
       case "bold":
         if (editingId) document.execCommand("bold");
         else setStyle("fontWeight", (style.fontWeight || 400) >= 600 ? 400 : 700);
@@ -619,16 +849,20 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
         if (editingId) document.execCommand("italic");
         else setStyle("italic", !style.italic);
         break;
-      case "underline": if (editingId) document.execCommand("underline"); break;
+      case "underline":
+        if (editingId) document.execCommand("underline");
+        else setStyle("underline", !style.underline);
+        break;
       case "uppercase": setStyle("uppercase", !style.uppercase); break;
       case "smaller": setStyle("fontSize", Math.max(4, Math.round(((style.fontSize || 16) - 1) * 10) / 10)); break;
-      case "bigger": setStyle("fontSize", Math.round(((style.fontSize || 16) + 1) * 10) / 10); break;
+      case "bigger": setStyle("fontSize", Math.min(240, Math.round(((style.fontSize || 16) + 1) * 10) / 10)); break;
       case "fit": change(selectedId, (element) => { element.fit = element.fit === "cover" ? "contain" : "cover"; }); break;
       case "front": change(selectedId, (element, where) => { where.page.elements.splice(where.index, 1); where.page.elements.push(element); }, { redraw: false }); renderAll(); break;
       case "back": change(selectedId, (element, where) => { where.page.elements.splice(where.index, 1); where.page.elements.unshift(element); }, { redraw: false }); renderAll(); break;
-      case "looks-good": change(selectedId, (element) => { element.origin = "edited"; delete element.note; }); break;
+      case "looks-good": change(selectedId, (element) => { element.origin = "edited"; delete element.note; }); toast("Marked as checked."); break;
       case "duplicate": duplicateSelected(); break;
       case "delete": deleteSelected(); break;
+      case "remove-product": if (found && found.element.productId) removeProduct(found.element.productId); break;
       default: break;
     }
   });
@@ -641,20 +875,35 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const size = Number(event.target.value);
     if (size >= 4 && size <= 240) setStyle("fontSize", size);
   });
+  formatBar.querySelector("[name='color']").addEventListener("change", (event) => setStyle("color", event.target.value.toLowerCase()));
   formatBar.querySelector("[name='wording']").addEventListener("change", (event) => {
     if (event.target.value !== "") chooseWording(Number(event.target.value));
   });
+  picker.querySelector(".search").addEventListener("input", renderPickerList);
+  picker.addEventListener("click", (event) => { if (event.target === picker) picker.close(); });
+
+  // The "⋯" menu: placed under its button, closed by a tap anywhere else.
+  if (moreMenu) {
+    moreMenu.addEventListener("toggle", () => {
+      if (!moreMenu.open) return;
+      const rect = moreMenu.querySelector("summary").getBoundingClientRect();
+      const menu = moreMenu.querySelector(".menu");
+      menu.style.top = `${Math.round(rect.bottom + 6)}px`;
+      menu.style.right = `${Math.max(8, Math.round(window.innerWidth - rect.right))}px`;
+    });
+    document.addEventListener("pointerdown", (event) => { if (moreMenu.open && !moreMenu.contains(event.target)) moreMenu.open = false; });
+  }
 
   document.addEventListener("keydown", (event) => {
     const mod = event.metaKey || event.ctrlKey;
-    const inField = event.target.closest && event.target.closest("input, select, textarea");
+    const inField = event.target.closest && event.target.closest("input, select, textarea, dialog");
     if (mod && event.key.toLowerCase() === "z" && !inField) {
       event.preventDefault();
-      if (editingId) finishEditing();
       if (event.shiftKey) redo(); else undo();
       return;
     }
     if (mod && event.key.toLowerCase() === "y" && !inField) { event.preventDefault(); redo(); return; }
+    if (mod && event.key.toLowerCase() === "p") { event.preventDefault(); saveAsPdf(); return; }
     if (editingId) {
       if (event.key === "Escape") { event.preventDefault(); finishEditing(); }
       return;
@@ -672,13 +921,17 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
     if (move) {
       event.preventDefault();
-      change(selectedId, (element) => { element.x += move[0]; element.y += move[1]; });
+      // A run of nudges is one step to undo.
+      const now = performance.now();
+      const history = now - lastNudgeAt > 1000;
+      lastNudgeAt = now;
+      change(selectedId, (element) => { element.x += move[0]; element.y += move[1]; }, { history });
     }
   });
 
-  // Typing ends when she taps outside the page.
+  // Typing ends, and the box is let go, when she taps outside the pages.
   document.addEventListener("pointerdown", (event) => {
-    if (!event.target.closest(".page-stack") && !event.target.closest(".format-bar") && !event.target.closest(".top-bar")) {
+    if (!event.target.closest(".page-stack, .format-bar, .top-bar, .picker, .toast")) {
       finishEditing();
       select(null);
     }
@@ -692,84 +945,91 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     document.execCommand("insertText", false, text);
   });
 
-  // ── first layout of a new draft ──────────────────────────────────────────
-  // The draft's text boxes were placed with a guess at their height. Now that
-  // the fonts are loaded, stack each group (product descriptions, how-to steps)
-  // under each other with its real height, shrink the words a little if a group
-  // runs past the bottom of the page, and move what still doesn't fit to a new
-  // page after it.
-  function layoutFlows() {
-    let changed = false;
-    for (let pageIndex = 0; pageIndex < doc.pages.length; pageIndex += 1) {
-      const page = doc.pages[pageIndex];
-      for (const [name, flow] of Object.entries(page.flows || {})) {
-        const boxes = page.elements.filter((element) => element.flow === name).sort((a, b) => a.y - b.y);
-        if (!boxes.length) continue;
-        const top = boxes[0].y;
-        const restack = () => {
-          let y = top;
-          for (const element of boxes) {
-            element.y = Math.round(y);
-            const node = nodeFor(element.id);
-            node.style.top = `${element.y}px`;
-            node.style.fontSize = `${element.style.fontSize}px`;
-            y += node.offsetHeight + flow.gap;
-          }
-          return y - flow.gap;
-        };
-        let bottom = restack();
-        let guard = 0;
-        while (bottom > flow.bottom && guard < 40 && boxes.some((element) => element.style.fontSize > flow.minFontSize)) {
-          boxes.forEach((element) => { element.style.fontSize = Math.max(flow.minFontSize, Math.round((element.style.fontSize - 0.5) * 10) / 10); });
-          bottom = restack();
-          guard += 1;
-        }
-        changed = true;
-        if (bottom <= flow.bottom) continue;
-        // Still too long: carry the boxes that don't fit over to a new page.
-        const overflow = [];
-        for (const element of boxes) {
-          const node = nodeFor(element.id);
-          if (element !== boxes[0] && element.y + node.offsetHeight > flow.bottom) overflow.push(element);
-        }
-        if (!overflow.length) continue;
-        page.elements = page.elements.filter((element) => !overflow.includes(element));
-        const footer = page.elements.find((element) => element.role === "footer");
-        overflow.forEach((element) => { element.x = 42; element.w = 700; });
-        const next = {
-          id: newId("p"), kind: page.kind, flows: { [name]: { ...flow, bottom: 1045 } },
-          elements: [...overflow, ...(footer ? [{ ...clone(footer), id: newId("c") }] : [])],
-        };
-        overflow[0].y = 70;
-        doc.pages.splice(pageIndex + 1, 0, next);
-        renderAll();
-      }
-    }
-    doc.needsLayout = false;
-    renderAll();
-    if (changed) { unsaved = true; saveNow(); }
-  }
-
   const deleteForm = root.querySelector("form.delete-guide");
   if (deleteForm) {
     deleteForm.addEventListener("submit", (event) => {
-      if (!window.confirm("Delete this guide? This can't be undone.")) { event.preventDefault(); return; }
+      if (!window.confirm("Delete this whole guide? This can't be undone.")) { event.preventDefault(); return; }
       clearTimeout(saveTimer);
       blocked = true;
       unsaved = false;
     });
   }
 
+  // ── laying out stacked text ──────────────────────────────────────────────
+  // A new draft's text boxes were placed with a guess at their height, and a
+  // product added later is slotted in roughly. Once the fonts are loaded, each
+  // group (product descriptions, how-to steps, notes) is stacked with its real
+  // heights, the words shrink a little if a group runs past the bottom of the
+  // page, and what still doesn't fit moves to a new page after it.
+  function layoutPageFlow(pageIndex, name) {
+    const page = doc.pages[pageIndex];
+    const flow = page.flows && page.flows[name];
+    const boxes = page.elements.filter((element) => element.flow === name).sort((a, b) => a.y - b.y);
+    if (!flow || !boxes.length) return;
+    const top = boxes[0].y;
+    const restack = () => {
+      let y = top;
+      for (const element of boxes) {
+        element.y = Math.round(y);
+        const node = nodeFor(element.id);
+        node.style.top = `${element.y}px`;
+        node.style.fontSize = `${element.style.fontSize}px`;
+        y += node.offsetHeight + flow.gap;
+      }
+      return y - flow.gap;
+    };
+    let bottom = restack();
+    let guard = 0;
+    while (bottom > flow.bottom && guard < 40 && boxes.some((element) => element.style.fontSize > flow.minFontSize)) {
+      boxes.forEach((element) => { element.style.fontSize = Math.max(flow.minFontSize, Math.round((element.style.fontSize - 0.5) * 10) / 10); });
+      bottom = restack();
+      guard += 1;
+    }
+    if (bottom <= flow.bottom) return;
+    const overflow = boxes.filter((element, index) => index > 0 && element.y + nodeFor(element.id).offsetHeight > flow.bottom);
+    if (!overflow.length) return;
+    // Still too long: carry the boxes that don't fit over to the next page, or a new one.
+    page.elements = page.elements.filter((element) => !overflow.includes(element));
+    let next = doc.pages[pageIndex + 1];
+    if (!next || next.kind !== page.kind || !next.flows || !next.flows[name]) {
+      const footer = page.elements.find((element) => element.role === "footer");
+      next = { id: newId("p"), kind: page.kind, flows: { [name]: { ...flow, bottom: 1045 } }, elements: footer ? [{ ...clone(footer), id: newId("c") }] : [] };
+      doc.pages.splice(pageIndex + 1, 0, next);
+    }
+    const firstY = Math.min(70, ...next.elements.filter((element) => element.flow === name).map((element) => element.y));
+    overflow.forEach((element, index) => { element.x = 42; element.w = 700; element.y = firstY - overflow.length + index; });
+    next.elements.unshift(...overflow);
+    next.relayout = [...new Set([...(next.relayout || []), name])];
+    renderAll();
+  }
+
+  async function layoutFlows({ only = "all" } = {}) {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    let changed = false;
+    // Pages can be added while laying out (overflow), so walk by index.
+    for (let pageIndex = 0; pageIndex < doc.pages.length; pageIndex += 1) {
+      const page = doc.pages[pageIndex];
+      const names = only === "all" ? Object.keys(page.flows || {}) : (page.relayout || []);
+      delete page.relayout;
+      for (const name of names) { layoutPageFlow(pageIndex, name); changed = true; }
+    }
+    doc.needsLayout = false;
+    renderAll();
+    if (changed) scheduleSave();
+  }
+
   // ── start ────────────────────────────────────────────────────────────────
-  try { if (localStorage.getItem("guide-review") === "0") root.classList.remove("review"); } catch (error) { /* private mode */ }
-  root.querySelector("[data-action='review']").setAttribute("aria-pressed", String(root.classList.contains("review")));
+  try {
+    if (localStorage.getItem("guide-review") === "0") {
+      root.classList.remove("review");
+      root.querySelector("[data-action='review']").textContent = "Show the yellow highlights";
+    }
+  } catch (error) { /* private mode */ }
   renderAll();
   setStatus("Saved", "good");
-  const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-  fontsReady.then(() => {
-    if (doc.needsLayout) layoutFlows();
-    else { updateChecks(); drawSelection(); }
-  });
+  if (doc.needsLayout) layoutFlows({ only: "all" });
+  else if (doc.pages.some((page) => page.relayout && page.relayout.length)) layoutFlows({ only: "relayout" });
+  else if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { updateChecks(); drawSelection(); });
 }
 
 /** The editor script, with the drawing functions it shares with the server. */

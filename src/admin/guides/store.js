@@ -19,7 +19,7 @@ export async function createGuide(env, { clientId, document }) {
   const id = newId("guide");
   await env.CLIENT_NOTES_DB
     .prepare("INSERT INTO client_guides (id, client_id, document_json) VALUES (?, ?, ?)")
-    .bind(id, clientId, JSON.stringify(clean))
+    .bind(id, clientId || null, JSON.stringify(clean))
     .run();
   return id;
 }
@@ -57,6 +57,24 @@ export async function saveGuide(env, id, { document, version }) {
     return current ? { conflict: true, version: current.version } : { missing: true };
   }
   return { version: (Number(version) || 0) + 1, document: clean };
+}
+
+/**
+ * Every guide, newest first, with who it's for: the client's name, or the name
+ * typed in for a guide made without a client.
+ */
+export async function listAllGuides(env, { limit = 200 } = {}) {
+  const { results } = await env.CLIENT_NOTES_DB
+    .prepare(`SELECT g.id, g.client_id, g.status, g.version, g.created_at, g.updated_at, c.name AS client_name,
+        json_extract(g.document_json, '$.clientName') AS guide_name
+      FROM client_guides g LEFT JOIN clients c ON c.id = g.client_id
+      ORDER BY g.updated_at DESC, g.created_at DESC LIMIT ?`)
+    .bind(limit)
+    .all();
+  return results.map((row) => ({
+    id: row.id, clientId: row.client_id, status: row.status, version: row.version, createdAt: row.created_at, updatedAt: row.updated_at,
+    name: row.client_name || row.guide_name || "",
+  }));
 }
 
 export async function deleteGuide(env, id) {
