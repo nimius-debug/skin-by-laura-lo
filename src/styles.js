@@ -1186,8 +1186,26 @@ html.result-viewer-open { overflow: hidden; }
 .bf-sub { max-width: 540px; margin: 0 auto; color: var(--muted); font-size: 16px; line-height: 1.5; }
 .bf-sub strong { color: var(--ink); font-weight: 650; }
 
-/* Two cards fanned out with a round seal: the gift cards in the hero, the
-   treatment series in Packages. */
+/* Before and after on the package: drag the line. */
+.bf-compare { margin: 22px 0 26px; }
+.bf-compare-frame { --pos: 50%; position: relative; overflow: hidden; background: var(--cream); cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.bf-compare-frame:has(.bf-compare-range:focus-visible) { outline: 2px solid var(--brass); outline-offset: 3px; }
+.bf-compare-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.bf-compare-frame img.bf-compare-stacked { inset: auto 0; height: 200%; object-fit: fill; }
+img.bf-compare-stacked.bf-compare-after { top: 0; }
+img.bf-compare-stacked.bf-compare-before { bottom: 0; }
+.bf-compare-top { position: absolute; inset: 0; clip-path: inset(0 0 0 var(--pos)); }
+.bf-compare-line { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 1px; margin-left: -.5px; background: #f3eee5; box-shadow: 0 0 12px rgba(0,0,0,.35); pointer-events: none; }
+.bf-compare-knob { position: absolute; top: 50%; left: 50%; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #f3eee5; color: #0c0c0b; box-shadow: 0 8px 24px rgba(0,0,0,.4); transform: translate(-50%, -50%); transition: transform .2s ease; }
+.bf-compare-frame.is-dragging .bf-compare-knob { transform: translate(-50%, -50%) scale(1.08); }
+.bf-compare-tag { position: absolute; bottom: 12px; padding: 6px 10px; background: rgba(12, 12, 11, .62); color: #f3eee5; font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: none; }
+.bf-compare-tag-before { left: 12px; }
+.bf-compare-tag-after { right: 12px; }
+.bf-compare-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+.bf-compare figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 10px; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.bf-compare figcaption span { flex: 0 0 auto; color: var(--brass); font-size: 10.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+
+/* Two cards fanned out with a round seal: the gift cards in the hero. */
 .bf-stack { position: relative; width: min(290px, 78vw); aspect-ratio: 1.75; margin: 28px auto 34px; }
 .bf-card-art { position: absolute; inset: 0; padding: 16px 18px; border-radius: 14px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 24px 50px rgba(0,0,0,.55); }
 .bf-card-back { background: linear-gradient(135deg, #2a2823, #151411); border: 1px solid rgba(216,195,155,.35); color: #d8c39b; transform: rotate(-7deg) translate(-18px, 6px); }
@@ -1198,11 +1216,6 @@ html.result-viewer-open { overflow: hidden; }
 .bf-card-art small { font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
 .bf-card-row b { font-family: var(--font-serif); font-weight: 400; font-size: 30px; letter-spacing: -.02em; line-height: 1; }
 .bf-card-top { align-items: center; }
-.bf-card-name { font-family: var(--font-serif); font-size: 24px; letter-spacing: -.02em; line-height: 1; }
-.bf-sessions { display: flex; align-items: center; gap: 7px; }
-.bf-sessions i { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #0c0c0b; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 650; }
-.bf-sessions i:first-child { background: #0c0c0b; color: #f3eee5; }
-.bf-sessions em { margin-left: 4px; font-family: var(--font-serif); font-size: 13px; color: #5f5a50; }
 .bf-seal { position: absolute; z-index: 2; top: -14px; right: -8px; width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; text-align: center; background: #0c0c0b; color: #f3eee5; border: 1px solid #d8c39b; transform: rotate(8deg); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; line-height: 1.1; }
 .bf-seal b { display: block; font-family: var(--font-serif); font-weight: 400; font-size: 18px; letter-spacing: 0; text-transform: none; }
 
@@ -1317,7 +1330,7 @@ html.result-viewer-open { overflow: hidden; }
   .bf-stack { width: 330px; }
   #packages { display: grid; grid-template-columns: 1fr 1.1fr; column-gap: 64px; align-items: center; }
   #packages .bf-block-title { grid-column: 1 / -1; margin-bottom: 20px; }
-  #packages .bf-stack { width: 400px; }
+  #packages .bf-compare { margin: 0; }
   .bf-offer { padding: 34px 32px 28px; }
   .bf-offers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding-top: 64px; }
   .bf-block { padding-top: 84px; }

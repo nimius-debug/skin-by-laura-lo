@@ -1191,6 +1191,60 @@ export const CLIENT_JS = String.raw`
     var root = document.querySelector("[data-bf]");
     if (!root) return;
 
+    // Before and after sliders: drag anywhere on the photo, or use the arrow keys.
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    Array.prototype.forEach.call(root.querySelectorAll("[data-bf-compare]"), function (figure) {
+      var frame = figure.querySelector("[data-bf-compare-frame]");
+      var range = figure.querySelector("[data-bf-compare-range]");
+      if (!frame || !range) return;
+      var touched = false;
+      var dragging = false;
+      function set(percent) {
+        var value = Math.max(0, Math.min(100, percent));
+        frame.style.setProperty("--pos", value + "%");
+        range.value = String(Math.round(value));
+      }
+      function fromPointer(event) {
+        var box = frame.getBoundingClientRect();
+        set(((event.clientX - box.left) / box.width) * 100);
+      }
+      frame.addEventListener("pointerdown", function (event) {
+        touched = true;
+        dragging = true;
+        frame.classList.add("is-dragging");
+        if (frame.setPointerCapture) frame.setPointerCapture(event.pointerId);
+        fromPointer(event);
+      });
+      frame.addEventListener("pointermove", function (event) { if (dragging) fromPointer(event); });
+      function stop() { dragging = false; frame.classList.remove("is-dragging"); }
+      frame.addEventListener("pointerup", stop);
+      frame.addEventListener("pointercancel", stop);
+      range.addEventListener("input", function () { touched = true; set(Number(range.value)); });
+
+      // Once, when it first comes into view, the line sweeps a little so it
+      // reads as something to drag.
+      if (reduceMotion || !("IntersectionObserver" in window)) return;
+      var watcher = new IntersectionObserver(function (entries) {
+        if (!entries[0].isIntersecting) return;
+        watcher.disconnect();
+        var stops = [50, 28, 72, 50];
+        var start = null;
+        var duration = 1800;
+        function frameStep(time) {
+          if (touched) return;
+          if (start === null) start = time;
+          var t = Math.min(1, (time - start) / duration);
+          var leg = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)));
+          var local = t * (stops.length - 1) - leg;
+          var eased = local < .5 ? 2 * local * local : 1 - Math.pow(-2 * local + 2, 2) / 2;
+          set(stops[leg] + (stops[leg + 1] - stops[leg]) * eased);
+          if (t < 1) requestAnimationFrame(frameStep);
+        }
+        setTimeout(function () { requestAnimationFrame(frameStep); }, 300);
+      }, { threshold: 0.6 });
+      watcher.observe(frame);
+    });
+
     function pad(value) { return value < 10 ? "0" + value : String(value); }
     Array.prototype.forEach.call(root.querySelectorAll("[data-bf-countdown]"), function (clock) {
       var target = Date.parse(clock.getAttribute("data-bf-countdown"));

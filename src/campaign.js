@@ -29,6 +29,15 @@ export const BLACK_FRIDAY = {
 
   package: {
     title: "Liquid Microneedling Series",
+    // The before-and-after slider on the package. Use a consenting client's
+    // real result and describe it truthfully. Either one "stacked" image with
+    // the after on top and the before below (like the hero results), or two
+    // matching photos as { before, after } taken from the same angle.
+    result: {
+      stacked: "/media/result-composite-02.webp",
+      ratio: 900 / 562.5,
+      caption: "Real client · 6 months acne bootcamp + 3 scar revision sessions",
+    },
     subtitle: "Corrective Series of 4",
     priceCents: 89700,
     treatmentValueCents: 102800,

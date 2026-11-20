@@ -98,6 +98,32 @@ function hero(phase, pkg, now) {
   `;
 }
 
+/**
+ * Before and after, one photo over the other with a line to drag. Without
+ * JavaScript it rests at the halfway mark; the range input under it keeps
+ * it usable from the keyboard and by screen readers.
+ */
+function compareSlider(result) {
+  if (!result || !(result.stacked || (result.before && result.after))) return "";
+  const layer = (side) => result.stacked
+    ? html`<img src="${result.stacked}" alt="" class="bf-compare-stacked bf-compare-${side}" loading="lazy" decoding="async" draggable="false" />`
+    : html`<img src="${result[side]}" alt="" class="bf-compare-${side}" loading="lazy" decoding="async" draggable="false" />`;
+  return html`
+    <figure class="bf-compare" data-bf-compare>
+      <div class="bf-compare-frame" style="aspect-ratio: ${String(result.ratio || 1.6)}" data-bf-compare-frame>
+        ${layer("before")}
+        <div class="bf-compare-top">${layer("after")}</div>
+        <span class="bf-compare-tag bf-compare-tag-before" aria-hidden="true">Before</span>
+        <span class="bf-compare-tag bf-compare-tag-after" aria-hidden="true">After</span>
+        <span class="bf-compare-line" aria-hidden="true"><span class="bf-compare-knob"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6 3 12l6 6M15 6l6 6-6 6"/></svg></span></span>
+        <input class="bf-compare-range" type="range" min="0" max="100" value="50" step="1" data-bf-compare-range
+               aria-label="Before and after: move to compare" />
+      </div>
+      <figcaption>${result.caption || "Real client result"}<span>Drag to compare</span></figcaption>
+    </figure>
+  `;
+}
+
 function packagesSection(pkg) {
   const variation = pkg?.defaultVariation;
   const soldOut = pkg && !pkg.available;
@@ -105,14 +131,7 @@ function packagesSection(pkg) {
   return html`
     <section class="bf-block" id="packages" aria-labelledby="bf-packages-title">
       <h2 class="bf-block-title" id="bf-packages-title">Treatment <em>packages</em></h2>
-      ${cardStack({
-        back: html`<img src="${LOGO}" alt="" class="bf-card-logo" /><small>Homecare kit</small>`,
-        front: html`
-          <span class="bf-card-row bf-card-top"><img src="${LOGO}" alt="" class="bf-card-logo" /><small>Series of 4</small></span>
-          <span class="bf-card-name">Liquid Microneedling</span>
-          <span class="bf-sessions"><i>1</i><i>2</i><i>3</i><i>4</i><em>+ homecare</em></span>`,
-        seal: money(savingsCents),
-      })}
+      ${compareSlider(OFFER.result)}
       <article class="bf-offer">
         <span class="bf-flag">Save ${money(savingsCents)}</span>
         <p class="eyebrow">Black Friday package</p>

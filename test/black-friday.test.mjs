@@ -162,6 +162,10 @@ check("Nov 23 to 26: routines follow the package, each with its total struck out
     homeLaunch.includes('data-routine-open="brighten-me-up"'), homeLaunch.includes('id="routine-brighten-me-up"'),
     (homeLaunch.match(/id="routines"/g) || []).length, homeLaunch.includes("routines-section")],
   [true, true, true, 1, false]);
+check("Nov 23 to 26: the package shows a real before-and-after to drag, captioned truthfully, usable from the keyboard",
+  [/id="packages"[\s\S]*?data-bf-compare[\s\S]*?result-composite-02\.webp[\s\S]*?type="range"[\s\S]*?6 months acne bootcamp \+ 3 scar revision sessions[\s\S]*?class="bf-offer"/.test(homeLaunch),
+    homeLaunch.includes("bf-sessions")],
+  [true, false]);
 check("Nov 23 to 26: the package card shows the value struck out, then the price, and adds to the bag",
   [homeLaunch.includes('data-add-to-cart="V_PACK"'), /Was <\/span>\$1,129<\/span> <span class="bf-now bf-now-big"><span class="sr-only">Now <\/span>\$897/.test(homeLaunch),
     homeLaunch.includes("Save $232"), homeLaunch.includes("Add to bag · $897"), homeLaunch.includes("Green Sea")],
