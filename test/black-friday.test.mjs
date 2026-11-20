@@ -20,6 +20,8 @@ const item = (id, name, cents, extra = {}) => ({
 const CATALOG = {
   objects: [
     item("CLEANSER", "Cleanser", 3400, { reporting_category: { id: "C1" } }),
+    // In the "Brighten Me Up" routine (src/routines.js).
+    item("SPF", "Desembre EGF Waterdrop", 3200, { reporting_category: { id: "C1" } }),
     item("PACK", "Green Sea Liquid Microneedling | Corrective Series of 4", 89700, { reporting_category: { id: "C2" } }),
   ],
   related_objects: [
@@ -152,9 +154,14 @@ check("Nov 23 to 26: the whole site is black and the homepage is the deals",
 check("Nov 23 to 26: one static bar about gift cards and Friday, no ticker, no shipping bar",
   [/data-campaign-banner[\s\S]*Gift cards 15% off[\s\S]*Skincare 15% off starts Fri/.test(homeLaunch), homeLaunch.includes("promo-track"), homeLaunch.includes('class="announcement"')],
   [true, false, false]);
-check("Nov 23 to 26: packages come right after the hero, then gift cards, skincare and products",
-  ["bf-hero", 'id="packages"', 'id="gift-cards"', 'id="skincare"', 'id="sale-products"', 'id="about"'].map((marker) => homeLaunch.indexOf(marker))
+check("Nov 23 to 26: packages come right after the hero, then routines, gift cards, skincare and products",
+  ["bf-hero", 'id="packages"', 'id="routines"', 'id="gift-cards"', 'id="skincare"', 'id="sale-products"', 'id="about"'].map((marker) => homeLaunch.indexOf(marker))
     .every((at, index, all) => at > 0 && (index === 0 || at > all[index - 1])), true);
+check("Nov 23 to 26: routines follow the package, each with its total struck out and its Friday price, and open the usual popout",
+  [/bf-routine-name">Brighten Me Up[\s\S]*?Was <\/span>\$32\.00<\/span> <span class="bf-now"><span class="sr-only">Now <\/span>\$27\.20/.test(homeLaunch),
+    homeLaunch.includes('data-routine-open="brighten-me-up"'), homeLaunch.includes('id="routine-brighten-me-up"'),
+    (homeLaunch.match(/id="routines"/g) || []).length, homeLaunch.includes("routines-section")],
+  [true, true, true, 1, false]);
 check("Nov 23 to 26: the package card shows the value struck out, then the price, and adds to the bag",
   [homeLaunch.includes('data-add-to-cart="V_PACK"'), /Was <\/span>\$1,129<\/span> <span class="bf-now bf-now-big"><span class="sr-only">Now <\/span>\$897/.test(homeLaunch),
     homeLaunch.includes("Save $232"), homeLaunch.includes("Add to bag · $897"), homeLaunch.includes("Green Sea")],
@@ -248,6 +255,7 @@ check("the Terms page carries the promotion terms", (await text("/terms", SALE))
 
 // ------------------------------------------------------------------- after
 const homeAfter = await text("/", AFTER);
+check("Dec 1: the usual routines section is back in its place", [homeAfter.includes("routines-section"), homeAfter.includes("bf-routine")], [true, false]);
 check("Dec 1: the bar, the takeover and the black theme are gone",
   [homeAfter.includes("data-campaign-banner"), homeAfter.includes("bf-home"), homeAfter.includes("data-theme="), homeAfter.includes('class="announcement"')],
   [false, false, false, true]);

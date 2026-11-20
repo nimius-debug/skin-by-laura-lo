@@ -1,5 +1,6 @@
 // Everything a shopper sees of Black Friday 2026. While it runs, the homepage
-// IS the Black Friday page: the hero, the treatment package, the gift card
+// IS the Black Friday page: the hero, the treatment package, the skincare
+// routines, the gift card
 // offer, the skincare offer (with "notify me" until it opens) and the products
 // on sale, before the usual homepage sections. The whole site wears the
 // "black-edition" theme (src/themes.js) at the same time.
@@ -10,6 +11,8 @@
 import { html } from "../html.js";
 import { BLACK_FRIDAY } from "../campaign.js";
 import { EGIFT_URL, SUPPORT_EMAIL, formatMoney } from "../config.js";
+import { ROUTINES, resolveRoutine } from "../routines.js";
+import { routineDialog } from "./routineComponents.js";
 
 const GIFT = BLACK_FRIDAY.gift;
 const OFFER = BLACK_FRIDAY.package;
@@ -235,6 +238,56 @@ function productsSection(phase, products) {
   `;
 }
 
+/** A routine's price for the whole set: regular total, then what it costs this week. */
+function routineTotals(resolved, live) {
+  const inStock = resolved.items.filter((item) => item.inStock);
+  const regular = inStock.reduce((sum, item) => sum + (item.product.defaultVariation.regularPriceCents || item.priceCents), 0);
+  // During the sale Square has already priced each item. Before, show what it will be.
+  const now = live ? resolved.totalCents : inStock.reduce((sum, item) => sum + salePrice(item.product.defaultVariation.regularPriceCents || item.priceCents), 0);
+  return { regular, now, count: inStock.length };
+}
+
+/** The curated routines, right after the package: one card each, opening the usual routine popout. */
+function routinesSection(phase, products) {
+  const live = phase === "sale";
+  const routines = ROUTINES.map((routine) => resolveRoutine(routine, products)).filter((resolved) => resolved.items.length);
+  if (!routines.length) return "";
+  return html`
+    <section class="bf-block bf-routines" id="routines" aria-labelledby="bf-routines-title">
+      <p class="bf-block-eyebrow">The complete routine</p>
+      <h2 class="bf-block-title" id="bf-routines-title">Skincare <em>routines</em></h2>
+      <p class="bf-block-sub">${live
+        ? html`Every product chosen by Laura to work together, ${PCT}% off with free U.S. shipping.`
+        : html`Every product chosen by Laura to work together. ${PCT}% off from Fri, Nov 27.`}</p>
+      <div class="bf-routine-row">
+        ${routines.map((resolved, index) => {
+          const { regular, now, count } = routineTotals(resolved, live);
+          const shots = resolved.items.map((item) => item.product.image).filter(Boolean).slice(0, 3);
+          return html`
+            <article class="bf-routine">
+              <button type="button" class="bf-routine-open" data-routine-open="${resolved.slug}" aria-label="View the ${resolved.name} routine">
+                <span class="bf-routine-shots" aria-hidden="true">
+                  ${shots.map((src) => html`<img src="${src}" alt="" loading="lazy" />`)}
+                </span>
+                <span class="bf-routine-body">
+                  <span class="bf-routine-meta"><span>${String(index + 1).padStart(2, "0")}</span>${resolved.concern}</span>
+                  <span class="bf-routine-name">${resolved.name}</span>
+                  <span class="bf-routine-line">${resolved.oneLiner}</span>
+                  <span class="bf-routine-foot">
+                    <span class="bf-price">${regular > now ? wasNow(formatMoney(regular), formatMoney(now)) : html`<span class="bf-now">${formatMoney(now)}</span>`}</span>
+                    <span class="bf-routine-count">${count} ${count === 1 ? "product" : "products"}${live ? "" : " · from Friday"}</span>
+                  </span>
+                  <span class="bf-routine-cta">View routine <span aria-hidden="true">&#8594;</span></span>
+                </span>
+              </button>
+            </article>`;
+        })}
+      </div>
+      ${routines.map((resolved) => routineDialog(resolved))}
+    </section>
+  `;
+}
+
 /** The homepage while the campaign runs. The usual sections follow it. */
 export function blackFridayHome({ phase, pkg = null, products = [], now = null, notified = false }) {
   if (!phase) return "";
@@ -242,6 +295,7 @@ export function blackFridayHome({ phase, pkg = null, products = [], now = null, 
     <div class="bf-home section-shell" data-bf>
       ${hero(phase, pkg, now)}
       ${packagesSection(pkg)}
+      ${routinesSection(phase, products)}
       <div class="bf-offers">
         ${giftSection()}
         ${skincareSection(phase, products, notified)}

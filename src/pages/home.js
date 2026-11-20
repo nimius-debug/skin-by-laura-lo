@@ -155,12 +155,12 @@ export function homePage({ products, cfg, packages = [], notified = false }) {
     </section>
 
     ${(() => {
-      const resolvedRoutines = ROUTINES.map((routine) => resolveRoutine(routine, products))
+      // During Black Friday the routines sit with the deals, right after the package.
+      const resolvedRoutines = cfg.campaign ? [] : ROUTINES.map((routine) => resolveRoutine(routine, products))
         .filter((resolved) => resolved.items.length);
-      if (!resolvedRoutines.length) return "";
 
       return html`
-        <section class="routines-section section-shell" id="routines">
+        ${resolvedRoutines.length ? html`<section class="routines-section section-shell" id="routines">
           <div class="section-heading split-heading">
             <h2>What does your skin <em>need right now?</em></h2>
             <div>
@@ -181,7 +181,7 @@ export function homePage({ products, cfg, packages = [], notified = false }) {
           </div>
 
           ${resolvedRoutines.map((resolved) => routineDialog(resolved))}
-        </section>
+        </section>` : ""}
 
         <section class="skin-audit-section section-shell">
           <div class="skin-audit-card">

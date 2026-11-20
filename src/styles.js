@@ -1221,6 +1221,28 @@ html.result-viewer-open { overflow: hidden; }
 .bf-block-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .bf-block-sub { margin: 4px 0 18px; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
 
+/* Routines: a swipeable row of quiet dark cards with champagne hairlines. */
+.bf-block-eyebrow { margin: 0 0 10px; color: var(--brass); font-size: 11px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+.bf-routine-row { display: grid; grid-auto-flow: column; grid-auto-columns: 80%; gap: 14px; margin: 6px -24px 0; padding: 0 24px 6px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 24px; scrollbar-width: none; }
+.bf-routine-row::-webkit-scrollbar { display: none; }
+.bf-routine { position: relative; scroll-snap-align: start; min-width: 0; }
+.bf-routine-open { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; border: 1px solid color-mix(in srgb, var(--brass) 32%, transparent); background: var(--white); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: border-color .25s ease; }
+.bf-routine-open:hover, .bf-routine-open:focus-visible { border-color: var(--brass); }
+.bf-routine-shots { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1px; aspect-ratio: 3 / 2; background: var(--line); overflow: hidden; }
+.bf-routine-shots img { width: 100%; height: 100%; object-fit: cover; background: var(--panel-product); transition: transform .6s ease; }
+.bf-routine-open:hover .bf-routine-shots img { transform: scale(1.03); }
+.bf-routine-body { display: flex; flex: 1; flex-direction: column; padding: 20px 20px 18px; }
+.bf-routine-meta { display: flex; gap: 10px; align-items: baseline; color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+.bf-routine-meta span { color: var(--brass); font-family: var(--font-serif); font-size: 15px; font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.bf-routine-name { margin: 12px 0 8px; font-family: var(--font-serif); font-size: 30px; line-height: 1.02; letter-spacing: -.035em; }
+.bf-routine-line { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.bf-routine-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--line); margin-block-start: 18px; }
+.bf-routine-foot .bf-price { margin: 0; gap: 8px; }
+.bf-routine-foot .bf-was { font-size: 14px; }
+.bf-routine-foot .bf-now { font-family: var(--font-serif); font-size: 24px; letter-spacing: -.02em; }
+.bf-routine-count { color: var(--muted); font-size: 12px; }
+.bf-routine-cta { margin-top: 14px; color: var(--brass-hi); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+
 /* The offer card: ivory, black type, one big button. */
 .bf-offer { --ink: #14130f; --muted: #5f5a50; --clay-deep: #7a5f2a; --line: rgba(20,19,15,.16); --white: #ebe5d9; --btn-bg: #0c0c0b; --btn-fg: #f3eee5;
   position: relative; padding: 24px 18px 20px; background: #f6f1e7; color: var(--ink); scroll-margin-top: 140px; }
@@ -1300,9 +1322,10 @@ html.result-viewer-open { overflow: hidden; }
   .bf-offers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding-top: 64px; }
   .bf-block { padding-top: 84px; }
   .bf-products { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .bf-routine-row { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 10px 0 0; padding: 0; overflow: visible; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bf-sticky, .bf-product-image img { transition: none; }
+  .bf-sticky, .bf-product-image img, .bf-routine-shots img { transition: none; }
 }
 .preview-note { position: fixed; z-index: 1000; left: 12px; top: 12px; max-width: calc(100% - 24px); padding: 7px 12px; border-radius: 4px; background: #7a1f1f; color: #fff; font-size: 12px; line-height: 1.4; opacity: .92; }
 .summary-saving { color: var(--clay-deep); font-weight: 650; }
