@@ -101,9 +101,18 @@ button { -webkit-tap-highlight-color: transparent; }
 .help { font-size: 12px; color: var(--ink-soft); flex-basis: 100%; margin: 0; }
 @media (max-width: 900px), (pointer: coarse) { .help { display: none; } }
 
-.page-stack { --scale: 1; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 22px 12px 80px; overflow-x: auto; }
-.page-stack.zoomed { align-items: flex-start; }
-.sheet-frame { display: flex; flex-direction: column; gap: 6px; flex: none; }
+/* The pages fit the screen width before the script runs (and if it never does); the script then
+   sets the exact scale. Frames are centred with auto margins, so a zoomed-in page scrolls to both edges. */
+.page-stack { --scale: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; padding: 22px 12px 80px; overflow-x: auto; }
+@supports (width: calc(1px * tan(atan2(1px, 1px)))) {
+  .page-stack { --scale: min(1, tan(atan2(100vw - 24px, ${PAGE_WIDTH}px))); }
+}
+.sheet-frame { display: flex; flex-direction: column; gap: 6px; flex: none; margin-inline: auto; }
+.boot-note { margin: 12px 12px 0; padding: 12px 14px; border-radius: 12px; background: #FFF6D6; color: #5E4708; font-size: 14px; line-height: 1.4;
+  opacity: 0; animation: boot-note-show 0s 6s forwards; }
+.boot-note.failed { opacity: 1; animation: none; background: #FBE3DF; color: #7A2D24; }
+.ready .boot-note:not(.failed) { display: none; }
+@keyframes boot-note-show { to { opacity: 1; } }
 .sheet-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--ink-soft); }
 .sheet-tools span { margin-right: auto; font-weight: 600; }
 .sheet-tools button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 12.5px; min-height: 32px; min-width: 32px; }
@@ -263,6 +272,7 @@ ${raw(APP_HEAD)}
 <body>
 <div id="guide-editor" class="print-root review" data-save-url="/admin/guides/${guide.id}">
 ${editorTopBar({ backHref: back.href, backLabel: back.label, title, checks, deleteUrl: `/admin/guides/${guide.id}/delete`, hasProducts: products.length > 0 })}
+<p class="boot-note no-print" data-boot-note role="status">The editor is still starting. If the pages don't fit your screen or don't respond to taps, reload the page.</p>
 <main class="page-stack">
 ${raw(document.pages.map((page, index) => `<div class="sheet-frame" data-index="${index}"><div class="sheet-box">${guideSheetHtml(page, index, FONT_CSS)}</div></div>`).join(""))}
 </main>

@@ -790,7 +790,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
     const placed = first && root.querySelector(`.el[data-id="${CSS.escape(first.id)}"]`);
     if (placed) placed.scrollIntoView({ block: "center", behavior: "smooth" });
     const where = (result.pages || []).map((page) => ({ overview: "overview", am: "AM", pm: "PM", notes: "Good to know" }[page])).filter(Boolean);
-    const listed = where.length > 1 ? `${where.slice(0, -1).join(", ")} and ${where.at(-1)}` : where[0];
+    const listed = where.length > 1 ? `${where.slice(0, -1).join(", ")} and ${where[where.length - 1]}` : where[0];
     toast(`Added ${result.name}${where.length ? ` to the ${listed} page${where.length === 1 ? "" : "s"}` : ""}.${result.inLibrary ? "" : " It has no description yet: it's highlighted to write."}`, 4500);
   }
 
@@ -1030,13 +1030,28 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml) {
   if (doc.needsLayout) layoutFlows({ only: "all" });
   else if (doc.pages.some((page) => page.relayout && page.relayout.length)) layoutFlows({ only: "relayout" });
   else if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { updateChecks(); drawSelection(); });
+  root.classList.add("ready");
+}
+
+/** If the editor can't start, say so on the page (with the browser's reason) instead of leaving it half-working. */
+function editorFailed(error) {
+  const note = document.querySelector("[data-boot-note]");
+  if (!note || document.getElementById("guide-editor")?.classList.contains("ready")) return;
+  note.classList.add("failed");
+  note.textContent = `The editor couldn't start on this browser (${(error && error.message) || error}). Reload the page; if it keeps happening, send a screenshot of this message.`;
 }
 
 /** The editor script, with the drawing functions it shares with the server. */
 export const GUIDE_EDITOR_JS = `(function () {
 ${guideElementHtml.toString()}
 ${guideSheetHtml.toString()}
-(${editorMain.toString()})(${JSON.stringify(FONT_CSS)}, ${PAGE_WIDTH}, ${PAGE_HEIGHT}, guideElementHtml, guideSheetHtml);
+${editorFailed.toString()}
+try {
+  (${editorMain.toString()})(${JSON.stringify(FONT_CSS)}, ${PAGE_WIDTH}, ${PAGE_HEIGHT}, guideElementHtml, guideSheetHtml);
+} catch (error) {
+  editorFailed(error);
+  throw error;
+}
 })();
 `;
 
