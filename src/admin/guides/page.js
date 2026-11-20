@@ -235,6 +235,7 @@ function editorTopBar({ backHref, backLabel, title, checks, deleteUrl, hasProduc
       <button type="button" class="tb icon" data-align="justify" data-for="text" aria-label="Justify">${raw(ICON.justify)}</button>
       <button type="button" class="tb" data-action="edit-text" data-for="text">Type</button>
       <button type="button" class="tb" data-action="fit" data-for="image">Fill the box</button>
+      <button type="button" class="tb" data-action="shadow" data-for="image" aria-pressed="false">Shadow</button>
       <select name="wording" data-for="text" hidden aria-label="Other wordings Laura has used"></select>
       <span class="sep"></span>
       <button type="button" class="tb" data-action="front" data-for="text image line">To front</button>

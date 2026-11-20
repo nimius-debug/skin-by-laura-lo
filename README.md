@@ -384,6 +384,16 @@ come with notes (Clear Plex, mandelic, Booster Pads).
   and products (acne, jawline or hormonal breakouts, birth control, stress,
   makeup, a recent peel…) and come in highlighted with the words that picked
   them. **+ Page** lists them all with tick boxes to add or take out.
+- **Cut-out product photos.** Guides use each shop photo with its background
+  removed and a soft shadow (the **Shadow** button turns it off on any
+  photo). The cut-outs live in `public/media/products/cutouts/`, listed in
+  `src/data/product-cutouts.data.js` by Square photo id; a product with no
+  cut-out (new, or its photo changed) shows its Square photo. To add new
+  products: `npm run products:list` (reads Square with the `.dev.vars` key),
+  then `pip install "rembg[cpu]"` and `npm run products:cutouts`. It only
+  cuts photos it hasn't done, flags any that need a look and writes
+  `cutouts-contact-sheet.png` to check them by eye; `--skip <photo id>`
+  leaves a bad one out.
 - **Skincare guides** in the admin menu lists every guide and starts one
   without a client (a friend, a sample) from a typed name; add its products
   with + Product.

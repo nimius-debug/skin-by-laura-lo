@@ -9,6 +9,7 @@
 
 import { GUIDE_PRODUCTS, GUIDE_SNIPPETS, GUIDE_STEPS, STEP_DEFAULTS, guideProductFor, howToFor } from "../../data/guide-library.js";
 import { escape } from "../../html.js";
+import { cutoutFor } from "../../data/product-cutouts.js";
 import { INK } from "./model.js";
 
 export const COVER_PHOTO = "/media/guides/cover-room.jpg";
@@ -206,8 +207,12 @@ export function layoutStripPhotos(photos) {
   return photos;
 }
 
+/** A product's photo: its cut-out version with a shadow when there is one, else the Square photo as it is. */
 export function productPhoto(id, product) {
-  return image(id(), 0, 0, 10, 10, product.image, product.name, { role: "product-photo", productId: productKey(product) });
+  const cutout = cutoutFor(product.image);
+  const photo = image(id(), 0, 0, 10, 10, cutout || product.image, product.name, { role: "product-photo", productId: productKey(product) });
+  if (cutout) photo.style = { shadow: true };
+  return photo;
 }
 
 export function gridCells(products) {
