@@ -36,6 +36,8 @@ import { handleCampaignRoute } from "./campaigns/routes.js";
 import * as forms from "./forms.js";
 import { routinesPage } from "./pages/routines.js";
 import { formsHomePage, formSubmissionsPage, submissionPage, clientFormsCard, importPage } from "./pages/forms.js";
+import { handleGuideRoute, guidesCardFor } from "./guides/routes.js";
+import { GUIDE_EDITOR_JS } from "./guides/editor-client.js";
 
 // PDF/image note uploads are switched off while notes come from the Excel
 // sheet. Flip to true to bring the upload pages and routes back.
@@ -668,6 +670,12 @@ export async function handleAdminRequest(request, env, url) {
     });
   }
 
+  if (url.pathname === "/admin/assets/guide-editor.js") {
+    return new Response(GUIDE_EDITOR_JS, {
+      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=31536000, immutable" },
+    });
+  }
+
   if (url.pathname === "/admin/assets/admin.js") {
     return new Response(ADMIN_CLIENT_JS, {
       headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=31536000, immutable" },
@@ -802,6 +810,9 @@ async function handleSignedIn(request, env, url, segments, method) {
     if (formsResponse) return formsResponse;
   }
 
+  const guideResponse = await handleGuideRoute(request, env, url, segments, method, { loadClientPurchases });
+  if (guideResponse) return guideResponse;
+
   const clientMatch = segments[1] === "clients" ? segments[2] : null;
 
   if (clientMatch && segments.length === 3 && method === "GET") {
@@ -816,14 +827,14 @@ async function handleSignedIn(request, env, url, segments, method) {
       db.listNotesForClient(env, clientMatch), db.listSourceFiles(env, clientMatch), forms.listSubmissionsForClient(env, clientMatch),
     ]);
     const { routine, history, services, spend, flags, purchasesFailed, syncedAt, source } = await loadClientPurchases(env, client, notes);
-    const saved = await db.getSavedSummary(env, clientMatch);
+    const [saved, guidesCard] = await Promise.all([db.getSavedSummary(env, clientMatch), guidesCardFor(env, client, routine)]);
     const savedSummary = saved && {
       summary: saved.summary,
       savedAt: saved.createdAt,
       // null when the purchases couldn't be read, so the page doesn't claim it is out of date.
       current: purchasesFailed ? null : saved.hash === (await summaryInputHash(env, { client, notes, routine, history, flags })),
     };
-    return adminHtmlResponse(adminPage({ title: client.name, back: { href: "/admin", label: "Clients" }, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, formsCard: clientFormsCard(formSubmissions), purchases: { syncedAt, source, failed: purchasesFailed } }) }));
+    return adminHtmlResponse(adminPage({ title: client.name, back: { href: "/admin", label: "Clients" }, body: clientProfilePage({ client, notes, routine, history, services, spend, flags, sourceFiles, savedSummary, formsCard: clientFormsCard(formSubmissions), guidesCard, purchases: { syncedAt, source, failed: purchasesFailed } }) }));
   }
 
   if (clientMatch && segments[3] === "notes" && segments[4] === "new" && method === "GET") {

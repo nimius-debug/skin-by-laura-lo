@@ -14,6 +14,7 @@
 // - `status`: "ready" (has a description), "needs-description" (the guides only
 //   list it in a routine, never describe it), "check-match" (the Square product
 //   it was matched to should be confirmed).
+// - `time: "pm"` marks a product used at night only (the step's usual time otherwise).
 // - `seenIn` lists the guides the text came from.
 //
 // Square stays the source of truth for names, photos and prices. This file is
@@ -481,6 +482,7 @@ export const GUIDE_PRODUCTS = [
     aliases: ["Clear Plex", "ClearPlex", "Clearplex 2.8%", "Clear Plex 2.8%", "Mixi Clear Plex 2.8%", "Clear Plex Acne Gel"],
     grid: "Toners & Serums",
     steps: ["treat"],
+    time: "pm",
     why: "Benzoyl peroxide-based cream (non-micronized, less irritation/redness). Targets inflamed acne by oxygenating pores & eliminating bacteria.",
     whyAlternates: [
       { text: "Targeted treatment for active breakouts. This benzoyl peroxide gel works overnight to penetrate deep into pores, oxygenate the skin, and kill acne-causing bacteria at the source. It also reduces inflammation and helps prevent new breakouts from forming.", seenIn: ["Carson"] },
@@ -504,6 +506,7 @@ export const GUIDE_PRODUCTS = [
     aliases: ["Hydroxi", "Hydroxi Serum", "Mixi Hydroxi"],
     grid: "Toners & Serums",
     steps: ["treat"],
+    time: "pm",
     why: "An innovative formula that combines hydrogen peroxide and salicylic acid to detoxify and clarify the skin. It targets acne-causing bacteria, unclogs pores, and refines texture, while retinal palmitate supports gentle cell turnover. Hydrating and soothing, for rosacea & sensitive skin.",
     whyAlternates: [],
     howTo: {
@@ -542,6 +545,7 @@ export const GUIDE_PRODUCTS = [
     aliases: ["Retinol Rejuv Serum", "Retinol Serum", "Retinol Rejuvenation Serum"],
     grid: "Toners & Serums",
     steps: ["treat"],
+    time: "pm",
     why: null,
     whyAlternates: [],
     howTo: {

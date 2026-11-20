@@ -52,5 +52,6 @@ export function schemaMigrations() {
     read("0009_campaign_audience.sql"),
     read("0010_form_imports.sql"),
     read("0011_notify_signups.sql"),
+    read("0012_client_guides.sql"),
   ];
 }
