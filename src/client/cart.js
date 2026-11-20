@@ -1184,41 +1184,12 @@ export const CLIENT_JS = String.raw`
 
   /* --------------------------------------------------------- black friday */
 
-  // Countdown clocks, the gift card picker, and the scroll reveals on
-  // /black-friday. Every number is already in the page, so it reads fine
-  // without this; the script only makes it move.
+  // The Black Friday homepage: the countdown, copying the gift card code on
+  // the way to Square's gift card page, the "email me" form and the phone
+  // bar at the bottom. Every number and link already works without this.
   function initBlackFriday() {
     var root = document.querySelector("[data-bf]");
     if (!root) return;
-    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    function countUp(el) {
-      var target = Number(el.getAttribute("data-bf-count"));
-      if (!target || reduce) return;
-      var start = null;
-      function frame(time) {
-        if (start === null) start = time;
-        var progress = Math.min((time - start) / 1200, 1);
-        var eased = 1 - Math.pow(1 - progress, 3);
-        el.textContent = "$" + Math.round(target * eased).toLocaleString("en-US");
-        if (progress < 1) window.requestAnimationFrame(frame);
-      }
-      window.requestAnimationFrame(frame);
-    }
-
-    var sections = root.querySelectorAll("[data-bf-reveal]");
-    if ("IntersectionObserver" in window) {
-      root.classList.add("bf-js");
-      var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add("is-in");
-          Array.prototype.forEach.call(entry.target.querySelectorAll("[data-bf-count]"), countUp);
-          observer.unobserve(entry.target);
-        });
-      }, { threshold: 0.15 });
-      Array.prototype.forEach.call(sections, function (section) { observer.observe(section); });
-    }
 
     function pad(value) { return value < 10 ? "0" + value : String(value); }
     Array.prototype.forEach.call(root.querySelectorAll("[data-bf-countdown]"), function (clock) {
@@ -1241,39 +1212,79 @@ export const CLIENT_JS = String.raw`
       window.setInterval(tick, 1000);
     });
 
-    var card = root.querySelector("[data-bf-giftcard]");
-    var tiers = root.querySelectorAll("[data-bf-tier]");
-    function fill(selector, text) {
-      var el = root.querySelector(selector);
-      if (el) el.textContent = text;
-    }
-    // Copy the discount code. The button only appears where copying works.
+    var canCopy = !!(navigator.clipboard && navigator.clipboard.writeText);
+    var note = root.querySelector("[data-bf-copy-note]");
+    if (canCopy && note) note.textContent = "Tap Buy and we copy the code for you. Paste it at checkout.";
+
+    // The Copy button next to the code.
     Array.prototype.forEach.call(root.querySelectorAll("[data-bf-copy]"), function (button) {
-      if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+      if (!canCopy) return;
       button.hidden = false;
       button.addEventListener("click", function () {
         navigator.clipboard.writeText(button.getAttribute("data-bf-copy")).then(function () {
           button.textContent = "Copied";
-          window.setTimeout(function () { button.textContent = "Copy code"; }, 2000);
+          window.setTimeout(function () { button.textContent = "Copy"; }, 2000);
         }, function () {});
       });
     });
 
-    Array.prototype.forEach.call(tiers, function (tier) {
-      tier.addEventListener("click", function () {
-        Array.prototype.forEach.call(tiers, function (other) {
-          other.setAttribute("aria-pressed", other === tier ? "true" : "false");
-        });
-        fill("[data-bf-gift-value]", tier.getAttribute("data-value"));
-        fill("[data-bf-gift-bonus]", tier.getAttribute("data-bonus"));
-        fill("[data-bf-gift-pay]", tier.getAttribute("data-pay"));
-        if (card && !reduce) {
-          card.classList.remove("is-swap");
-          void card.offsetWidth;
-          card.classList.add("is-swap");
-        }
+    // Gift card links: copy the code, then go. The copy gets a moment to
+    // finish; the trip to Square's page never waits on it for long.
+    Array.prototype.forEach.call(root.querySelectorAll("[data-bf-copy-go]"), function (link) {
+      if (!canCopy) return;
+      link.addEventListener("click", function (event) {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+        event.preventDefault();
+        var href = link.getAttribute("href");
+        var went = false;
+        function go() { if (!went) { went = true; window.location.href = href; } }
+        if (note) note.textContent = "Code " + link.getAttribute("data-bf-copy-go") + " copied. Paste it at checkout.";
+        navigator.clipboard.writeText(link.getAttribute("data-bf-copy-go")).then(function () {
+          window.setTimeout(go, 350);
+        }, go);
+        window.setTimeout(go, 1200);
       });
     });
+
+    // "Email me when it starts", without leaving the page.
+    var form = root.querySelector("[data-bf-notify]");
+    var done = root.querySelector("[data-bf-notify-done]");
+    if (form && window.fetch) {
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var button = form.querySelector("button");
+        var formNote = form.querySelector("[data-bf-notify-note]");
+        button.disabled = true;
+        fetch(form.getAttribute("action"), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: form.elements.email.value, website: form.elements.website.value }),
+        }).then(function (response) {
+          return response.json().then(function (data) { return { ok: response.ok && data.ok, data: data }; });
+        }).then(function (result) {
+          if (result.ok) {
+            form.hidden = true;
+            if (done) { done.hidden = false; done.focus && done.setAttribute("tabindex", "-1"); done.focus && done.focus(); }
+          } else {
+            button.disabled = false;
+            if (formNote) formNote.textContent = result.data.message || "Something went wrong. Try again.";
+          }
+        }, function () {
+          button.disabled = false;
+          if (formNote) formNote.textContent = "Couldn't reach us. Check your connection and try again.";
+        });
+      });
+    }
+
+    // The phone bar appears once the hero has scrolled away.
+    var sticky = document.querySelector("[data-bf-sticky]");
+    var heroEl = root.querySelector(".bf-hero");
+    if (sticky && heroEl && "IntersectionObserver" in window) {
+      sticky.classList.add("is-waiting");
+      new IntersectionObserver(function (entries) {
+        sticky.classList.toggle("is-waiting", entries[0].isIntersecting);
+      }).observe(heroEl.querySelector(".bf-jump") || heroEl);
+    }
   }
 
   /* ---------------------------------------------------------------- boot */

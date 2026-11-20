@@ -17,6 +17,8 @@ import {
   sendTestEmail, usageSummary, verifyUnsubscribe,
 } from "./sending.js";
 import { settings } from "../../config.js";
+import { recentSignups, signupCounts } from "../../notify.js";
+import { BLACK_FRIDAY } from "../../campaign.js";
 import * as store from "./store.js";
 import { transcribeAudio } from "./transcribe.js";
 import { voiceHints } from "./voice.js";
@@ -422,8 +424,9 @@ async function handleSaveRecipients(request, env, campaignId) {
 /** The Scheduled page: Resend usage, what goes out on which day, and how the sent emails did. */
 async function scheduled(env, url) {
   const now = new Date();
-  const [usage, queue, stats, recent] = await Promise.all([
+  const [usage, queue, stats, recent, signups, signupList] = await Promise.all([
     usageSummary(env, { now }), store.queuedByCampaign(env), store.deliveryStats(env), store.recentSends(env),
+    signupCounts(env).catch(() => null), recentSignups(env, 100).catch(() => []),
   ]);
   const names = new Map(stats.map((row) => [row.id, row]));
   for (const entry of queue) {
@@ -438,6 +441,7 @@ async function scheduled(env, url) {
     active: "campaigns:scheduled",
     body: scheduledPage({
       usage, days, campaigns: names, stats, recent, now,
+      notifyList: signups?.total ? { ...signups, list: signupList, sendsAt: BLACK_FRIDAY.notifyAtUtc } : null,
       tracking: Boolean(env.RESEND_WEBHOOK_SECRET), configured: sendingConfigured(env),
       siteUrl: settings(env).siteUrl,
       notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
