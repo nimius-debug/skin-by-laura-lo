@@ -11,6 +11,7 @@ import { APP_HEAD } from "../pwa.js";
 import { FONTS, GOOGLE_FONTS_URL, PAGE_HEIGHT, PAGE_WIDTH, itemsToCheck } from "./model.js";
 import { FONT_CSS, SHEET_CSS, guideSheetHtml } from "./render.js";
 import { GUIDE_EDITOR_VERSION } from "./editor-client.js";
+import { AFTER_COVER } from "./resources.js";
 
 function formatDate(iso) {
   if (!iso) return null;
@@ -163,13 +164,21 @@ button { -webkit-tap-highlight-color: transparent; }
 .picker .badge.new { background: #FFF3CF; color: #7A5C0C; }
 .picker .badge.in { background: #EEE; color: #777; }
 .picker .empty { padding: 20px; text-align: center; color: var(--ink-soft); font-size: 14px; }
+.pages-dialog .page-option { display: flex; gap: 12px; align-items: flex-start; padding: 10px 8px; border-radius: 10px; cursor: pointer; }
+.pages-dialog .page-option:hover { background: #F6EFE7; }
+.pages-dialog .page-option input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: #8A6A4F; }
+.pages-dialog .page-option .text { display: grid; gap: 2px; min-width: 0; }
+.pages-dialog .page-option .name { font-size: 14.5px; font-weight: 500; }
+.pages-dialog .page-option .count { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.pages-dialog .page-option .about { font-size: 12.5px; color: var(--ink-soft); }
+.pages-dialog .page-option .why { font-size: 12.5px; color: #7A5C0C; background: #FFF3CF; border-radius: 8px; padding: 4px 8px; margin-top: 4px; }
 
 .toast { position: fixed; left: 50%; bottom: calc(24px + var(--bar-h)); transform: translateX(-50%); background: var(--ink); color: #FFF8F2; padding: 10px 16px; border-radius: 12px;
   font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 60; max-width: calc(100vw - 32px); }
 .toast[hidden] { display: none; }
 `;
 
-function editorTopBar({ backHref, backLabel, title, checks, deleteUrl, hasProducts }) {
+function editorTopBar({ backHref, backLabel, title, checks, deleteUrl, hasProducts, hasResources }) {
   const checkLabel = checks === 1 ? "1 to check" : `${checks} to check`;
   return html`
   <header class="top-bar no-print">
@@ -184,6 +193,7 @@ function editorTopBar({ backHref, backLabel, title, checks, deleteUrl, hasProduc
       <span class="sep"></span>
       <button type="button" class="tb" data-action="add-text">+ Text</button>
       <button type="button" class="tb" data-action="add-product" ${hasProducts ? "" : "hidden"}>+ Product</button>
+      <button type="button" class="tb" data-action="add-page" ${hasResources ? "" : "hidden"}>+ Page</button>
       <button type="button" class="tb check" data-action="next-check" title="Go to the next highlighted box" ${checks ? "" : "hidden"}>${checkLabel}</button>
       <button type="button" class="tb warn" data-action="next-off-page" hidden></button>
       <span class="sep hide-small"></span>
@@ -250,8 +260,20 @@ function productPicker() {
   </dialog>`;
 }
 
+function pagesDialog() {
+  return html`
+  <dialog class="picker pages-dialog no-print" aria-labelledby="pages-title">
+    <header>
+      <h2 id="pages-title">Pages</h2>
+      <button type="button" class="tb" data-action="close-pages">Done</button>
+    </header>
+    <p class="hint">Tick a page to add it to the guide, untick it to take it out. The ones picked from her notes say why.</p>
+    <ul data-pages-list></ul>
+  </dialog>`;
+}
+
 /** The full editor page for one guide. `products` is the shop's list for "+ Product" (see routes.js). */
-export function guideEditorPage({ guide, client, wordings = {}, products = [] }) {
+export function guideEditorPage({ guide, client, wordings = {}, products = [], resources = [] }) {
   const document = guide.document;
   const name = client?.name || document.clientName || "Guide";
   const title = `${name.split(/\s+/)[0]}’s Skincare Guide`;
@@ -271,15 +293,16 @@ ${raw(APP_HEAD)}
 </head>
 <body>
 <div id="guide-editor" class="print-root review" data-save-url="/admin/guides/${guide.id}">
-${editorTopBar({ backHref: back.href, backLabel: back.label, title, checks, deleteUrl: `/admin/guides/${guide.id}/delete`, hasProducts: products.length > 0 })}
+${editorTopBar({ backHref: back.href, backLabel: back.label, title, checks, deleteUrl: `/admin/guides/${guide.id}/delete`, hasProducts: products.length > 0, hasResources: resources.length > 0 })}
 <p class="boot-note no-print" data-boot-note role="status">The editor is still starting. If the pages don't fit your screen or don't respond to taps, reload the page.</p>
 <main class="page-stack">
 ${raw(document.pages.map((page, index) => `<div class="sheet-frame" data-index="${index}"><div class="sheet-box">${guideSheetHtml(page, index, FONT_CSS)}</div></div>`).join(""))}
 </main>
 ${productPicker()}
+${pagesDialog()}
 <div class="toast no-print" role="status" aria-live="polite" hidden></div>
 </div>
-<script type="application/json" id="guide-data">${jsonScript({ document, version: guide.version, wordings, products })}</script>
+<script type="application/json" id="guide-data">${jsonScript({ document, version: guide.version, wordings, products, resources, afterCover: AFTER_COVER })}</script>
 <script src="/admin/assets/guide-editor.js?v=${GUIDE_EDITOR_VERSION}" defer></script>
 </body>
 </html>`);

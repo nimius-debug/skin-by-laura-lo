@@ -35,6 +35,8 @@ export function guideElementHtml(element, fonts) {
   } else if (element.type === "line") {
     css.push(`border-top:${style.strokeWidth || 1}px solid ${style.color || "#000000"}`);
   }
+  // A shop link stays clickable in the saved PDF; on screen the box is still dragged, not followed.
+  if (element.link && /^https:\/\//.test(element.link)) inner = `<a class="el-link" href="${attr(element.link)}" target="_blank" rel="noopener">${inner}</a>`;
   const data = [`data-id="${attr(element.id)}"`, `data-origin="${attr(element.origin)}"`];
   if (element.role) data.push(`data-role="${attr(element.role)}"`);
   if (element.note) data.push(`title="${attr(element.note)}"`);
@@ -56,6 +58,8 @@ export const SHEET_CSS = `
 .sheet .el-text b { font-weight: 700; }
 .sheet .el-image img { display: block; width: 100%; height: 100%; object-position: center bottom; pointer-events: none; }
 .sheet .el-line { height: 0 !important; }
+.sheet .el-link { display: block; height: 100%; color: inherit; text-decoration: inherit; }
+@media screen { .sheet .el-link { pointer-events: none; } }
 @page { size: A4; margin: 0; }
 @media print {
   html, body { margin: 0 !important; padding: 0 !important; background: ${PAPER} !important; }

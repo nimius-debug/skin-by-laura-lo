@@ -374,6 +374,16 @@ come with notes (Clear Plex, mandelic, Booster Pads).
   order, renumbered), the SPF tip for sunscreens and its "Good to know"
   notes. Products without library wording come in highlighted to write.
   Select one of its boxes and **Remove product from guide** takes it all out.
+- **Resource pages** come from the earlier guides, in Laura's words: What is
+  Acne, Laura's Tips, Curated Essentials (with its shop links), Lifestyle,
+  Nutrition, Healthy (skin) Habits, Hormones, Birth Control, Sneaky
+  Triggers, Supplements, Gut Health, Other Helpful Resources (red LED, skin
+  picking), Rosacea, Acne-Safe Makeup and the Post-Treatment guide
+  (`src/data/guide-resources.js`). Every draft gets the Tips and Essentials;
+  the others are picked from her visit notes, intake forms, client summary
+  and products (acne, jawline or hormonal breakouts, birth control, stress,
+  makeup, a recent peel…) and come in highlighted with the words that picked
+  them. **+ Page** lists them all with tick boxes to add or take out.
 - **Skincare guides** in the admin menu lists every guide and starts one
   without a client (a friend, a sample) from a typed name; add its products
   with + Product.
@@ -382,7 +392,7 @@ come with notes (Clear Plex, mandelic, Booster Pads).
   LT Pro), Allura and Allison, from Google Fonts.
 - Code: `src/admin/guides/` (build.js drafts, model.js checks every save,
   render.js draws the pages, products.js adds and removes products,
-  editor-client.js is the editor).
+  resources.js picks and places resource pages, editor-client.js is the editor).
 
 **Setup.** Run migrations `0012_client_guides.sql` and
 `0013_guides_without_client.sql` (lets a guide have no client) before

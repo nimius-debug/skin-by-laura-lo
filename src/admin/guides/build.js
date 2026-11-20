@@ -134,7 +134,7 @@ export function estimateHeight(plain, width, fontSize, lineHeight) {
   return Math.ceil(lines * fontSize * lineHeight);
 }
 
-function stack(elements, startY, gap) {
+export function stack(elements, startY, gap) {
   let y = startY;
   for (const element of elements) {
     element.y = y;

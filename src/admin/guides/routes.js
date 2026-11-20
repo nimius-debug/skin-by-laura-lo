@@ -14,6 +14,7 @@ import { stepFor } from "../routine-steps.js";
 import { guideProductFor } from "../../data/guide-library.js";
 import { buildGuideDraft, wordingChoices } from "./build.js";
 import { addProductToGuide, productsInGuide, removeProductFromGuide } from "./products.js";
+import { addResourcesToDraft, pickResources, resourceCatalog } from "./resources.js";
 import { clientGuidesCard, guideEditorPage, guidesListPage } from "./page.js";
 import * as store from "./store.js";
 
@@ -69,6 +70,9 @@ async function createDraft(env, clientId, { loadClientPurchases }) {
       { href: `/admin/clients/${clientId}`, label: client.name }, 502);
   }
   const document = buildGuideDraft({ clientName: client.name, routine });
+  // Resource pages (What is Acne, Hormones…) chosen from her notes, forms, summary and products.
+  const saved = await db.getSavedSummary(env, clientId);
+  addResourcesToDraft(document, pickResources({ notes, insight: saved?.summary || null, products: (routine?.items || []).map((item) => item.name) }));
   const id = await store.createGuide(env, { clientId, document });
   return redirect(`/admin/guides/${id}`);
 }
@@ -78,7 +82,7 @@ async function createForName(request, env) {
   const form = await request.formData().catch(() => new FormData());
   const name = String(form.get("name") || "").trim().replace(/\s+/g, " ").slice(0, 60);
   if (!name) return redirect("/admin/guides?missing=1");
-  const document = buildGuideDraft({ clientName: name, routine: null });
+  const document = addResourcesToDraft(buildGuideDraft({ clientName: name, routine: null }), pickResources());
   const id = await store.createGuide(env, { clientId: null, document });
   return redirect(`/admin/guides/${id}`);
 }
@@ -150,7 +154,9 @@ export async function handleGuideRoute(request, env, url, segments, method, help
       guide.clientId ? db.getClient(env, guide.clientId) : null,
       helpers.loadCatalog ? helpers.loadCatalog(env) : { products: [] },
     ]);
-    return adminHtmlResponse(guideEditorPage({ guide, client, wordings: wordingChoices(guide.document), products: pickerProducts(catalog.products) }));
+    return adminHtmlResponse(guideEditorPage({
+      guide, client, wordings: wordingChoices(guide.document), products: pickerProducts(catalog.products), resources: resourceCatalog(),
+    }));
   }
   if (segments.length === 3 && method === "POST") return saveFromEditor(request, env, id);
   if (segments.length === 4 && segments[3] === "products" && method === "POST") return changeProducts(request, env, id, helpers);
