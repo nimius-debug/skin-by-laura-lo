@@ -12,7 +12,8 @@
 // Element:
 //   { id, type: "text" | "image" | "line", x, y, w, h?,
 //     html (text: only <b>, <i>, <u> and <br>), src + alt + fit (image),
-//     style: { font, fontSize, fontWeight, lineHeight, letterSpacing, align, uppercase, opacity, color },
+//     style: { font, fontSize, fontWeight, lineHeight, letterSpacing, align, uppercase, opacity, color,
+//              shadow (images: a soft drop shadow, for the cut-out product photos) },
 //     origin: "library" (Laura's own words) | "check" (needs a look) | "edited" | "template",
 //     role?, productId?, flow?, step? (how-to boxes), snippet? (notes),
 //     link? (an https address the box opens in the PDF: the shop buttons) }
@@ -131,6 +132,7 @@ function cleanStyle(style = {}) {
   if (ALIGNS.has(style.align)) clean.align = style.align;
   if (style.uppercase) clean.uppercase = true;
   if (style.italic) clean.italic = true;
+  if (style.shadow) clean.shadow = true;
   if (style.underline) clean.underline = true;
   if (style.opacity !== undefined) clean.opacity = num(style.opacity, { min: 0, max: 1, fallback: 1 });
   if (typeof style.color === "string" && /^#[0-9a-fA-F]{6}$/.test(style.color)) clean.color = style.color.toLowerCase();

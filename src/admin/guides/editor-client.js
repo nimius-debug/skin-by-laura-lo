@@ -361,6 +361,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml, pla
     formatBar.querySelector("[name='color']").value = style.color || (element.type === "line" ? "#000000" : "#231f20");
     formatBar.querySelectorAll("[data-align]").forEach((node) => node.setAttribute("aria-pressed", String((style.align || "left") === node.dataset.align)));
     formatBar.querySelector("[data-action='uppercase']").setAttribute("aria-pressed", String(Boolean(style.uppercase)));
+    formatBar.querySelector("[data-action='shadow']").setAttribute("aria-pressed", String(Boolean(style.shadow)));
     formatBar.querySelector("[data-action='bold']").setAttribute("aria-pressed", String((style.fontWeight || 400) >= 600));
     formatBar.querySelector("[data-action='italic']").setAttribute("aria-pressed", String(Boolean(style.italic)));
     formatBar.querySelector("[data-action='underline']").setAttribute("aria-pressed", String(Boolean(style.underline)));
@@ -932,6 +933,7 @@ function editorMain(FONTS, PAGE_W, PAGE_H, guideElementHtml, guideSheetHtml, pla
         else setStyle("underline", !style.underline);
         break;
       case "uppercase": setStyle("uppercase", !style.uppercase); break;
+      case "shadow": setStyle("shadow", !style.shadow); break;
       case "smaller": setStyle("fontSize", Math.max(4, Math.round(((style.fontSize || 16) - 1) * 10) / 10)); break;
       case "bigger": setStyle("fontSize", Math.min(240, Math.round(((style.fontSize || 16) + 1) * 10) / 10)); break;
       case "fit": change(selectedId, (element) => { element.fit = element.fit === "cover" ? "contain" : "cover"; }); break;

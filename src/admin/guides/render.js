@@ -31,6 +31,8 @@ export function guideElementHtml(element, fonts) {
     if (style.color) css.push(`color:${style.color}`);
     inner = element.html || "";
   } else if (element.type === "image") {
+    // A cut-out product photo lifts off the page with a soft shadow that follows its outline.
+    if (style.shadow) css.push("filter:drop-shadow(3px 7px 7px rgba(60,40,30,.28))");
     inner = `<img src="${attr(element.src)}" alt="${attr(element.alt)}" style="object-fit:${element.fit === "cover" ? "cover" : "contain"}" draggable="false">`;
   } else if (element.type === "line") {
     css.push(`border-top:${style.strokeWidth || 1}px solid ${style.color || "#000000"}`);

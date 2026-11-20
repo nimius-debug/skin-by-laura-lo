@@ -5,3 +5,7 @@ node_modules/
 .env.local
 .DS_Store
 *.log
+
+# Product cut-outs (scripts/product-cutouts.py) working files
+product-list.json
+cutouts-contact-sheet.png
