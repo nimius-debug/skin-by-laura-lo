@@ -3,6 +3,7 @@ import { getCatalog, indexVariations, isConfigured, createPaymentLink } from "./
 import { page, htmlResponse, jsonResponse } from "./layout.js";
 import { STYLES } from "./styles.js";
 import { FORM_STYLES } from "./form-styles.js";
+import { themeCss } from "./themes.js";
 import { CLIENT_JS } from "./client/cart.js";
 import { FORMS_JS } from "./client/forms.js";
 import { formPage, formThanksPage, formsIndexPage, hasPhotos } from "./pages/forms.js";
@@ -23,7 +24,7 @@ import { productInsightFor } from "./product-insights.js";
 import { relatedProductsFor } from "./related-products.js";
 import { salePromo } from "./promo.js";
 import { previewFor } from "./campaign.js";
-import { blackFridayPage } from "./pages/black-friday.js";
+import { addSignup } from "./notify.js";
 import { ROUTINES, routineBySlug, routinePath, resolveRoutine, routineShareImage } from "./routines.js";
 import {
   aboutPage, treatmentsPage, galleryPage, legalPage, notFoundPage,
@@ -314,7 +315,7 @@ async function route(request, env, state) {
     }
 
     // ------------------------------------------------------------- assets
-    if (path === "/assets/styles.css") return asset(STYLES + FORM_STYLES, "text/css; charset=utf-8");
+    if (path === "/assets/styles.css") return asset(STYLES + FORM_STYLES + themeCss(), "text/css; charset=utf-8");
     if (path === "/assets/cart.js") return asset(CLIENT_JS, "text/javascript; charset=utf-8");
     if (path === "/assets/forms.js") return asset(FORMS_JS, "text/javascript; charset=utf-8");
     if (path === "/favicon.svg") return asset(FAVICON, "image/svg+xml");
@@ -325,6 +326,11 @@ async function route(request, env, state) {
     // ---------------------------------------------------------------- api
     if (path === "/api/catalog" && request.method === "GET") {
       return handleCatalogApi(env, cfg);
+    }
+    // "Email me when it starts" on the Black Friday homepage (src/notify.js).
+    if (path === "/api/notify") {
+      if (request.method !== "POST") return jsonResponse({ message: "Method not allowed" }, 405);
+      return handleNotify(request, env, cfg);
     }
     if (path === "/api/checkout") {
       if (request.method !== "POST") return jsonResponse({ message: "Method not allowed" }, 405);
@@ -357,9 +363,10 @@ async function route(request, env, state) {
     const promo = salePromo(catalog.products);
 
     if (path === "/") {
-      const { products } = catalog;
-      return htmlResponse(page({ promo,
-        body: homePage({ products, cfg }), cfg, current: "/", canonical,
+      const { products, packages } = catalog;
+      const notified = url.searchParams.get("notified") === "1";
+      return htmlResponse(page({ promo, packages,
+        body: homePage({ products, packages, cfg, notified }), cfg, current: "/", canonical,
         description: "Korean-infused facials, acne guidance and curated home care from a licensed esthetician in Tampa, Florida.",
       }), { cacheSeconds: 60 });
     }
@@ -501,15 +508,10 @@ async function route(request, env, state) {
       }), { cacheSeconds: 60 });
     }
 
+    // The deals live on the homepage while the campaign runs. Old links and
+    // emails to /black-friday land there; before and after, it's the shop.
     if (path === "/black-friday") {
-      // Only exists while the campaign runs; before and after, it's the shop.
-      if (!cfg.campaign) return redirect("/shop", 302);
-      return htmlResponse(page({ promo,
-        title: "Black Friday · The Skin Investment Edit",
-        body: blackFridayPage({ phase: cfg.campaign, pkg: catalog.packages[0] || null, products: catalog.products, now: cfg.previewNow || null }),
-        cfg, current: "/black-friday", canonical,
-        description: "Black Friday at Skin by Laura Lo: the Liquid Microneedling series, gift cards with bonus value, and 15% off skincare with free shipping. November 23 to 30.",
-      }), { cacheSeconds: 60 });
+      return redirect(cfg.campaign ? "/" : "/shop", 302);
     }
 
     if (path === "/cart") {
@@ -577,7 +579,6 @@ async function route(request, env, state) {
     if (path === "/sitemap.xml") {
       const { products } = catalog;
       const paths = ["/", "/about", "/treatments", "/shop", "/ingredients", "/gallery", "/terms", "/privacy"]
-        .concat(cfg.campaign ? ["/black-friday"] : [])
         .concat(ROUTINES.map((routine) => routinePath(routine.slug)))
         .concat([...shopIngredientIndex(products).ingredients.keys()].map((slug) => `/ingredients/${slug}`))
         .concat(products.map((product) => `/product/${product.slug}`));
@@ -589,6 +590,37 @@ ${paths.map((entry) => `  <url><loc>${cfg.siteUrl}${entry === "/" ? "" : entry}<
     }
 
     return htmlResponse(page({ promo, title: "Not found", body: notFoundPage(), cfg }), { status: 404 });
+}
+
+/** Saves a "notify me" sign-up. Answers JSON to the page's script, a redirect to a plain form post. */
+async function handleNotify(request, env, cfg) {
+  const wantsJson = (request.headers.get("content-type") || "").includes("application/json");
+  let fields = {};
+  try {
+    fields = wantsJson ? await request.json() : Object.fromEntries(await request.formData());
+  } catch {
+    fields = {};
+  }
+  let result;
+  try {
+    result = await addSignup(env, {
+      email: fields.email, honeypot: fields.website, phase: cfg.campaign,
+      ip: request.headers.get("cf-connecting-ip") || "", now: cfg.previewNow || new Date(),
+    });
+  } catch (error) {
+    console.error("Notify sign-up failed:", error.message);
+    result = { ok: false, reason: "error" };
+  }
+  const messages = {
+    invalid: "That email doesn't look right. Check it and try again.",
+    closed: "The skincare sale is already live.",
+    busy: "Too many sign-ups from this device. Try again in an hour.",
+    error: "Something went wrong. Try again in a minute.",
+  };
+  if (wantsJson) {
+    return jsonResponse(result.ok ? { ok: true } : { ok: false, message: messages[result.reason] || messages.error }, result.ok ? 200 : 400);
+  }
+  return redirect(result.ok ? "/?notified=1#skincare" : "/#skincare", 303);
 }
 
 export default {

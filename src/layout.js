@@ -4,11 +4,12 @@ import {
 } from "./config.js";
 import { FORMS } from "./forms/definitions.js";
 import { promoBanner } from "./promo.js";
-import { campaignBanner } from "./pages/black-friday.js";
+import { campaignBar, stickyDeals } from "./pages/black-friday.js";
+import { THEMES } from "./themes.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261116-banner-ticker";
+const ASSET_VERSION = "20261120-black-edition";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
@@ -29,8 +30,8 @@ function announcement(cfg) {
 function header(cfg, current, promo) {
   const mark = (path) => (current === path ? raw(' aria-current="page"') : "");
   return html`
-    ${cfg.campaign ? campaignBanner(cfg.campaign) : promoBanner(promo)}
-    <div class="announcement">${announcement(cfg)}</div>
+    ${cfg.campaign ? campaignBar(cfg.campaign) : html`${promoBanner(promo)}
+    <div class="announcement">${announcement(cfg)}</div>`}
     <header class="site-header">
       <a class="brand" href="/" aria-label="Skin by Laura Lo home">
         <img class="brand-logo" src="/media/skin-logo.svg" alt="" width="750" height="300" />
@@ -101,13 +102,15 @@ function footer() {
  * Wrap page content in the full document shell.
  * `head` accepts pre-escaped markup for page-specific meta/JSON-LD.
  */
-export function page({ title, description, body, cfg, current = "", head = "", canonical = "", promo = null, image = "", fullTitle: titleOverride = "" }) {
+export function page({ title, description, body, cfg, current = "", head = "", canonical = "", promo = null, image = "", fullTitle: titleOverride = "", packages = [] }) {
   const fullTitle = titleOverride || (title
     ? `${title} · Skin by Laura Lo`
     : "Skin by Laura Lo · Tampa esthetician & Korean-infused facials");
 
+  const theme = cfg.theme ? THEMES[cfg.theme] : null;
+
   return toString(html`<!doctype html>
-<html lang="en">
+<html lang="en"${theme ? html` data-theme="${cfg.theme}"` : ""}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -122,7 +125,7 @@ ${canonical ? html`<meta property="og:url" content="${canonical}" />` : ""}
 ${image ? html`<meta property="og:image" content="${image}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="${image}" />` : ""}
-<meta name="theme-color" content="#20231f" />
+<meta name="theme-color" content="${theme?.themeColor || "#20231f"}" />
 <link rel="stylesheet" href="/assets/styles.css?v=${ASSET_VERSION}" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 ${typeof head === "string" ? raw(head) : head}
@@ -133,6 +136,7 @@ ${cfg.previewDay ? html`<div class="preview-note" role="status">Preview of ${cfg
 ${header(cfg, current, promo)}
 <main id="main">${body}</main>
 ${footer()}
+${current === "/" ? stickyDeals(cfg.campaign, packages[0] || null) : ""}
 <script src="/assets/cart.js?v=${ASSET_VERSION}" defer></script>
 </body>
 </html>`);

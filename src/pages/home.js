@@ -1,4 +1,4 @@
-import { campaignHomeBlock } from "./black-friday.js";
+import { blackFridayHome } from "./black-friday.js";
 import { html } from "../html.js";
 import { productCard, marquee } from "./components.js";
 import { routineTile, routineDialog } from "./routineComponents.js";
@@ -46,13 +46,17 @@ function proofCard(slot, images) {
   `;
 }
 
-export function homePage({ products, cfg }) {
+export function homePage({ products, cfg, packages = [], notified = false }) {
   const featured = products.slice(0, 4);
   // Falls back to the first product until a cutout is supplied.
   const heroSrc = HERO_IMAGE.src || featured[0]?.image || null;
   const heroAlt = HERO_IMAGE.src ? HERO_IMAGE.alt : (featured[0]?.name || "");
 
-  return html`
+  // While Black Friday runs, the homepage opens with the deals instead of the
+  // everyday hero; everything below it stays the same.
+  const top = cfg.campaign
+    ? blackFridayHome({ phase: cfg.campaign, pkg: packages[0] || null, products, now: cfg.previewNow || null, notified })
+    : html`
     <section class="hero section-shell">
       <div>
         <p class="eyebrow">Tampa esthetician · Virtual acne guidance</p>
@@ -101,12 +105,14 @@ export function homePage({ products, cfg }) {
         </figure>
       </div>
     </dialog>
+      ${marquee([
+        "Barrier-first care", "Korean-infused facials", "Real guidance", "Nationwide product delivery",
+      ])}
+    `;
 
-    ${campaignHomeBlock(cfg.campaign)}
+  return html`
+    ${top}
 
-    ${marquee([
-      "Barrier-first care", "Korean-infused facials", "Real guidance", "Nationwide product delivery",
-    ])}
 
     <section class="approach section-shell" id="about">
       <h2>The Laura Lo <em>approach</em></h2>

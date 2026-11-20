@@ -3,6 +3,7 @@
 // wrangler.toml [vars] — not buried in page markup.
 
 import { campaignPhase } from "./campaign.js";
+import { activeTheme } from "./themes.js";
 
 export const BOOKING_URL =
   "https://book.squareup.com/appointments/rlfhvfyu6b6ltd/location/L8PR20K5XBXVQ";
@@ -98,6 +99,8 @@ export function settings(env = {}, now = new Date()) {
   return {
     siteUrl: env.SITE_URL || "https://skinbylauralo.com",
     campaign,
+    // The site's look for this request (src/themes.js): null is the everyday theme.
+    theme: activeTheme({ campaign }, env),
     freeShippingPromo,
     shippingEnabled,
     shippingFeeCents: feeCents,

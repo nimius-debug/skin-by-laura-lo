@@ -1,351 +1,279 @@
-// Everything a shopper sees of Black Friday 2026: the banner above the
-// header, the block on the homepage, the /black-friday page and the terms.
-// The dates and numbers come from src/campaign.js; `phase` is "launch"
+// Everything a shopper sees of Black Friday 2026. While it runs, the homepage
+// IS the Black Friday page: the hero, the treatment package, the gift card
+// offer, the skincare offer (with "notify me" until it opens) and the products
+// on sale, before the usual homepage sections. The whole site wears the
+// "black-edition" theme (src/themes.js) at the same time.
+//
+// Dates and numbers come from src/campaign.js; `phase` is "launch"
 // (Nov 23 to 26) or "sale" (Nov 27 to 30).
 
 import { html } from "../html.js";
 import { BLACK_FRIDAY } from "../campaign.js";
 import { EGIFT_URL, SUPPORT_EMAIL, formatMoney } from "../config.js";
 
-const PAGE = "/black-friday";
-const dollars = (cents) => `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 const GIFT = BLACK_FRIDAY.gift;
-const giftOff = (cents) => Math.round((cents * GIFT.percent) / 100);
-const SALE_LINE = `${BLACK_FRIDAY.salePercent}% off skincare + free shipping`;
+const OFFER = BLACK_FRIDAY.package;
+const PCT = BLACK_FRIDAY.salePercent;
+const LOGO = "/media/skin-logo.svg";
 
-/** The three offers, in the order this phase wants them, the first one leading. */
-function offers(phase) {
-  const series = {
-    key: "series",
-    eyebrow: "Treatment series",
-    title: `Liquid Microneedling Series`,
-    figure: dollars(BLACK_FRIDAY.package.priceCents),
-    copy: `Four Green Sea Liquid Microneedling treatments with complimentary homecare. A ${dollars(BLACK_FRIDAY.package.totalValueCents)} value, save ${dollars(BLACK_FRIDAY.package.savingsCents)}.`,
-    short: `Liquid Microneedling Series ${dollars(BLACK_FRIDAY.package.priceCents)}`,
-    save: `Save ${dollars(BLACK_FRIDAY.package.savingsCents)}`,
-    cta: "Get the series",
-    href: `${PAGE}#series`,
-  };
-  const gift = {
-    key: "gift",
-    eyebrow: "Gift card event",
-    title: `Gift cards ${GIFT.percent}% off`,
-    figure: `Code ${GIFT.code}`,
-    copy: `Buy a gift card for yourself or someone else and enter the code ${GIFT.code} to take ${GIFT.percent}% off. Good for treatments and skincare.`,
-    short: `Gift cards ${GIFT.percent}% off, code ${GIFT.code}`,
-    save: `Save ${GIFT.percent}%`,
-    cta: "Buy a gift card",
-    href: `${PAGE}#gift-cards`,
-  };
-  const skincare = phase === "sale"
-    ? {
-      key: "skincare",
-      eyebrow: "Skincare sale",
-      title: `${BLACK_FRIDAY.salePercent}% off skincare`,
-      figure: "+ free shipping",
-      copy: "Every eligible skincare product, with free standard U.S. shipping and no minimum. The discount is applied automatically.",
-      short: SALE_LINE,
-      save: `Save ${BLACK_FRIDAY.salePercent}%`,
-      cta: "Shop skincare",
-      href: "/shop",
-    }
-    : {
-      key: "skincare",
-      eyebrow: "Starts November 27",
-      title: `${BLACK_FRIDAY.salePercent}% off skincare`,
-      figure: "+ free shipping",
-      copy: "Coming Friday, November 27 through November 30: 15% off eligible skincare with free standard U.S. shipping, no minimum.",
-      short: `${SALE_LINE} from Nov 27`,
-      save: `Save ${BLACK_FRIDAY.salePercent}%`,
-      cta: "See the details",
-      href: `${PAGE}#skincare`,
-    };
-  return phase === "sale" ? [skincare, series, gift] : [series, gift, skincare];
-}
-
-/** The bar above the header. Takes the place of the everyday sale banner. */
-export function campaignBanner(phase) {
-  if (!phase) return "";
-  const list = offers(phase);
-  // The ticker scrolls one run after another. Three copies of the offers make
-  // a run wider than any screen, and two runs make the loop seamless. Only the
-  // first copy is read out and reachable by keyboard.
-  const copy = (first) => list.map((offer, index) => first
-    ? html`<a class="promo-bf-offer ${index === 0 ? "promo-bf-lead" : "promo-bf-more"}" href="${offer.href}">${offer.short}</a><span class="promo-bf-star" aria-hidden="true">&#10022;</span>`
-    : html`<a aria-hidden="true" tabindex="-1" class="promo-bf-offer ${index === 0 ? "promo-bf-lead" : "promo-bf-more"} promo-bf-dup" href="${offer.href}">${offer.short}</a><span class="promo-bf-star promo-bf-dup" aria-hidden="true">&#10022;</span>`);
-  const run = (first) => html`<span class="promo-bf-run">${copy(first)}${copy(false)}${copy(false)}</span>`;
-  return html`
-    <div class="promo promo-bf" data-campaign-banner>
-      <a class="promo-bf-tag" href="${PAGE}"><span>Black Friday</span></a>
-      <div class="promo-bf-ticker">
-        <div class="promo-track promo-bf-track">${run(true)}${run(false)}</div>
-      </div>
-      <a class="promo-bf-all" href="${PAGE}">All offers <span aria-hidden="true">&rarr;</span></a>
-    </div>
-  `;
-}
-
-/** The block under the homepage hero. */
-export function campaignHomeBlock(phase) {
-  if (!phase) return "";
-  return html`
-    <div class="bf-home-band">
-      <section class="bf-home section-shell" aria-labelledby="bf-home-title">
-        <div class="bf-home-heading">
-          <div>
-            <p class="eyebrow">Black Friday · ${phase === "sale" ? "Ends November 30" : "November 23 to 30"}</p>
-            <h2 id="bf-home-title">${BLACK_FRIDAY.name.replace(/ Edit$/, "")} <em>Edit</em></h2>
-          </div>
-          <a class="button button-dark" href="${PAGE}">See all offers <span aria-hidden="true">&rarr;</span></a>
-        </div>
-        <div class="bf-cards">
-          ${offers(phase).map((offer, index) => offerCard(offer, index === 0))}
-        </div>
-      </section>
-    </div>
-  `;
-}
-
-function offerCard(offer, lead) {
-  return html`
-    <article class="bf-card${lead ? " bf-card-lead" : ""}">
-      <p class="bf-save-tag">${offer.save}</p>
-      <p class="eyebrow">${offer.eyebrow}</p>
-      <h3>${offer.title}</h3>
-      <p class="bf-figure">${offer.figure}</p>
-      <p class="bf-copy">${offer.copy}</p>
-      <a class="button ${lead ? "button-dark" : "button-light"}" href="${offer.href}">${offer.cta} <span aria-hidden="true">&rarr;</span></a>
-    </article>
-  `;
-}
-
-/** The promotional terms, shown on /black-friday and on the Terms page. */
-export function campaignTerms() {
-  return [
-    `All Black Friday offers run from November 23, 2026 and end ${BLACK_FRIDAY.endLabel}.`,
-    `The skincare sale and free shipping run November 27 to 30 only: ${BLACK_FRIDAY.salePercent}% off eligible skincare products, applied automatically at checkout, with free standard U.S. shipping and no minimum purchase.`,
-    "The skincare discount does not apply to services, treatment packages, memberships or gift cards.",
-    "Offers cannot be combined with other discounts, promotions or coupon codes.",
-    "The Liquid Microneedling series is purchased online and its four treatments are scheduled with Laura at the Tampa studio.",
-    `Gift cards are ${GIFT.percent}% off from November 23 to 30 when the code ${GIFT.code} is entered on the gift card purchase page. The discount is not applied without the code. Gift cards can be used toward both services and skincare products.`,
-    "Packages and gift card balances purchased during the event remain valid after it ends.",
-  ];
-}
-
+const dollars = (cents) => `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+/** Whole dollars when there are no cents ($170), otherwise $76.50. */
 const money = (cents) => (cents % 100 ? formatMoney(cents) : dollars(cents));
-const saleOff = (cents) => Math.round((cents * BLACK_FRIDAY.salePercent) / 100);
+const giftPrice = (cents) => cents - Math.round((cents * GIFT.percent) / 100);
+const salePrice = (cents) => cents - Math.round((cents * PCT) / 100);
 
-/** A long Square description, cut into one short point per sentence. */
-function points(text) {
-  return String(text || "")
-    .split(/(?<=[.!?])\s+|\s*[\n•]+\s*/)
-    .map((line) => line.trim().replace(/^[-–•]\s*/, ""))
-    .filter((line) => line.length > 2);
+/** Was-price struck out, then the price paid. Always in that order. */
+function wasNow(was, now, { big = false } = {}) {
+  return html`<span class="bf-was"><span class="sr-only">Was </span>${was}</span> <span class="bf-now${big ? " bf-now-big" : ""}"><span class="sr-only">Now </span>${now}</span>`;
 }
 
-function countdown(label, target, now) {
+/** The package's real price from Square when it exists there, so page and checkout agree. */
+function packagePrice(pkg) {
+  const priceCents = pkg?.defaultVariation ? pkg.defaultVariation.priceCents : OFFER.priceCents;
+  return { priceCents, savingsCents: Math.max(OFFER.totalValueCents - priceCents, 0) };
+}
+
+/** The one line above the header. Replaces the sale ticker and the shipping bar. */
+export function campaignBar(phase) {
+  if (!phase) return "";
   return html`
-    <div class="bf-countdown" data-bf-countdown="${target}" ${now ? html`data-bf-now="${now.toISOString()}"` : ""}>
-      <p class="bf-countdown-label">${label}</p>
-      <div class="bf-clock" role="timer" aria-live="off">
-        ${[["d", "days"], ["h", "hrs"], ["m", "min"], ["s", "sec"]].map(([unit, name]) => html`
-          <span class="bf-clock-cell"><strong data-bf-unit="${unit}">--</strong><small>${name}</small></span>`)}
-      </div>
+    <div class="bf-bar" data-campaign-banner>
+      ${phase === "sale"
+        ? html`<a href="/shop"><strong>Black Friday</strong> · ${PCT}% off skincare + free U.S. shipping<span class="bf-bar-more"> · Ends Mon, Nov 30</span></a>`
+        : html`<a href="/#gift-cards"><strong>Black Friday</strong> · Gift cards ${GIFT.percent}% off<span class="bf-bar-more"> · Skincare ${PCT}% off starts Fri</span></a>`}
     </div>
   `;
 }
 
-function seriesSection(pkg) {
-  const offer = BLACK_FRIDAY.package;
+function countdown(target, now) {
+  return html`
+    <div class="bf-clock" data-bf-countdown="${target}" ${now ? html`data-bf-now="${now.toISOString()}"` : ""} role="timer" aria-label="Black Friday ends Monday, November 30 at 11:59 PM">
+      ${[["d", "days"], ["h", "hrs"], ["m", "min"], ["s", "sec"]].map(([unit, name]) => html`
+        <span class="bf-clock-cell"><strong data-bf-unit="${unit}">--</strong><small>${name}</small></span>`)}
+    </div>
+  `;
+}
+
+/** Two cards fanned out, with a round seal. Pure CSS, the logo is the only image. */
+function cardStack({ back, front, seal }) {
+  return html`
+    <div class="bf-stack" aria-hidden="true">
+      <div class="bf-card-art bf-card-back">${back}</div>
+      <div class="bf-card-art bf-card-front">${front}</div>
+      <div class="bf-seal"><span><b>${seal}</b>off</span></div>
+    </div>
+  `;
+}
+
+function hero(phase, pkg, now) {
+  const live = phase === "sale";
+  const { savingsCents } = packagePrice(pkg);
+  const giftShown = GIFT.amounts[2] ?? GIFT.amounts[GIFT.amounts.length - 1];
+  const chips = [
+    { href: "#packages", big: `−${money(savingsCents)}`, small: "Microneedling" },
+    { href: "#gift-cards", big: `−${GIFT.percent}%`, small: "Gift cards" },
+    { href: "#skincare", big: `−${PCT}%`, small: live ? "Skincare" : "Skincare Fri" },
+  ];
+  return html`
+    <section class="bf-hero" aria-labelledby="bf-title">
+      <p class="eyebrow">Nov 23 – 30 only</p>
+      <h1 id="bf-title">Black <em>Friday</em></h1>
+      <p class="bf-sub">${live
+        ? html`Skincare is now ${PCT}% off with free shipping. <strong>Save up to ${money(savingsCents)}.</strong>`
+        : html`Our biggest savings of the year. <strong>Save up to ${money(savingsCents)}.</strong>`}</p>
+      ${cardStack({
+        back: html`<img src="${LOGO}" alt="" class="bf-card-logo" /><span class="bf-card-row"><small>Gift card</small><b>${dollars(GIFT.amounts[GIFT.amounts.length - 1])}</b></span>`,
+        front: html`<img src="${LOGO}" alt="" class="bf-card-logo" /><span class="bf-card-row"><small>Gift card</small><b>${dollars(giftShown)}</b></span>`,
+        seal: `${GIFT.percent}%`,
+      })}
+      <p class="bf-clock-label">Ends Mon, Nov 30 at 11:59 PM</p>
+      ${countdown(BLACK_FRIDAY.endUtc, now)}
+      <nav class="bf-jump" aria-label="Black Friday offers">
+        ${chips.map((chip) => html`<a href="${chip.href}"><b>${chip.big}</b>${chip.small}</a>`)}
+      </nav>
+    </section>
+  `;
+}
+
+function packagesSection(pkg) {
   const variation = pkg?.defaultVariation;
   const soldOut = pkg && !pkg.available;
-  // Square is the price of record. The campaign figure is only shown until
-  // the item exists there, so the page and the checkout can never disagree.
-  const priceCents = variation ? variation.priceCents : offer.priceCents;
-  const savingsCents = Math.max(offer.totalValueCents - priceCents, 0);
-  const paidShare = Math.min(100, Math.round((priceCents / offer.totalValueCents) * 100));
-  const about = points(pkg?.description);
-  const image = pkg?.image || null;
-
+  const { priceCents, savingsCents } = packagePrice(pkg);
   return html`
-    <section class="bf-section bf-series" id="series" data-bf-reveal>
-      <div class="bf-media">
-        <span class="bf-badge">Save ${money(savingsCents)}</span>
-        ${image
-          ? html`<img src="${image}" alt="${offer.title}, ${offer.subtitle}" loading="lazy" />`
-          : html`<div class="bf-media-empty"><span>${offer.title}</span><em>${offer.subtitle}</em></div>`}
-      </div>
-      <div class="bf-detail">
-        <p class="bf-kicker">Treatment series · Nov 23 to 30</p>
-        <h2>${offer.title} <em>${offer.subtitle}</em></h2>
-
-        <div class="bf-pricing">
-          <p class="bf-price"><s><span class="sr-only">Total value </span>${money(offer.totalValueCents)}</s> <strong>${money(priceCents)}</strong></p>
-          <p class="bf-saving">You save <strong data-bf-count="${Math.round(savingsCents / 100)}">${money(savingsCents)}</strong></p>
-        </div>
-        <div class="bf-meter" role="img" aria-label="You pay ${money(priceCents)} of a ${money(offer.totalValueCents)} value">
-          <span class="bf-meter-paid" style="--share:${paidShare}%"><b>You pay ${money(priceCents)}</b></span>
-          <span class="bf-meter-saved"><b>Free</b></span>
-        </div>
-
-        <ul class="bf-ticks">
-          <li><span>Four Liquid Microneedling treatments</span><b>${money(offer.treatmentValueCents)} value</b></li>
-          <li><span>Pre- and post-treatment homecare</span><b>${money(offer.homecareValueCents)} free</b></li>
-          <li><span>Personal treatment plan and ongoing guidance</span><b>Included</b></li>
+    <section class="bf-block" id="packages" aria-labelledby="bf-packages-title">
+      <h2 class="bf-block-title" id="bf-packages-title">Treatment <em>packages</em></h2>
+      ${cardStack({
+        back: html`<img src="${LOGO}" alt="" class="bf-card-logo" /><small>Homecare kit</small>`,
+        front: html`
+          <span class="bf-card-row bf-card-top"><img src="${LOGO}" alt="" class="bf-card-logo" /><small>Series of 4</small></span>
+          <span class="bf-card-name">Liquid Microneedling</span>
+          <span class="bf-sessions"><i>1</i><i>2</i><i>3</i><i>4</i><em>+ homecare</em></span>`,
+        seal: money(savingsCents),
+      })}
+      <article class="bf-offer">
+        <span class="bf-flag">Save ${money(savingsCents)}</span>
+        <p class="eyebrow">Black Friday package</p>
+        <h3>${OFFER.title}</h3>
+        <ul class="bf-includes">
+          <li><span>Four Liquid Microneedling treatments</span><s>${money(OFFER.treatmentValueCents)}</s></li>
+          <li><span>Pre- and post-treatment homecare</span><s>${money(OFFER.homecareValueCents)}</s></li>
+          <li><span>Treatment plan and guidance</span><b>Included</b></li>
         </ul>
-
+        <p class="bf-price">${wasNow(money(OFFER.totalValueCents), money(priceCents), { big: true })}</p>
         ${variation
-          ? html`<button class="button button-dark bf-cta" type="button"
-                data-add-to-cart="${variation.id}" data-name="${pkg.name}"
-                ${soldOut ? html`disabled` : ""}>${soldOut ? "Sold out" : html`Add to bag · ${money(priceCents)}`}</button>`
-          : html`<a class="button button-dark bf-cta" href="mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Liquid Microneedling Series")}">Email Laura to reserve</a>`}
-        <p class="bf-note">Pay online with Square. Laura will contact you to schedule your four visits in Tampa. Nothing ships.</p>
-
-        ${about.length ? html`
-          <details class="bf-about">
-            <summary>About the treatment</summary>
-            <ul>${about.map((line) => html`<li>${line}</li>`)}</ul>
-          </details>` : ""}
-      </div>
+          ? html`<button class="button button-dark bf-cta" type="button" data-add-to-cart="${variation.id}" data-name="${OFFER.title}"
+              ${soldOut ? html`disabled` : ""}>${soldOut ? "Sold out" : html`Add to bag · ${money(priceCents)}`}</button>`
+          : html`<a class="button button-dark bf-cta" href="mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(OFFER.title)}">Email Laura to reserve</a>`}
+        <p class="bf-fine">Pay online. Laura contacts you to schedule your four visits in Tampa.</p>
+      </article>
     </section>
   `;
 }
 
 function giftSection() {
-  const amounts = GIFT.amounts;
-  const shown = amounts[1] ?? amounts[0];
   return html`
-    <section class="bf-section bf-gift" id="gift-cards" data-bf-reveal>
-      <div class="bf-media bf-media-gift">
-        <div class="bf-giftcard" data-bf-giftcard>
-          <span class="bf-giftcard-brand">Skin by Laura Lo</span>
-          <span class="bf-giftcard-label">Gift card value</span>
-          <strong class="bf-giftcard-value" data-bf-gift-value>${money(shown)}</strong>
-          <span class="bf-giftcard-bonus">You pay <span data-bf-gift-pay>${money(shown - giftOff(shown))}</span>, save <span data-bf-gift-bonus>${money(giftOff(shown))}</span></span>
-        </div>
+    <article class="bf-offer" id="gift-cards">
+      <span class="bf-flag">${GIFT.percent}% off</span>
+      <p class="eyebrow">Gift cards</p>
+      <h3>Gift cards ${GIFT.percent}% off</h3>
+      <div class="bf-amounts">
+        ${GIFT.amounts.map((cents) => html`
+          <a href="${EGIFT_URL}" data-bf-copy-go="${GIFT.code}">
+            <small>${dollars(cents)} card</small>
+            ${wasNow(dollars(cents), money(giftPrice(cents)))}
+          </a>`)}
       </div>
-      <div class="bf-detail">
-        <p class="bf-kicker">Gift card event · Nov 23 to 30</p>
-        <h2>Gift cards <em>${GIFT.percent}% off</em></h2>
-
-        <div class="bf-code">
-          <span class="bf-code-label">Your code</span>
-          <strong class="bf-code-value" data-bf-code>${GIFT.code}</strong>
-          <button type="button" class="bf-code-copy" data-bf-copy="${GIFT.code}" hidden>Copy code</button>
-        </div>
-
-        <p class="bf-pick-label" id="bf-pick-label">Pick an amount to see what you pay</p>
-        <div class="bf-tiers bf-tiers-4" role="group" aria-labelledby="bf-pick-label">
-          ${amounts.map((cents) => html`
-            <button type="button" class="bf-tier" aria-pressed="${cents === shown ? "true" : "false"}"
-                    data-bf-tier data-value="${money(cents)}" data-pay="${money(cents - giftOff(cents))}" data-bonus="${money(giftOff(cents))}">
-              <span class="bf-tier-pay">${money(cents)} card</span>
-              <strong>${money(cents - giftOff(cents))}</strong>
-              <span class="bf-tier-bonus">Save ${money(giftOff(cents))}</span>
-            </button>`)}
-        </div>
-        <ol class="bf-steps">
-          <li>Choose your gift card amount</li>
-          <li>Tap <b>Add Discount Code</b></li>
-          <li>Enter <b>${GIFT.code}</b> and tap Apply</li>
-        </ol>
-        <a class="button button-dark bf-cta" href="${EGIFT_URL}"><span>Buy a gift card</span> <span aria-hidden="true">&#8599;</span></a>
-        <p class="bf-note">Sold on Square&#8217;s secure gift card page. For yourself or as a gift, for treatments and skincare.</p>
+      <div class="bf-code">
+        <span>Code</span>
+        <strong data-bf-code>${GIFT.code}</strong>
+        <button type="button" data-bf-copy="${GIFT.code}" hidden>Copy</button>
       </div>
-    </section>
+      <a class="button button-dark bf-cta" href="${EGIFT_URL}" data-bf-copy-go="${GIFT.code}">Buy a gift card</a>
+      <p class="bf-fine" data-bf-copy-note>Enter ${GIFT.code} at checkout. For treatments or skincare.</p>
+    </article>
   `;
 }
 
-function saleProduct(product, live) {
+function skincareSection(phase, products, notified) {
+  const live = phase === "sale";
+  // Two real examples, so "15% off" has prices attached.
+  const examples = products.filter((product) => product.available && product.regularPriceCents > 0).slice(0, 2);
+  return html`
+    <article class="bf-offer" id="skincare">
+      <span class="bf-flag">${PCT}% off</span>
+      <p class="eyebrow">${live ? "Live now · Ends Mon, Nov 30" : "Starts Fri, Nov 27"}</p>
+      <h3>${PCT}% off all skincare + free shipping</h3>
+      ${examples.length ? html`
+        <div class="bf-examples">
+          ${examples.map((product) => html`
+            <a href="/product/${encodeURIComponent(product.slug)}"><span>${product.name}</span>
+              ${wasNow(formatMoney(product.regularPriceCents), formatMoney(live ? product.priceCents : salePrice(product.regularPriceCents)))}</a>`)}
+        </div>` : ""}
+      ${live
+        ? html`<a class="button button-dark bf-cta" href="/shop">Shop ${PCT}% off skincare</a>
+            <p class="bf-fine">Taken off automatically. No code, no minimum.</p>`
+        : notified
+        ? html`<p class="bf-done" role="status"><strong>You&#8217;re on the list.</strong> We&#8217;ll email you Friday morning when skincare goes ${PCT}% off.</p>`
+        : html`
+          <form class="bf-notify" method="post" action="/api/notify" data-bf-notify>
+            <label class="sr-only" for="bf-notify-email">Email</label>
+            <input id="bf-notify-email" type="email" name="email" placeholder="Your email" autocomplete="email" required />
+            <input class="bf-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <button class="button button-dark bf-cta" type="submit">Email me when it starts</button>
+            <p class="bf-fine" data-bf-notify-note>One email Friday morning. That&#8217;s it.</p>
+          </form>
+          <p class="bf-done" role="status" data-bf-notify-done hidden><strong>You&#8217;re on the list.</strong> We&#8217;ll email you Friday morning when skincare goes ${PCT}% off.</p>`}
+    </article>
+  `;
+}
+
+function productTile(product, live) {
+  const variation = product.defaultVariation;
   const regular = product.regularPriceCents;
   // During the sale Square has already priced it. Before, show what it will be.
-  const sale = live ? product.priceCents : regular - saleOff(regular);
-  const saved = regular - sale;
-  const variation = product.defaultVariation;
+  const sale = live ? product.priceCents : salePrice(regular);
   return html`
     <article class="bf-product">
-      <a href="/product/${encodeURIComponent(product.slug)}" class="bf-product-link">
+      <a href="/product/${encodeURIComponent(product.slug)}">
         <div class="bf-product-image">
-          ${saved > 0 ? html`<span class="bf-product-save">Save ${formatMoney(saved)}</span>` : ""}
+          <span class="bf-product-tag">−${PCT}%</span>
           ${product.image
             ? html`<img src="${product.image}" alt="${product.name}" loading="lazy" />`
             : html`<span class="bf-product-empty">${product.name}</span>`}
         </div>
         <h3>${product.name}</h3>
         <p class="bf-product-price">
-          ${saved > 0 ? html`<s><span class="sr-only">Regular price </span>${formatMoney(regular)}</s> ` : ""}
-          <strong>${formatMoney(sale)}</strong>
-          ${live ? "" : html`<small>from Nov 27</small>`}
+          ${live
+            ? wasNow(formatMoney(regular), formatMoney(sale))
+            : html`${formatMoney(regular)}<small>${formatMoney(sale)} from Friday</small>`}
         </p>
       </a>
-      ${live
-        ? html`<button class="bf-product-add" type="button" data-add-to-cart="${variation.id}" data-name="${product.name}"
-              ${product.available ? "" : html`disabled`}>${product.available ? "Add to bag +" : "Sold out"}</button>`
-        : ""}
+      <button class="bf-product-add" type="button" data-add-to-cart="${variation.id}" data-name="${product.name}"
+        ${product.available ? "" : html`disabled`}>${product.available ? "Add to bag" : "Sold out"}</button>
     </article>
   `;
 }
 
-function skincareSection(phase, products, now) {
+function productsSection(phase, products) {
   const live = phase === "sale";
   // Products arrive best-sellers first. During the sale, only what is on sale.
   const shown = products
-    .filter((product) => product.available && (!live || product.regularPriceCents > product.priceCents))
+    .filter((product) => product.available && product.defaultVariation && (!live || product.regularPriceCents > product.priceCents))
     .slice(0, 8);
+  if (!shown.length) return "";
   return html`
-    <section class="bf-section bf-skincare" id="skincare" data-bf-reveal>
-      <div class="bf-skincare-head">
-        <div>
-          <p class="bf-kicker">${live ? "Skincare sale · Ends Nov 30" : "Skincare sale · Starts Friday, Nov 27"}</p>
-          <h2>${BLACK_FRIDAY.salePercent}% off skincare <em>+ free shipping</em></h2>
-          <ul class="bf-ticks bf-ticks-plain bf-ticks-row">
-            <li><span>${BLACK_FRIDAY.salePercent}% off, taken off automatically</span></li>
-            <li><span>Free U.S. shipping, no minimum</span></li>
-            <li><span>${live ? "Ends Monday, Nov 30" : "Friday, Nov 27 to Monday, Nov 30"}</span></li>
-          </ul>
-        </div>
-        ${live ? "" : countdown("Sale starts in", BLACK_FRIDAY.saleStartUtc, now)}
+    <section class="bf-block" id="sale-products" aria-labelledby="bf-products-title">
+      <div class="bf-block-head">
+        <h2 class="bf-block-title" id="bf-products-title">${PCT}% off <em>${live ? "skincare" : "Friday"}</em></h2>
+        <a class="text-link" href="/shop">Shop all</a>
       </div>
-      ${shown.length ? html`<div class="bf-products">${shown.map((product) => saleProduct(product, live))}</div>` : ""}
-      <a class="button ${live ? "button-dark" : "button-light"} bf-cta bf-cta-center" href="/shop">${live ? "Shop all skincare" : "Browse the shelf"} <span aria-hidden="true">&rarr;</span></a>
+      <p class="bf-block-sub">${live
+        ? "Taken off automatically. Free U.S. shipping, no minimum."
+        : "Sale prices start Fri, Nov 27. Add to your bag now or come back Friday."}</p>
+      <div class="bf-products">${shown.map((product) => productTile(product, live))}</div>
     </section>
   `;
 }
 
-export function blackFridayPage({ phase, pkg, products = [], now = null }) {
-  const live = phase === "sale";
-  const offer = BLACK_FRIDAY.package;
-  const chips = [
-    { href: "#series", big: `Save ${money(offer.savingsCents)}`, small: "Microneedling series" },
-    { href: "#gift-cards", big: `${GIFT.percent}% off`, small: `Gift cards, code ${GIFT.code}` },
-    { href: "#skincare", big: `${BLACK_FRIDAY.salePercent}% off`, small: live ? "Skincare + free shipping" : "Skincare, from Nov 27" },
-  ];
-  if (live) chips.unshift(chips.pop());
-  const sections = live
-    ? [skincareSection(phase, products, now), seriesSection(pkg), giftSection()]
-    : [seriesSection(pkg), giftSection(), skincareSection(phase, products, now)];
-
+/** The homepage while the campaign runs. The usual sections follow it. */
+export function blackFridayHome({ phase, pkg = null, products = [], now = null, notified = false }) {
+  if (!phase) return "";
   return html`
-    <div class="bf" data-bf>
-      <div class="bf-glow" aria-hidden="true"></div>
-      <div class="section-shell">
-        <header class="bf-hero">
-          <p class="bf-tag"><span>Black Friday</span> Nov 23 to 30</p>
-          <h1>The Skin Investment <em>Edit</em></h1>
-          <p class="bf-sub">${live ? "Three offers. All end Monday night." : "Two offers live now. Skincare sale opens Friday."}</p>
-          ${countdown("Everything ends in", BLACK_FRIDAY.endUtc, now)}
-          <nav class="bf-chips" aria-label="Black Friday offers">
-            ${chips.map((chip) => html`<a class="bf-chip" href="${chip.href}"><strong>${chip.big}</strong><span>${chip.small}</span></a>`)}
-          </nav>
-        </header>
-        ${sections}
-        <section class="bf-terms" id="terms">
-          <details>
-            <summary>Promotion terms</summary>
-            <ul>${campaignTerms().map((line) => html`<li>${line}</li>`)}</ul>
-          </details>
-        </section>
+    <div class="bf-home section-shell" data-bf>
+      ${hero(phase, pkg, now)}
+      ${packagesSection(pkg)}
+      <div class="bf-offers">
+        ${giftSection()}
+        ${skincareSection(phase, products, notified)}
       </div>
+      ${productsSection(phase, products)}
+      <p class="bf-terms-link"><a href="/terms#black-friday">Promotion terms</a></p>
     </div>
   `;
+}
+
+/** Bottom bar on phones, on the homepage, so the deals are one tap away anywhere on it. */
+export function stickyDeals(phase, pkg = null) {
+  if (!phase) return "";
+  const { priceCents } = packagePrice(pkg);
+  return html`
+    <div class="bf-sticky" data-bf-sticky>
+      ${phase === "sale"
+        ? html`<p><b>${PCT}% off skincare</b>Free U.S. shipping · Ends Mon</p><a class="button button-dark" href="/shop">Shop sale</a>`
+        : html`<p><b>Black Friday</b>Microneedling series ${money(priceCents)} (was ${money(OFFER.totalValueCents)})</p><a class="button button-dark" href="#packages">See deals</a>`}
+    </div>
+  `;
+}
+
+/** The promotional terms, shown on the Terms page while the campaign runs. */
+export function campaignTerms() {
+  return [
+    `All Black Friday offers run from November 23, 2026 and end ${BLACK_FRIDAY.endLabel}.`,
+    `The skincare sale and free shipping run November 27 to 30 only: ${PCT}% off eligible skincare products, applied automatically at checkout, with free standard U.S. shipping and no minimum purchase.`,
+    "The skincare discount does not apply to services, treatment packages, memberships or gift cards.",
+    "Offers cannot be combined with other discounts, promotions or coupon codes.",
+    "The Liquid Microneedling series is purchased online and its four treatments are scheduled with Laura at the Tampa studio.",
+    `Gift cards are ${GIFT.percent}% off from November 23 to 30 when the code ${GIFT.code} is entered on the gift card purchase page. The discount is not applied without the code. Gift cards can be used toward both services and skincare products.`,
+    "Packages and gift card balances purchased during the event remain valid after it ends.",
+  ];
 }

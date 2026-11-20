@@ -4,6 +4,10 @@
 import worker from "../src/index.js";
 import { campaignPhase } from "../src/campaign.js";
 import { settings } from "../src/config.js";
+import { createD1, schemaMigrations } from "./helpers/d1-sqlite.mjs";
+import { sendSaleNotifications, NOTIFY_LIST } from "../src/notify.js";
+import { handleAdminRequest } from "../src/admin/routes.js";
+import { createSessionToken, sessionCookie } from "../src/admin/auth.js";
 
 const item = (id, name, cents, extra = {}) => ({
   id, type: "ITEM", item_data: {
@@ -39,6 +43,7 @@ const PRICING = {
 };
 
 let lastLinkBody = null;
+const resendBatches = [];
 globalThis.fetch = async (url, options) => {
   const path = new URL(url).pathname;
   const body = options?.body ? JSON.parse(options.body) : {};
@@ -49,6 +54,10 @@ globalThis.fetch = async (url, options) => {
     return json({ payment_link: { url: "https://square.link/u/TEST" } });
   }
   if (path === "/reporting/v1/load") return json({ data: [] });
+  if (path === "/emails/batch") {
+    resendBatches.push(body);
+    return json({ data: body.map((_, index) => ({ id: `re_${resendBatches.length}_${index}` })) });
+  }
   throw new Error("unexpected " + path);
 };
 function json(data, status = 200) {
@@ -60,6 +69,9 @@ const env = {
   CATALOG_TTL_SECONDS: "0", SITE_URL: "https://skinbylauralo.com",
   SHIPPING_ENABLED: "true", SHIPPING_FEE_CENTS: "1000", FREE_SHIPPING_THRESHOLD_CENTS: "10000",
   PICKUP_ENABLED: "true", BLACK_FRIDAY_ENABLED: "true",
+  CLIENT_NOTES_DB: createD1({ migrations: schemaMigrations() }),
+  RESEND_API_KEY: "re_test", CAMPAIGN_FROM_EMAIL: "laura@skinbylauralo.com",
+  ADMIN_USERNAME: "laura", ADMIN_PASSWORD: "pw-for-tests",
 };
 const PREVIEW = "https://skin-by-laura-lo.example.workers.dev";
 
@@ -120,7 +132,9 @@ check("the live domain ignores preview links and cookies", [live.status, liveBod
 
 // ------------------------------------------------------------------ before
 const homeBefore = await text("/", BEFORE);
-check("before Nov 23: no banner, no homepage block", [homeBefore.includes("data-campaign-banner"), homeBefore.includes("bf-home")], [false, false]);
+check("before Nov 23: no bar, no takeover, everyday theme, everyday hero",
+  [homeBefore.includes("data-campaign-banner"), homeBefore.includes("bf-home"), homeBefore.includes("data-theme="), homeBefore.includes("Skin health, <em>made personal.</em>")],
+  [false, false, false, true]);
 const pageBefore = await get("/black-friday", BEFORE);
 check("before Nov 23: /black-friday goes to the shop", [pageBefore.status, pageBefore.headers.get("location")], [302, "/shop"]);
 check("before Nov 23: the package can't be bought", (await checkout(PACK, BEFORE)).status, 400);
@@ -130,16 +144,58 @@ check("before Nov 23: usual $10 shipping and coupon box",
 
 // ------------------------------------------------------------------ launch
 const homeLaunch = await text("/", LAUNCH);
-check("Nov 23 to 26: banner leads with the series and teases the sale",
-  [/promo-bf-lead" href="\/black-friday#series">Liquid Microneedling Series \$897</.test(homeLaunch),
-    homeLaunch.includes("Gift cards 15% off, code BLACKFRIDAY"), homeLaunch.includes("15% off skincare + free shipping from Nov 27"), homeLaunch.includes("bf-home")],
+check("Nov 23 to 26: the whole site is black and the homepage is the deals",
+  [homeLaunch.includes('<html lang="en" data-theme="black-edition">'), homeLaunch.includes('content="#0c0c0b"'),
+    homeLaunch.includes("bf-home"), homeLaunch.includes("Skin health, <em>made personal.</em>"),
+    (await text("/shop", LAUNCH)).includes('data-theme="black-edition"'), (await text("/treatments", LAUNCH)).includes('data-theme="black-edition"')],
+  [true, true, true, false, true, true]);
+check("Nov 23 to 26: one static bar about gift cards and Friday, no ticker, no shipping bar",
+  [/data-campaign-banner[\s\S]*Gift cards 15% off[\s\S]*Skincare 15% off starts Fri/.test(homeLaunch), homeLaunch.includes("promo-track"), homeLaunch.includes('class="announcement"')],
+  [true, false, false]);
+check("Nov 23 to 26: packages come right after the hero, then gift cards, skincare and products",
+  ["bf-hero", 'id="packages"', 'id="gift-cards"', 'id="skincare"', 'id="sale-products"', 'id="about"'].map((marker) => homeLaunch.indexOf(marker))
+    .every((at, index, all) => at > 0 && (index === 0 || at > all[index - 1])), true);
+check("Nov 23 to 26: the package card shows the value struck out, then the price, and adds to the bag",
+  [homeLaunch.includes('data-add-to-cart="V_PACK"'), /Was <\/span>\$1,129<\/span> <span class="bf-now bf-now-big"><span class="sr-only">Now <\/span>\$897/.test(homeLaunch),
+    homeLaunch.includes("Save $232"), homeLaunch.includes("Add to bag · $897"), homeLaunch.includes("Green Sea")],
+  [true, true, true, true, false]);
+check("Nov 23 to 26: every gift card amount is a link that copies the code, with was and now prices",
+  [(homeLaunch.match(/data-bf-copy-go="BLACKFRIDAY"/g) || []).length, homeLaunch.includes("$90 card"), homeLaunch.includes("$76.50"), homeLaunch.includes("$106.25"), homeLaunch.includes("$297.50")],
+  [5, true, true, true, true]);
+check("Nov 23 to 26: skincare has the notify form; products show the Friday price and can be added now",
+  [homeLaunch.includes('action="/api/notify"'), homeLaunch.includes("$28.90 from Friday"), homeLaunch.includes('data-add-to-cart="V_CLEANSER"'), homeLaunch.includes('data-bf-countdown="2026-12-01T05:00:00Z"')],
   [true, true, true, true]);
-const bfLaunch = await text("/black-friday", LAUNCH);
-check("Nov 23 to 26: the page sells the package with its values and terms",
-  [bfLaunch.includes('data-add-to-cart="V_PACK"'), bfLaunch.includes("<strong>$897</strong>"), bfLaunch.includes("$1,129"), bfLaunch.includes("$232"),
-    bfLaunch.includes("BLACKFRIDAY") && bfLaunch.includes("$106.25") && bfLaunch.includes("Save $18.75") && bfLaunch.includes("$350 card"), bfLaunch.includes("11:59 PM EST"),
-    bfLaunch.includes("Starts Friday, Nov 27")],
-  [true, true, true, true, true, true, true]);
+check("Nov 23 to 26: the phone bar points at the deals", [homeLaunch.includes("data-bf-sticky"), (await text("/shop", LAUNCH)).includes("data-bf-sticky")], [true, false]);
+const bfLaunch = await get("/black-friday", LAUNCH);
+check("Nov 23 to 26: /black-friday lands on the homepage", [bfLaunch.status, bfLaunch.headers.get("location")], [302, "/"]);
+check("the stylesheet carries the theme", (await text("/assets/styles.css")).includes(':root[data-theme="black-edition"]'), true);
+check("SITE_THEME=everyday keeps the everyday look during the campaign",
+  (await text("/", LAUNCH, { vars: { ...env, SITE_THEME: "everyday" } })).includes("data-theme="), false);
+
+// ------------------------------------------------------------ notify me
+async function notify(body, day, { form = false, ip = "1.2.3.4" } = {}) {
+  const headers = { "cf-connecting-ip": ip, ...(day ? { cookie: `bf_preview=${day}` } : {}) };
+  const request = form
+    ? new Request(`${PREVIEW}/api/notify`, { method: "POST", headers: { ...headers, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body).toString() })
+    : new Request(`${PREVIEW}/api/notify`, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify(body) });
+  return worker.fetch(request, env);
+}
+const signedUp = async () => (await env.CLIENT_NOTES_DB.prepare("SELECT email FROM notify_signups WHERE list = ? ORDER BY email").bind(NOTIFY_LIST).all()).results.map((row) => row.email);
+const first = await notify({ email: " Ana@Example.com " }, LAUNCH);
+const again = await notify({ email: "ana@example.com" }, LAUNCH);
+const viaForm = await notify({ email: "bo@example.com", website: "" }, LAUNCH, { form: true, ip: "5.6.7.8" });
+const bot = await notify({ email: "bot@example.com", website: "http://spam" }, LAUNCH);
+const bad = await notify({ email: "not-an-email" }, LAUNCH);
+check("notify: saves each address once, lowercased; a plain form post comes back to the thank-you",
+  [first.status, again.status, viaForm.status, viaForm.headers.get("location"), bot.status, bad.status, await signedUp()],
+  [200, 200, 303, "/?notified=1#skincare", 200, 400, ["ana@example.com", "bo@example.com"]]);
+check("notify: after the form, the homepage says you're on the list", (await text("/?notified=1", LAUNCH)).includes("on the list"), true);
+check("notify: closed once the sale is live, and outside the campaign",
+  [(await notify({ email: "late@example.com" }, SALE)).status, (await notify({ email: "early@example.com" }, BEFORE)).status], [400, 400]);
+for (const n of [1, 2, 3, 4]) await notify({ email: `flood${n}@example.com` }, LAUNCH, { ip: "9.9.9.9" });
+check("notify: one visitor can't add more than 5 an hour", (await notify({ email: "flood5@example.com" }, LAUNCH, { ip: "9.9.9.9" })).status === 200
+  && (await notify({ email: "flood6@example.com" }, LAUNCH, { ip: "9.9.9.9" })).status, 400);
+
 check("the package is never listed in the shop", (await text("/shop", LAUNCH)).includes("Microneedling |"), false);
 const api = await (await get("/api/catalog", LAUNCH)).json();
 check("the bag knows the package has nothing to ship", [api.variations.V_PACK?.noShipping, api.variations.V_CLEANSER?.noShipping], [true, undefined]);
@@ -154,31 +210,47 @@ check("package + skincare: the package doesn't earn free shipping for the rest",
 
 // -------------------------------------------------------------------- sale
 const homeSale = await text("/", SALE);
-check("Nov 27 to 30: banner leads with the skincare sale, all three offers",
-  [/promo-bf-lead" href="\/shop">15% off skincare \+ free shipping</.test(homeSale),
-    homeSale.includes("Liquid Microneedling Series $897"), homeSale.includes("Gift cards 15% off, code BLACKFRIDAY"),
-    homeSale.includes("Free U.S. shipping on every order through Nov 30")],
-  [true, true, true, true]);
+check("Nov 27 to 30: the bar leads with the skincare sale, free shipping, and the card says shop",
+  [/data-campaign-banner[\s\S]*15% off skincare \+ free U.S. shipping/.test(homeSale), homeSale.includes("Shop 15% off skincare"),
+    homeSale.includes('action="/api/notify"'), homeSale.includes('data-theme="black-edition"')],
+  [true, true, false, true]);
 const saleOrder = await checkout(PACK.concat(CLEANSER), SALE);
 const [packLine, cleanserLine] = saleOrder.link.order.line_items;
 check("Nov 27 to 30: 15% on skincare only, free shipping, no coupon stacking",
   [packLine.applied_discounts, cleanserLine.applied_discounts?.length, saleOrder.link.order.discounts.map((d) => d.catalog_object_id),
     saleOrder.link.checkout_options.shipping_fee, saleOrder.link.checkout_options.enable_coupon],
   [undefined, 1, ["D1"], undefined, false]);
-const bfSale = await text("/black-friday", SALE);
-check("the package stays $897 during the sale", [bfSale.includes("<strong>$897</strong>"), bfSale.includes("$762.45")], [true, false]);
-check("skincare on the page shows what each product saves",
-  [bfLaunch.includes("Save $5.10") && bfLaunch.includes("$28.90") && bfLaunch.includes("from Nov 27"), bfLaunch.includes('data-add-to-cart="V_CLEANSER"'),
-    bfSale.includes("Save $5.10") && bfSale.includes('data-add-to-cart="V_CLEANSER"')],
+check("the package stays $897 during the sale", [homeSale.includes("Add to bag · $897"), homeSale.includes("$762.45")], [true, false]);
+check("during the sale, products show the regular price struck out, then the sale price",
+  [/Was <\/span>\$34\.00<\/span> <span class="bf-now"><span class="sr-only">Now <\/span>\$28\.90/.test(homeSale), homeSale.includes("from Friday"), homeSale.includes('data-add-to-cart="V_CLEANSER"')],
   [true, false, true]);
-check("the page has its countdown and the gift card picker",
-  [bfSale.includes('data-bf-countdown="2026-12-01T05:00:00Z"'), bfLaunch.includes('data-bf-countdown="2026-11-27T05:00:00Z"'), (bfSale.match(/data-bf-tier/g) || []).length],
-  [true, true, 4]);
+
+{
+  const cookie = sessionCookie(await createSessionToken(env, Date.now(), {}), {}).split(";")[0];
+  const path = "/admin/campaigns/scheduled";
+  const page = await (await handleAdminRequest(new Request(`https://x.test${path}`, { headers: { cookie } }), env, new URL(`https://x.test${path}`))).text();
+  check("the admin Scheduled page counts the sign-ups and lists them",
+    [/<strong>7<\/strong> people want an email/.test(page), page.includes("ana@example.com"), page.includes("Fri, Nov 27")], [true, true, true]);
+}
+
+// ------------------------------------------------- the Friday email
+const before8 = await sendSaleNotifications(env, { now: new Date("2026-11-27T12:59:00Z") });
+const at8 = await sendSaleNotifications(env, { now: new Date("2026-11-27T13:00:00Z") });
+const sentTo = resendBatches.flatMap((batch) => batch.map((email) => email.to[0])).sort();
+const nextRun = await sendSaleNotifications(env, { now: new Date("2026-11-27T13:15:00Z") });
+const counted = await env.CLIENT_NOTES_DB.prepare("SELECT COUNT(*) AS n FROM email_other_sends WHERE kind = 'notify'").first();
+check("the 'it's live' email goes Friday at 8 AM Eastern, once per person, and counts toward Resend's limit",
+  [before8.reason, at8.sent, sentTo.length, sentTo.includes("ana@example.com"), nextRun.sent, counted.n,
+    resendBatches[0][0].subject, resendBatches[0][0].headers["List-Unsubscribe"].includes("/email/unsubscribe?e=")],
+  [ "not-due", 7, 7, true, 0, 7, "It's live: 15% off skincare + free shipping", true]);
+
 check("the Terms page carries the promotion terms", (await text("/terms", SALE)).includes("Black Friday 2026 promotion"), true);
 
 // ------------------------------------------------------------------- after
 const homeAfter = await text("/", AFTER);
-check("Dec 1: banners and block are gone", [homeAfter.includes("data-campaign-banner"), homeAfter.includes("bf-home")], [false, false]);
+check("Dec 1: the bar, the takeover and the black theme are gone",
+  [homeAfter.includes("data-campaign-banner"), homeAfter.includes("bf-home"), homeAfter.includes("data-theme="), homeAfter.includes('class="announcement"')],
+  [false, false, false, true]);
 check("Dec 1: /black-friday goes to the shop", (await get("/black-friday", AFTER)).status, 302);
 check("Dec 1: the package is off sale even if still visible in Square", (await checkout(PACK, AFTER)).status, 400);
 const after = await checkout(CLEANSER, AFTER);

@@ -23,9 +23,12 @@ export const BLACK_FRIDAY = {
   // countdown clocks, which run in the visitor's browser.
   saleStartUtc: "2026-11-27T05:00:00Z",
   endUtc: "2026-12-01T05:00:00Z",
+  // When the "it's live" email goes to everyone who asked to be told about
+  // the skincare sale (src/notify.js): Friday, Nov 27 at 8:00 AM Eastern.
+  notifyAtUtc: "2026-11-27T13:00:00Z",
 
   package: {
-    title: "Green Sea Liquid Microneedling",
+    title: "Liquid Microneedling Series",
     subtitle: "Corrective Series of 4",
     priceCents: 89700,
     treatmentValueCents: 102800,

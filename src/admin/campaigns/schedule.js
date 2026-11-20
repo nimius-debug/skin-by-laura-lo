@@ -13,6 +13,7 @@ import { escapeHtml } from "./email-template.js";
 import { notifyPhones } from "./push.js";
 import { sendingConfigured, sendQueued } from "./sending.js";
 import * as store from "./store.js";
+import { sendSaleNotifications } from "../../notify.js";
 
 export const REMINDER_TIME_ZONE = "America/New_York";
 export const REMINDER_DAYS = ["Tue", "Thu"];
@@ -121,6 +122,13 @@ async function refreshStalePurchases(env) {
 
 export async function runScheduled(env, now = new Date()) {
   const outcome = {};
+  // The Black Friday "it's live" email goes first: it was promised for a
+  // time, and it shares the daily allowance with campaign emails.
+  try {
+    outcome.notify = await sendSaleNotifications(env, { now });
+  } catch (error) {
+    console.error("Black Friday notify email failed:", error.message);
+  }
   try {
     outcome.sending = await sendQueued(env, { now });
   } catch (error) {

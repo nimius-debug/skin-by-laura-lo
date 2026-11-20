@@ -208,6 +208,7 @@ export function legalPage({ kind, cfg }) {
     ["What we collect", html`When you buy something, Square collects the details needed to take payment and fulfil your order. This website does not run its own accounts system and does not store your payment information.`],
     ["Your cart", html`Items you add to your bag are stored only in your own browser, using local storage. They are sent to our server once &#8212; at the moment you click checkout &#8212; so that a Square payment link can be created.`],
     ["Square", html`Payments, appointment bookings and gift cards are handled by Square, which processes your information under its own privacy policy. Order and appointment records live in Square, not on this site.`],
+    ...(cfg.campaign ? [["Black Friday sale reminder", "If you ask to be emailed when the Black Friday skincare sale starts, we keep your email address only to send that one email, then stop. Each email has an unsubscribe link."]] : []),
     ["Analytics and cookies", html`This site sets no advertising or tracking cookies of its own.`],
     ["Contact", html`For any privacy question, or to ask what information is held about you, email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.`],
   ];
@@ -217,7 +218,7 @@ export function legalPage({ kind, cfg }) {
       <h1>${isTerms ? "Terms & Conditions" : "Privacy Policy"}</h1>
       <p class="legal-updated">Last updated ${updated}</p>
       ${sections.map(([heading, bodyCopy]) => html`
-        <section>
+        <section${heading.startsWith("Black Friday") ? html` id="black-friday"` : ""}>
           <h2>${heading}</h2>
           <p>${bodyCopy}</p>
         </section>

@@ -612,7 +612,26 @@ function outcomeBar(row, tracking) {
   </div>`;
 }
 
-export function scheduledPage({ usage, days, campaigns, stats, recent, now, tracking, configured, siteUrl, notice, error }) {
+/** Black Friday "email me when it's live" sign-ups (src/notify.js). */
+function notifyListCard({ total, sent, failed, list, sendsAt }) {
+  const when = new Date(sendsAt).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  const status = sent >= total ? `All ${sent} emailed.`
+    : sent ? `${sent} emailed so far, the rest go out as today's limit allows.`
+    : `They get one email ${when} (Tampa time), when the skincare sale opens.`;
+  return html`<section class="card camp-notify" aria-label="Black Friday sign-ups">
+    <div class="section-label">Black Friday sign-ups</div>
+    <div class="camp-coming-total"><strong>${total.toLocaleString("en-US")}</strong> ${total === 1 ? "person wants" : "people want"} an email when the skincare sale goes live</div>
+    <p class="camp-muted">${status}${failed ? ` ${failed} couldn't be sent (unsubscribed or rejected).` : ""}</p>
+    <details><summary>See who signed up</summary>
+      <div class="camp-table-wrap"><table class="data">
+        <thead><tr><th scope="col">Email</th><th scope="col">Signed up</th><th scope="col">Emailed</th></tr></thead>
+        <tbody>${list.map((row) => html`<tr><td>${row.email}</td><td>${dayName(String(row.created_at).slice(0, 10))}</td><td>${row.notified_at ? "Yes" : row.error ? "No" : "Not yet"}</td></tr>`)}</tbody>
+      </table></div>
+    </details>
+  </section>`;
+}
+
+export function scheduledPage({ usage, days, campaigns, stats, recent, now, notifyList = null, tracking, configured, siteUrl, notice, error }) {
   const today = now.toISOString().slice(0, 10);
   const resetDay = `resets at ${tampaTime(usage.today.resetsAt)} Tampa time`;
   const resetMonth = `resets ${new Date(usage.month.resetsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
@@ -654,6 +673,7 @@ export function scheduledPage({ usage, days, campaigns, stats, recent, now, trac
         : html`<p class="camp-muted">Nothing scheduled. When you send to more people than today's limit allows, the rest wait here for the next day.</p>`}
       </section>
     </div>
+    ${notifyList ? notifyListCard(notifyList) : ""}
     <section class="card camp-recent" aria-label="How they did">
       <div class="section-label">How they did</div>
       ${tracking ? "" : html`<div class="camp-tracking-off">
