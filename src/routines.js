@@ -56,7 +56,7 @@ export const ROUTINES = [
       { slug: "krx-all-day-glow-vitamin-serum", role: "The brightening, antioxidant-rich step behind that fresh, luminous look." },
       { slug: "krx-essence-cream-pads", role: "Hydrating pads that nourish and prep the skin for what comes next." },
       { slug: "moisture-rx-recharge", role: "Lightweight, lasting hydration that keeps skin comfortable all day." },
-      { slug: "desembre-egf-waterdrop", role: "Daily sun protection with growth factors and antioxidants." },
+      { slug: "pfect-a-solar-elixir-serum-sunscreen", role: "Hydrating daily SPF 50+ with hyaluronic acid and panthenol, sheer with no white cast." },
     ],
   },
   {
@@ -74,7 +74,7 @@ export const ROUTINES = [
       { slug: "dermagarden-enzyme-powder-cleanser", role: "The exfoliating step that helps gently remove built-up dead surface skin responsible for that rough, flaky feel." },
       { slug: "krx-strengthen-protect-probiotic-face-toner", role: "Replenishes and preps freshly exfoliated skin for moisture." },
       { slug: "corthe-rich-m-lotion", role: "Rich moisture that quenches and nourishes dry, rough texture." },
-      { slug: "desembre-egf-waterdrop", role: "Daily sun protection with growth factors and antioxidants." },
+      { slug: "pfect-a-solar-elixir-serum-sunscreen", role: "Hydrating daily SPF 50+ with hyaluronic acid and panthenol, sheer with no white cast." },
     ],
   },
   {
