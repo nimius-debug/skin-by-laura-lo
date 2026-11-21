@@ -27,7 +27,10 @@ export async function createCampaign(env, { topic, goal, content, usage, version
 
 function campaignFromRow(row) {
   if (!row) return null;
-  return { ...row, content: parse(row.content_json, {}), usage: parse(row.usage_json, {}), audience: audienceFrom(row.audience_json) };
+  return {
+    ...row, content: parse(row.content_json, {}), usage: parse(row.usage_json, {}), audience: audienceFrom(row.audience_json),
+    square: row.square_json ? parse(row.square_json, null) : null,
+  };
 }
 
 /**
@@ -46,9 +49,11 @@ export async function getCampaign(env, campaignId) {
   return campaignFromRow(await env.CLIENT_NOTES_DB.prepare("SELECT * FROM email_campaigns WHERE id = ?").bind(campaignId).first());
 }
 
-export async function updateCampaign(env, campaignId, { content, goal, usage, status, audience }) {
+export async function updateCampaign(env, campaignId, { content, goal, usage, status, audience, square }) {
   const sets = [];
   const values = [];
+  // square: the Square hand-off state, or null to go back to Resend only.
+  if (square !== undefined) { sets.push("square_json = ?"); values.push(square ? JSON.stringify(square) : null); }
   if (audience) { sets.push("audience_json = ?"); values.push(JSON.stringify(audience)); }
   if (content) { sets.push("content_json = ?"); values.push(JSON.stringify(content)); }
   if (goal) { sets.push("goal = ?"); values.push(goal); }

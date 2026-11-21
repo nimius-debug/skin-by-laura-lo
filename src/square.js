@@ -50,6 +50,20 @@ export async function squareFetch(env, path, body) {
   return parseSquareResponse(response);
 }
 
+/** Any other Square call (PUT, DELETE), e.g. adding a customer to a group. */
+export async function squareRequest(env, method, path, body = undefined) {
+  const response = await fetch(`${apiBase(env)}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${env.SQUARE_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+      "Square-Version": SQUARE_VERSION,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return parseSquareResponse(response);
+}
+
 /** For Square's GET-style list endpoints (bookings, customers), which take query params rather than a JSON body. */
 export async function squareGet(env, path, params = {}) {
   const url = new URL(`${apiBase(env)}${path}`);

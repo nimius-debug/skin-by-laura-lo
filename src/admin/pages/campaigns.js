@@ -133,7 +133,7 @@ export function campaignsHomePage({ campaigns, week, reminders, missing, notice,
             <td class="camp-nowrap">${shortDate(campaign.created_at)}</td>
             <td><a href="/admin/campaigns/${campaign.id}">${topicLabel(campaign)}</a></td>
             <td><span class="pill pill-${campaign.status}">${CAMPAIGN_LABELS[campaign.status] || campaign.status}</span></td>
-            <td class="num">${campaign.sent_count}${campaign.queued_count ? html` <span class="camp-muted">+${campaign.queued_count} queued</span>` : ""}</td>
+            <td class="num">${campaign.sent_count}${campaign.queued_count ? html` <span class="camp-muted">+${campaign.queued_count} queued</span>` : ""}${campaign.square?.sentAt ? html` <span class="camp-muted">+${campaign.square.customerIds.length} in Square</span>` : ""}</td>
             <td class="num">${campaign.personal_count}</td>
             <td class="num">${campaign.unsubscribed_count}</td>
             <td class="num">${formatCost(costOf(campaign.usage).dollars)}</td>
@@ -416,13 +416,25 @@ function sendBar({ campaign, versions, selected, counts, estimate, picked, sched
     const daysLeft = Math.ceil(counts.queued / dailyLimit);
     return html`<div class="camp-send-bar">
       <div class="camp-send-text">
-        <strong>${campaign.status === "sent" ? "Sent" : "Sending"}:</strong> ${spentLine(campaign)} ${counts.sent} of ${total} sent${counts.queued ? html`, ${counts.queued} queued (about ${plural(daysLeft, "more day")})` : ""}${counts.failed ? html`, ${counts.failed} failed` : ""}${counts.skipped ? html`, ${counts.skipped} unsubscribed` : ""}. <a href="/admin/campaigns/scheduled">See Scheduled</a>
+        ${campaign.square?.sentAt ? html`<strong>Sent in Square</strong> to ${peopleCount(campaign.square.customerIds.length)} (see Square's campaign report for opens). <a href="/admin/campaigns/${campaign.id}/square">Details</a>${total ? html`<br />` : ""}` : ""}
+        ${total || !campaign.square ? html`<strong>${campaign.status === "sent" ? "Sent" : "Sending"}${campaign.square ? " through Resend" : ""}:</strong> ${spentLine(campaign)} ${counts.sent} of ${total} sent${counts.queued ? html`, ${counts.queued} queued (about ${plural(daysLeft, "more day")})` : ""}${counts.failed ? html`, ${counts.failed} failed` : ""}${counts.skipped ? html`, ${counts.skipped} unsubscribed` : ""}. <a href="/admin/campaigns/scheduled">See Scheduled</a>` : ""}
       </div>
       ${testForm}
     </div>`;
   }
 
   const ready = shared?.status === "approved";
+  if (campaign.square) {
+    const square = campaign.square;
+    const where = square.mode === "split" ? `Split: ${peopleCount(square.customerIds.length)} through Square, ${square.resendEmails.length} through Resend.` : `Going out through Square to ${peopleCount(square.customerIds.length)}.`;
+    return html`<div class="camp-send-bar">
+      <div class="camp-send-text"><strong>${where}</strong><span class="camp-send-more"> ${square.syncedAt ? "The Square group is ready. Paste the email into Square and send it there." : "Next: put them in a Square group."}</span></div>
+      <div class="camp-send-buttons">
+        ${testForm}
+        <a class="btn btn-primary camp-big-btn" href="/admin/campaigns/${campaign.id}/square">Continue in Square →</a>
+      </div>
+    </div>`;
+  }
   const people = picked ? `${peopleCount(estimate)} you picked` : estimate ? `about ${estimate} clients` : "everyone with an email in Square";
   const when = scheduleSentence(schedule, new Date().toISOString().slice(0, 10));
   const spent = spentLine(campaign);
@@ -439,6 +451,7 @@ function sendBar({ campaign, versions, selected, counts, estimate, picked, sched
         <button type="submit" class="btn btn-primary camp-big-btn"${ready ? "" : html` disabled`}>${picked ? "Send" : "Send to everyone"}</button>
       </form>
     </div>
+    ${ready ? html`<div class="camp-send-alt">Or <a href="/admin/campaigns/${campaign.id}/square">send it through Square instead, or split it with Square</a>.</div>` : ""}
   </div>`;
 }
 
@@ -533,6 +546,131 @@ export function campaignReviewPage({ campaign, versions, selected, previewHtml, 
     </div>
     ${sendBar({ campaign, versions, selected, counts, estimate, picked, schedule, dailyLimit, canTest })}
   `;
+}
+
+// --- Send through Square ---------------------------------------------------
+
+function copyRow(label, value, { multiline = false } = {}) {
+  return html`<div class="camp-copy">
+    <div class="camp-copy-text">
+      <div class="camp-copy-label">${label}</div>
+      ${multiline ? html`<pre class="camp-copy-value">${value}</pre>` : html`<div class="camp-copy-value">${value}</div>`}
+    </div>
+    <button type="button" class="btn btn-secondary btn-small" data-copy="${value}">Copy</button>
+  </div>`;
+}
+
+/**
+ * /admin/campaigns/:id/square: send this email through Square Marketing by hand,
+ * or split it with Resend. Three steps: the Square group, the email in pieces,
+ * then send it in Square and say so here.
+ */
+export function squareHandoffPage({ campaign, parts, approvedPersonal, pickedCount, notice, error }) {
+  const square = campaign.square;
+  const title = topicLabel(campaign);
+  const inReview = campaign.status === "review";
+  const head = html`<div class="camp-head">
+      <a class="back-link" href="/admin/campaigns/${campaign.id}">← ${title}</a>
+      <h1 class="page-title">Send through Square</h1>
+      ${steps(4)}
+    </div>
+    ${notices({ notice, error })}`;
+
+  const lost = approvedPersonal
+    ? html`<div class="camp-square-warn"><strong>Square sends one email to everyone.</strong> The ${plural(approvedPersonal, "approved personal version")} and first names only go out through Resend. In a split, the clients who land in the Resend half still get theirs.</div>`
+    : html`<div class="camp-square-warn"><strong>Square sends one email to everyone</strong>, with "Hi there" instead of a first name.</div>`;
+
+  const choose = html`<form method="post" action="/admin/campaigns/${campaign.id}/square" class="card camp-square-choose">
+      <input type="hidden" name="step" value="start" />
+      <h2 class="camp-pick-title">How should this go out?</h2>
+      <p class="camp-muted">${pickedCount ? `${peopleCount(pickedCount)} picked.` : ""} Square only emails people marked as subscribed in Square, so it may reach a few fewer.</p>
+      <label class="camp-square-option">
+        <input type="radio" name="mode" value="square"${square?.mode !== "split" ? " checked" : ""} />
+        <span><strong>All through Square</strong><span class="camp-muted">Everyone picked goes in one Square group. You send it from Square Marketing ($15 a month, no daily limit).</span></span>
+      </label>
+      <label class="camp-square-option">
+        <input type="radio" name="mode" value="split"${square?.mode === "split" ? " checked" : ""} />
+        <span><strong>Split: half Square, half Resend</strong><span class="camp-muted">Half go in the Square group, mixed at random. The other half get it from Resend when you say you've sent the Square half. Compare opens after a few days.</span></span>
+      </label>
+      ${lost}
+      <div class="camp-square-actions">
+        <a class="btn btn-secondary" href="/admin/campaigns/${campaign.id}">← Back</a>
+        <button type="submit" class="btn btn-primary">${square ? "Start again" : "Continue"}</button>
+      </div>
+    </form>`;
+
+  if (!square) return html`${head}${choose}`;
+
+  const total = square.customerIds.length;
+  const synced = Boolean(square.syncedAt);
+  const split = square.mode === "split";
+  const groupStep = html`<div class="camp-square-step">
+      <span class="camp-step-num${synced ? " done" : ""}">${synced ? "✓" : "1"}</span>
+      <div class="camp-square-step-body">
+        <strong>${synced ? "Square group ready" : "Put them in a Square group"}</strong>
+        <div class="camp-muted">“${square.groupName}” · ${peopleCount(total)}${split ? html` · the other ${square.resendEmails.length} get it from Resend` : ""}${square.failed ? html` · ${square.failed} couldn't be added (no longer in Square)` : ""}</div>
+        ${!synced && inReview ? html`<form method="post" action="/admin/campaigns/${campaign.id}/square" class="camp-inline-form" data-square-sync data-total="${total}">
+          <input type="hidden" name="step" value="sync" />
+          <div class="camp-sync-progress" data-sync-progress${square.added ? "" : " hidden"}><span style="width:${Math.round((square.added / total) * 100)}%"></span></div>
+          <div class="camp-muted" data-sync-status>${square.added ? `${square.added} of ${total} added so far.` : ""}</div>
+          <button type="submit" class="btn btn-primary" data-sync-button>${square.added ? "Keep adding" : `Make the group in Square`}</button>
+        </form>` : ""}
+      </div>
+    </div>`;
+
+  const copyStep = html`<div class="camp-square-step">
+      <span class="camp-step-num">2</span>
+      <div class="camp-square-step-body">
+        <strong>Copy the email into Square</strong>
+        <div class="camp-muted">In Square's editor, add a text block, a button and images, and paste each part. Square adds its own footer and unsubscribe link.</div>
+        <div class="camp-copy-list">
+          ${copyRow("Subject", parts.subject)}
+          ${parts.preheader ? copyRow("Preview text", parts.preheader) : ""}
+          ${parts.headline ? copyRow("Headline", parts.headline) : ""}
+          ${copyRow("Text", parts.body, { multiline: true })}
+          ${parts.button ? copyRow(`Button: ${parts.button.label}`, parts.button.url) : ""}
+          ${parts.products.map((product) => html`<div class="camp-copy">
+            ${product.image ? html`<img src="${product.image}" alt="" class="camp-copy-img" loading="lazy" />` : ""}
+            <div class="camp-copy-text">
+              <div class="camp-copy-label">Product${product.price ? ` · ${product.price}` : ""}</div>
+              <div class="camp-copy-value">${product.name}</div>
+            </div>
+            ${product.image ? html`<a class="btn btn-secondary btn-small" href="${product.image}" target="_blank" rel="noopener" download>Image</a>` : ""}
+            ${product.url ? html`<button type="button" class="btn btn-secondary btn-small" data-copy="${product.url}">Copy link</button>` : ""}
+          </div>`)}
+        </div>
+      </div>
+    </div>`;
+
+  const sendStep = html`<div class="camp-square-step">
+      <span class="camp-step-num${square.sentAt ? " done" : ""}">${square.sentAt ? "✓" : "3"}</span>
+      <div class="camp-square-step-body">
+        <strong>${square.sentAt ? "Sent in Square" : "Send it in Square"}</strong>
+        ${square.sentAt
+          ? html`<div class="camp-muted">Marked sent ${new Date(square.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })}. Opens and clicks for this half are in Square: Marketing → Campaigns → this campaign.${split ? ` The Resend half${square.personalInResend ? ` (${square.personalInResend} personal)` : ""} is on the Scheduled page.` : ""}</div>`
+          : html`<div class="camp-muted">In Square: Marketing → Campaigns → Create campaign → Email. At Select Audience, choose Custom and pick “${square.groupName}”. Paste the parts, send yourself a preview, then send or schedule it.</div>
+            <div class="camp-square-actions">
+              <a class="btn btn-secondary" href="https://app.squareup.com/dashboard/" target="_blank" rel="noopener">Open Square ↗</a>
+              <form method="post" action="/admin/campaigns/${campaign.id}/square" class="camp-inline-form" data-confirm="${split ? `Did you send it in Square? The other ${square.resendEmails.length} get it from Resend now. This can't be undone.` : "Did you send it in Square? This marks the email as sent here."}">
+                <input type="hidden" name="step" value="sent" />
+                <button type="submit" class="btn btn-primary"${synced ? "" : " disabled"}>${split ? "I sent it in Square. Send the Resend half" : "I sent it in Square"}</button>
+              </form>
+            </div>`}
+      </div>
+    </div>`;
+
+  return html`${head}
+    <div class="card camp-square-steps">
+      ${groupStep}
+      ${copyStep}
+      ${sendStep}
+    </div>
+    ${inReview && !square.sentAt ? html`<form method="post" action="/admin/campaigns/${campaign.id}/square" class="camp-square-cancel">
+      <input type="hidden" name="step" value="cancel" />
+      <span class="camp-muted">${split ? "Split" : "All through Square"}.</span>
+      <button type="submit" class="camp-text-btn" name="then" value="choose">Change</button>
+      <button type="submit" class="camp-text-btn">Send through Resend only instead</button>
+    </form>` : ""}`;
 }
 
 // --- Scheduled -----------------------------------------------------------

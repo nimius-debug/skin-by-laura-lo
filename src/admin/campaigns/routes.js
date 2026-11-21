@@ -3,7 +3,7 @@
 import { jsonResponse } from "../../layout.js";
 import { adminHtmlResponse, adminPage } from "../layout.js";
 import {
-  campaignRecipientsPage, campaignReviewPage, campaignsHomePage, newCampaignPage, scheduledPage, unsubscribePage,
+  campaignRecipientsPage, campaignReviewPage, campaignsHomePage, newCampaignPage, scheduledPage, squareHandoffPage, unsubscribePage,
 } from "../pages/campaigns.js";
 import { costHistory } from "./cost.js";
 import { contentProducts, defaultButtonLabel, defaultButtonUrl, productCardHtml } from "./email-template.js";
@@ -19,6 +19,7 @@ import {
 import { settings } from "../../config.js";
 import { recentSignups, signupCounts } from "../../notify.js";
 import { BLACK_FRIDAY } from "../../campaign.js";
+import { cancelHandoff, copyParts, markSentInSquare, startHandoff, syncBatch } from "./square-handoff.js";
 import * as store from "./store.js";
 import { transcribeAudio } from "./transcribe.js";
 import { voiceHints } from "./voice.js";
@@ -454,6 +455,7 @@ async function handleSend(env, campaignId) {
   if (!campaign) return notFound();
   const back = `/admin/campaigns/${campaignId}`;
   if (campaign.status !== "review") return redirect(back);
+  if (campaign.square) return redirect(`${back}/square`);
   if (!sendingConfigured(env)) return redirect(withMessage(back, { error: "Email sending isn't set up yet. See the Campaigns page for what's missing." }));
   try {
     const { queued, personal } = await queueCampaign(env, campaignId);
@@ -476,6 +478,63 @@ async function handleSend(env, campaignId) {
   } catch (error) {
     console.error("Queueing a campaign failed:", error.message);
     return redirect(withMessage(back, { error: error.message }));
+  }
+}
+
+async function squarePage(env, url, campaignId) {
+  const campaign = await store.getCampaign(env, campaignId);
+  if (!campaign) return notFound();
+  if (campaign.status !== "review" && !campaign.square) return redirect(`/admin/campaigns/${campaignId}`);
+  const versions = await store.listVersions(env, campaignId);
+  const approvedPersonal = versions.filter((version) => !version.isShared && version.status === "approved").length;
+  return adminHtmlResponse(adminPage({
+    title: "Send through Square",
+    active: "campaigns",
+    back: { href: `/admin/campaigns/${campaignId}`, label: "Review" },
+    body: squareHandoffPage({
+      campaign, approvedPersonal, parts: copyParts(campaign, settings(env).siteUrl),
+      pickedCount: campaign.audience.emails ? campaign.audience.emails.length : null,
+      notice: url.searchParams.get("notice"), error: url.searchParams.get("error"),
+    }),
+  }));
+}
+
+/** The Square page's buttons: start (pick Square or split), sync (add the next people to the group), sent, cancel. */
+async function handleSquare(request, env, campaignId) {
+  const form = await request.formData().catch(() => new FormData());
+  // "step", not "action": a field named action would hide the form's action address from scripts.
+  const action = String(form.get("step") || "");
+  const wantsJson = (request.headers.get("accept") || "").includes("application/json");
+  const page = `/admin/campaigns/${campaignId}/square`;
+  try {
+    if (action === "start") {
+      if (form.get("mode") === "split" && !sendingConfigured(env)) throw new Error("A split needs Resend set up for the other half. See the Campaigns page for what's missing.");
+      const square = await startHandoff(env, campaignId, String(form.get("mode") || ""));
+      return redirect(withMessage(page, { notice: square.mode === "split"
+        ? `${square.customerIds.length} go to Square, ${square.resendEmails.length} to Resend.`
+        : `${square.customerIds.length} people will get it from Square.` }));
+    }
+    if (action === "sync") {
+      const result = await syncBatch(env, campaignId);
+      if (wantsJson) return jsonResponse({ added: result.added, total: result.customerIds.length, done: result.done });
+      return redirect(withMessage(page, result.done ? { notice: `All ${result.customerIds.length} are in the Square group.` } : {}));
+    }
+    if (action === "sent") {
+      const { queued, personal } = await markSentInSquare(env, campaignId);
+      if (queued) await sendQueued(env).catch((error) => console.error("First send failed:", error.message));
+      return redirect(withMessage(`/admin/campaigns/${campaignId}`, { notice: queued
+        ? `Marked as sent in Square. The Resend half (${queued}, ${personal} personal) is going out now. See Scheduled for progress.`
+        : "Marked as sent in Square. Opens and clicks are in Square's campaign report." }));
+    }
+    if (action === "cancel") {
+      await cancelHandoff(env, campaignId);
+      return redirect(form.get("then") === "choose" ? page : withMessage(`/admin/campaigns/${campaignId}`, { notice: "Back to sending through Resend." }));
+    }
+    return redirect(page);
+  } catch (error) {
+    console.error("Square hand-off failed:", error.message);
+    if (wantsJson) return jsonResponse({ message: error.message }, 400);
+    return redirect(withMessage(page, { error: error.message }));
   }
 }
 
@@ -553,6 +612,8 @@ export async function handleCampaignRoute(request, env, url, segments, method) {
   if (first && second === "recipients" && method === "POST") return handleSaveRecipients(request, env, first);
   if (first && second === "versions" && third && method === "POST") return handleVersionAction(request, env, first, third);
   if (first && second === "send" && method === "POST") return handleSend(env, first);
+  if (first && second === "square" && method === "GET") return squarePage(env, url, first);
+  if (first && second === "square" && method === "POST") return handleSquare(request, env, first);
   if (first && second === "test" && method === "POST") return handleTest(request, env, first);
   if (first && second === "delete" && method === "POST") {
     await store.deleteDraftCampaign(env, first);

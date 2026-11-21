@@ -163,8 +163,11 @@ export function planSends({ recipients, versions, clients, unsubscribed, picked 
   return sends;
 }
 
-/** Puts the approved campaign in the send queue. Returns { queued, personal }. */
-export async function queueCampaign(env, campaignId) {
+/**
+ * Puts the approved campaign in the send queue. Returns { queued, personal }.
+ * `only` limits it to some of the people picked (the Resend half of a Square split).
+ */
+export async function queueCampaign(env, campaignId, { only = null } = {}) {
   const [campaign, versions] = await Promise.all([store.getCampaign(env, campaignId), store.listVersions(env, campaignId)]);
   const shared = versions.find((version) => version.isShared);
   if (!shared || shared.status !== "approved") throw new Error("Approve the email everyone else gets before sending.");
@@ -173,7 +176,8 @@ export async function queueCampaign(env, campaignId) {
     env.CLIENT_NOTES_DB.prepare("SELECT id, name, square_customer_id FROM clients").all(),
     store.unsubscribedEmails(env),
   ]);
-  const sends = planSends({ recipients, versions, clients, unsubscribed, picked: campaign?.audience.emails });
+  const picked = only ? only.filter((email) => !campaign?.audience.emails || campaign.audience.emails.includes(email)) : campaign?.audience.emails;
+  const sends = planSends({ recipients, versions, clients, unsubscribed, picked });
   if (!sends.length) {
     throw new Error(campaign?.audience.emails ? "None of the people picked can get this email (no email in Square, or unsubscribed)." : "No one in Square has an email address to send to.");
   }
