@@ -516,6 +516,48 @@ export const ADMIN_CLIENT_JS = String.raw`
       .then(function (response) { return response.json().catch(function () { return {}; }).then(function (data) { return { ok: response.ok, data: data }; }); });
   }
 
+  // Send through Square: copy buttons, and adding people to the Square group a batch at a time.
+  function wireSquareHandoff() {
+    document.querySelectorAll("[data-copy]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var text = button.getAttribute("data-copy");
+        var done = function () {
+          var label = button.textContent;
+          button.textContent = "Copied";
+          setTimeout(function () { button.textContent = label; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { window.prompt("Copy this:", text); });
+        else window.prompt("Copy this:", text);
+      });
+    });
+    var form = document.querySelector("form[data-square-sync]");
+    if (!form) return;
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var button = form.querySelector("[data-sync-button]");
+      var bar = form.querySelector("[data-sync-progress]");
+      var status = form.querySelector("[data-sync-status]");
+      button.disabled = true;
+      button.textContent = "Adding people to Square…";
+      bar.hidden = false;
+      var step = function () {
+        postForm(form).then(function (result) {
+          if (!result.ok) throw new Error(result.data.message || "Square didn't answer. Try again.");
+          var total = result.data.total || 1;
+          bar.firstElementChild.style.width = Math.round((result.data.added / total) * 100) + "%";
+          status.textContent = result.data.added + " of " + total + " added.";
+          if (result.data.done) { window.location.reload(); return; }
+          step();
+        }).catch(function (error) {
+          status.textContent = error.message;
+          button.disabled = false;
+          button.textContent = "Keep adding";
+        });
+      };
+      step();
+    });
+  }
+
   function wireCampaignLists() {
     document.querySelectorAll("tr[data-href]").forEach(function (row) {
       row.addEventListener("click", function (event) {
@@ -1490,6 +1532,7 @@ export const ADMIN_CLIENT_JS = String.raw`
     wireClientProfilePage();
     wireUploadPage();
     wireCampaignLists();
+    wireSquareHandoff();
     wireDraftForm();
     wirePickForm();
     wireBulkVersions();

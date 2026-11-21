@@ -502,6 +502,21 @@ campaign was already started that day.
    `email.complained`, `email.opened` and `email.clicked` events, then
    `npx wrangler secret put RESEND_WEBHOOK_SECRET` with its signing secret.
    Opens are only reported if open tracking is on for the domain in Resend.
+7. Run migration `0014_campaign_square.sql` before deploying "Send through
+   Square":
+   `npx wrangler d1 execute skin-by-laura-lo-client-notes --remote --file=migrations/0014_campaign_square.sql`
+   The Square access token needs the Customers write permission, to make
+   customer groups.
+
+**Sending through Square instead.** Square has no API that sends marketing
+email, so on the review screen "send it through Square instead" hands the
+sending to Laura: the admin puts the people picked into a new Square customer
+group (40 at a time), lays out the shared email in pieces to copy into Square
+Marketing's editor, and she sends it there to that group. "Split" puts a
+random half in the Square group and sends the other half through Resend when
+she marks the Square half as sent, so the two can be compared. Square gets the
+shared email only: no first names, personal notes or per-person products.
+Opens and clicks for the Square half are in Square's campaign report.
 
 ## Not built (deliberately)
 

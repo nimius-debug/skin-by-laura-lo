@@ -334,6 +334,32 @@ const CAMPAIGN_STYLES = `
 .camp-send-text { flex: 1 1 320px; font-size: 13.5px; line-height: 1.5; color: #4A4038; }
 .camp-send-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .camp-inline-form { margin: 0; }
+.camp-send-alt { flex: 1 1 100%; font-size: 13px; color: #6E6358; text-align: right; }
+.camp-square-choose { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
+.camp-square-option { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; background: #fff; }
+.camp-square-option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.camp-square-option input { margin-top: 3px; accent-color: #B8714F; width: 18px; height: 18px; flex: none; }
+.camp-square-option > span { display: flex; flex-direction: column; gap: 3px; }
+.camp-square-warn { background: #FFF7E8; border: 1px solid #F0D9A8; border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.5; }
+.camp-square-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.camp-square-steps { display: flex; flex-direction: column; max-width: 860px; padding-top: 6px; padding-bottom: 6px; }
+.camp-square-step { display: flex; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.camp-square-step:last-child { border-bottom: 0; }
+.camp-step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none; }
+.camp-step-num.done { background: var(--good); }
+.camp-square-step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.camp-copy-list { display: flex; flex-direction: column; gap: 8px; }
+.camp-copy { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; border: 1px dashed var(--line); border-radius: 12px; padding: 10px 12px; background: #FFFCF8; }
+.camp-copy-text { flex: 1 1 180px; min-width: 0; }
+.camp-copy-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.camp-copy-value { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+pre.camp-copy-value { margin: 0; font-family: inherit; white-space: pre-wrap; max-height: 260px; overflow: auto; }
+.camp-copy-img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; flex: none; }
+.camp-copy .btn { flex: none; }
+.camp-sync-progress { height: 8px; border-radius: 8px; background: #EFE5D8; overflow: hidden; margin: 4px 0; max-width: 360px; }
+.camp-sync-progress[hidden] { display: none; }
+.camp-sync-progress span { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.camp-square-cancel { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 14px; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
 @media (max-width: 760px) {
   .has-tabs .admin-main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
@@ -363,6 +389,10 @@ const CAMPAIGN_STYLES = `
   .camp-send-buttons .btn { width: 100%; justify-content: center; }
   .camp-table-wrap { margin: 0 -20px; }
   .camp-big-btn { width: 100%; }
+  .camp-send-alt { text-align: center; }
+  .camp-square-step { gap: 10px; }
+  .camp-square-actions .btn, .camp-square-actions form { flex: 1 1 100%; justify-content: center; }
+  .camp-square-actions form .btn { width: 100%; }
 }
 `;
 

@@ -11,6 +11,7 @@ import { draftCampaign, namedInTopic, productCard, redraftPersonal, sharedProduc
 import { addSubscription, listSubscriptions, notifyPhones } from "../src/admin/campaigns/push.js";
 import { costHistory, costOf, estimateCampaign, estimateInputs, formatCost } from "../src/admin/campaigns/cost.js";
 import { voiceHints } from "../src/admin/campaigns/voice.js";
+import { copyParts, planHandoff, splitHalves, SYNC_BATCH } from "../src/admin/campaigns/square-handoff.js";
 
 let failures = 0;
 function check(label, actual, expected) {
@@ -586,7 +587,7 @@ async function freshEnv(extra = {}) {
   check("bulk reject works the same way", (await store.getVersion(env, maya.id)).status, "rejected");
 
   const ready = await (await route(`/admin/campaigns/${campaignId}`)).text();
-  check("once approved, Send says how many people were picked", [ready.includes("Goes to 2 people you picked"), ready.includes(">Send</button>")], [true, true]);
+  check("once approved, Square is the main button and Resend the other choice", [ready.includes("Goes to 2 people you picked through Square"), ready.includes(">Send through Square →</button>"), ready.includes(">Send through Resend</button>")], [true, true, true]);
 
   const save = new FormData();
   save.set("recipients", JSON.stringify([{ email: "bo@example.com", customerId: "sq2" }]));
@@ -640,6 +641,101 @@ async function freshEnv(extra = {}) {
   check("without the webhook secret it explains how to turn delivery tracking on", scheduledHtml.includes("RESEND_WEBHOOK_SECRET"), true);
   const trackedHtml = await (await handleCampaignRoute(new Request("https://x.test/admin/campaigns/scheduled"), hookEnv, new URL("https://x.test/admin/campaigns/scheduled"), ["admin", "campaigns", "scheduled"], "GET")).text();
   check("with tracking on it shows delivered and opened", [trackedHtml.includes("Delivery tracking is off"), trackedHtml.includes(">Opened<")], [false, true]);
+}
+
+// --- sending through Square by hand -----------------------------------------------
+{
+  const people = Array.from({ length: 101 }, (_, index) => ({ email: `p${index}@example.com`, squareCustomerId: `sq${index}` }));
+  const halves = splitHalves(people, "campaign_a");
+  check("a split makes two even halves with everyone in exactly one", [halves.square.length, halves.resend.length, new Set([...halves.square, ...halves.resend].map((p) => p.email)).size], [51, 50, 101]);
+  check("the same campaign always splits the same way", splitHalves([...people].reverse(), "campaign_a").square.map((p) => p.email), halves.square.map((p) => p.email));
+  check("another campaign mixes people differently", splitHalves(people, "campaign_b").square.map((p) => p.email).join() === halves.square.map((p) => p.email).join(), false);
+  const plan = planHandoff({
+    recipients: [...people.slice(0, 4), { email: "nosq@example.com", squareCustomerId: null }],
+    unsubscribed: new Set(["p1@example.com"]), picked: ["p0@example.com", "p1@example.com", "p2@example.com", "nosq@example.com"], mode: "square", salt: "x",
+  });
+  check("Square gets only people picked, in Square, and not unsubscribed", plan.square.map((p) => p.email), ["p0@example.com", "p2@example.com"]);
+
+  const parts = copyParts({ goal: "book", content: { ...content, paragraphs: ["This is **SO** good. [Book](https://skinbylauralo.com/booking)."], ps: "Two spots left" } }, SITE);
+  check("the copy for Square greets without a name and drops formatting marks",
+    [parts.body.startsWith("Hi there,"), parts.body.includes("This is SO good. Book (https://skinbylauralo.com/booking)."), parts.body.includes("P.S. Two spots left"), parts.body.includes("1. Wear SPF every day.")], [true, true, true, true]);
+  check("the copy has the subject, the button and the products", [parts.subject, parts.button, parts.products.map((p) => p.name)],
+    ["Fading dark spots", { label: "Book a facial", url: `${SITE}/booking` }, ["Mixi Mandelic Acid 5%"]]);
+
+  // The whole flow through the routes, with Square and Resend stubbed.
+  const customers = Array.from({ length: 50 }, (_, index) => ({ id: `SQ${index}`, given_name: `P${index}`, email_address: `p${index}@example.com` }));
+  const squareCalls = [];
+  const said = (response) => { const loc = new URL(response.headers.get("location"), "https://x.test"); return `${loc.searchParams.get("notice") || ""}${loc.searchParams.get("error") || ""}`; };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    if (url.includes("api.resend.com")) return Response.json({ data: JSON.parse(init.body).map((_, i) => ({ id: `r${i}` })) });
+    squareCalls.push(`${init.method || "GET"} ${new URL(url).pathname}`);
+    if (url.includes("/v2/customers/groups") && init.method === "POST") return Response.json({ group: { id: "G1", name: JSON.parse(init.body).group.name } });
+    if (init.method === "PUT") return url.includes("SQ7/") ? Response.json({ errors: [{ code: "NOT_FOUND", detail: "Customer not found" }] }, { status: 404 }) : Response.json({});
+    if (url.includes("/v2/customers")) return Response.json({ customers });
+    return Response.json({});
+  };
+  try {
+    for (const mode of ["square", "split"]) {
+      const env = await freshEnv({ SQUARE_ACCESS_TOKEN: "t", SQUARE_LOCATION_ID: "L1" });
+      await env.CLIENT_NOTES_DB.prepare("INSERT INTO email_unsubscribes (email) VALUES ('p3@example.com')").run();
+      const campaignId = await store.createCampaign(env, { topic: "pigmentation", goal: "book", content, usage: {}, versions: [] });
+      const [shared] = await store.listVersions(env, campaignId);
+      const route = (path, form, accept = "text/html") => {
+        const url = new URL(`https://x.test${path}`);
+        const init = form ? { method: "POST", body: new URLSearchParams(form), headers: { accept } } : undefined;
+        return handleCampaignRoute(new Request(url, init), env, url, url.pathname.split("/").filter(Boolean), init?.method || "GET");
+      };
+      const early = await route(`/admin/campaigns/${campaignId}/square`, { step: "start", mode });
+      check(`${mode}: starting before the shared email is approved explains why`, said(early).includes("Approve the email everyone else gets first"), true);
+      await store.updateVersion(env, shared.id, { status: "approved" });
+      const review = await (await route(`/admin/campaigns/${campaignId}`)).text();
+      if (mode === "square") check("the review screen offers Square next to Send", review.includes(`/admin/campaigns/${campaignId}/square`), true);
+
+      await route(`/admin/campaigns/${campaignId}/square`, { step: "start", mode });
+      let campaign = await store.getCampaign(env, campaignId);
+      check(`${mode}: unsubscribed people are left out and the rest are planned`, [campaign.square.customerIds.length + campaign.square.resendEmails.length, campaign.square.customerIds.length > 0], [49, true]);
+      if (mode === "split") check("split: about half go each way", Math.abs(campaign.square.customerIds.length - campaign.square.resendEmails.length) <= 1, true);
+      const sendAttempt = await route(`/admin/campaigns/${campaignId}/send`, {});
+      check(`${mode}: the Resend send button can't skip the Square hand-off`, sendAttempt.headers.get("location"), `/admin/campaigns/${campaignId}/square`);
+      const tooSoon = await route(`/admin/campaigns/${campaignId}/square`, { step: "sent" });
+      check(`${mode}: it can't be marked sent before the group is ready`, said(tooSoon).includes("Finish putting people"), true);
+
+      squareCalls.length = 0;
+      let result;
+      let rounds = 0;
+      do {
+        result = await (await route(`/admin/campaigns/${campaignId}/square`, { step: "sync" }, "application/json")).json();
+        rounds += 1;
+      } while (!result.done && rounds < 10);
+      campaign = await store.getCampaign(env, campaignId);
+      const planned = campaign.square.customerIds.length;
+      check(`${mode}: the group is made once and everyone is added, a batch at a time`,
+        [squareCalls.filter((c) => c === "POST /v2/customers/groups").length, squareCalls.filter((c) => c.startsWith("PUT")).length, rounds, result.added], [1, planned, Math.ceil((planned + 1) / SYNC_BATCH), planned]);
+      check(`${mode}: a customer missing in Square is skipped and counted`, campaign.square.failed, campaign.square.customerIds.includes("SQ7") ? 1 : 0);
+      const page = await (await route(`/admin/campaigns/${campaignId}/square`)).text();
+      check(`${mode}: the page names the group and lays out the email to copy`,
+        [page.includes(campaign.square.groupName.replace(/·/g, "·")), page.includes('data-copy="Fading dark spots"'), page.includes("I sent it in Square")], [true, true, true]);
+
+      const done = await route(`/admin/campaigns/${campaignId}/square`, { step: "sent" });
+      campaign = await store.getCampaign(env, campaignId);
+      const counts = await store.sendCounts(env, campaignId);
+      if (mode === "square") {
+        check("square: marking it sent finishes the campaign and sends nothing through Resend", [campaign.status, counts.sent + counts.queued, Boolean(campaign.square.sentAt)], ["sent", 0, true]);
+      } else {
+        check("split: marking it sent sends the Resend half, and only them",
+          [counts.sent + counts.queued, campaign.square.resendEmails.length, said(done).includes("Resend half")], [campaign.square.resendEmails.length, 49 - campaign.square.customerIds.length, true]);
+        const sentTo = (await env.CLIENT_NOTES_DB.prepare("SELECT email FROM email_sends WHERE campaign_id = ?").bind(campaignId).all()).results.map((row) => row.email).sort();
+        check("split: nobody in the Square half also gets it from Resend", sentTo.join(), [...campaign.square.resendEmails].sort().join());
+      }
+      const [listed] = await store.listCampaigns(env);
+      const home = await (await route("/admin/campaigns")).text();
+      check(`${mode}: the campaigns list shows how many went through Square`, [listed.square.customerIds.length, home.includes(`+${campaign.square.customerIds.length} in Square`)], [campaign.square.customerIds.length, true]);
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 }
 
 console.log(failures === 0 ? "\nAll admin-campaigns tests passed." : `\n${failures} FAILURE(S)`);
