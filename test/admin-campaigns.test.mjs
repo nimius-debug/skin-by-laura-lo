@@ -587,7 +587,7 @@ async function freshEnv(extra = {}) {
   check("bulk reject works the same way", (await store.getVersion(env, maya.id)).status, "rejected");
 
   const ready = await (await route(`/admin/campaigns/${campaignId}`)).text();
-  check("once approved, Send says how many people were picked", [ready.includes("Goes to 2 people you picked"), ready.includes(">Send</button>")], [true, true]);
+  check("once approved, Square is the main button and Resend the other choice", [ready.includes("Goes to 2 people you picked through Square"), ready.includes(">Send through Square →</button>"), ready.includes(">Send through Resend</button>")], [true, true, true]);
 
   const save = new FormData();
   save.set("recipients", JSON.stringify([{ email: "bo@example.com", customerId: "sq2" }]));

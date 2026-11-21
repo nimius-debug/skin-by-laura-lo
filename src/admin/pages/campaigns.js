@@ -438,20 +438,26 @@ function sendBar({ campaign, versions, selected, counts, estimate, picked, sched
   const people = picked ? `${peopleCount(estimate)} you picked` : estimate ? `about ${estimate} clients` : "everyone with an email in Square";
   const when = scheduleSentence(schedule, new Date().toISOString().slice(0, 10));
   const spent = spentLine(campaign);
-  const costText = `${spent ? `${spent} ` : ""}Sending adds no AI cost, and Resend's free plan covers it.`;
+  // Square is the default way out; Resend (with personal notes and first names) and a split are the alternatives.
+  const resendNote = approvedPersonal ? ` The ${plural(approvedPersonal, "personal version")} and first names only go out through Resend.` : "";
   return html`<div class="camp-send-bar">
     <div class="camp-send-text">
       ${ready
-        ? html`<strong>Goes to ${people}${approvedPersonal ? html` · ${approvedPersonal} personal` : ""}.</strong> ${schedule.length > 1 || (schedule[0] && schedule[0].date !== new Date().toISOString().slice(0, 10)) ? html`<span class="camp-send-when">${when}</span>` : ""}<span class="camp-send-more"> ${costText}${unreviewed ? html` ${plural(unreviewed, "personal version")} not approved yet: those clients get the email everyone else gets.` : ""}</span>`
-        : html`<strong>Approve the email everyone else gets before sending.</strong><span class="camp-send-more"> ${costText}</span>`}
+        ? html`<strong>Goes to ${people} through Square.</strong><span class="camp-send-more"> One email for everyone, sent from Square Marketing.${resendNote}${unreviewed ? html` ${plural(unreviewed, "personal version")} not approved yet.` : ""}</span>`
+        : html`<strong>Approve the email everyone else gets before sending.</strong><span class="camp-send-more"> ${spent}</span>`}
     </div>
     <div class="camp-send-buttons">
       ${testForm}
-      <form method="post" action="/admin/campaigns/${campaign.id}/send" class="camp-inline-form" data-confirm="${ready ? [`Send this email to ${people}?`, when, spent, "This can't be undone."].filter(Boolean).join(" ") : ""}">
-        <button type="submit" class="btn btn-primary camp-big-btn"${ready ? "" : html` disabled`}>${picked ? "Send" : "Send to everyone"}</button>
+      <form method="post" action="/admin/campaigns/${campaign.id}/send" class="camp-inline-form" data-confirm="${ready ? [`Send this email through Resend to ${people}?`, when, spent, "This can't be undone."].filter(Boolean).join(" ") : ""}">
+        <button type="submit" class="btn btn-secondary"${ready ? "" : html` disabled`}>Send through Resend</button>
+      </form>
+      <form method="post" action="/admin/campaigns/${campaign.id}/square" class="camp-inline-form">
+        <input type="hidden" name="step" value="start" />
+        <input type="hidden" name="mode" value="square" />
+        <button type="submit" class="btn btn-primary camp-big-btn"${ready ? "" : html` disabled`}>Send through Square →</button>
       </form>
     </div>
-    ${ready ? html`<div class="camp-send-alt">Or <a href="/admin/campaigns/${campaign.id}/square">send it through Square instead, or split it with Square</a>.</div>` : ""}
+    ${ready ? html`<div class="camp-send-alt">Resend is free and greets each client by name. Or <a href="/admin/campaigns/${campaign.id}/square">split it, half Square and half Resend</a>.</div>` : ""}
   </div>`;
 }
 
