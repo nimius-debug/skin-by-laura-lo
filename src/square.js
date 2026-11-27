@@ -392,6 +392,9 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
         currency: vd.price_money?.currency || "USD",
         tracked,
         inStock,
+        // Square lets each shade/size carry its own photos. The product page
+        // swaps the main image to the first of these when the option is picked.
+        imageIds: Array.isArray(vd.image_ids) ? vd.image_ids : [],
       });
     }
 
@@ -410,6 +413,11 @@ function normalize({ items, images, categories }, stock, cfg, { sales = [], prod
     const productImages = imageIds
       .map((id) => images.get(id))
       .filter(Boolean);
+
+    for (const variation of variations) {
+      variation.images = variation.imageIds.map((id) => images.get(id)).filter(Boolean);
+      delete variation.imageIds;
+    }
 
     let slug = slugify(data.name);
     if (seenSlugs.has(slug)) slug = `${slug}-${slugify(item.id).slice(0, 6)}`;

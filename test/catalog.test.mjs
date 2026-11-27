@@ -16,7 +16,7 @@ const CATALOG_PAGE_1 = {
         ecom_visibility: "VISIBLE",
         image_ids: ["IMG_2"], categories: [{ id: "CAT_SERUM" }],
         variations: [
-          { id: "VAR_B1", item_variation_data: { name: "30ml", pricing_type: "FIXED_PRICING",
+          { id: "VAR_B1", item_variation_data: { name: "30ml", pricing_type: "FIXED_PRICING", image_ids: ["IMG_2"],
             price_money: { amount: 5400, currency: "USD" }, track_inventory: true } },
           { id: "VAR_B2", item_variation_data: { name: "50ml", pricing_type: "FIXED_PRICING",
             price_money: { amount: 8900, currency: "USD" }, track_inventory: false } },
@@ -137,6 +137,8 @@ check("html stripped from description", mela.description, "Brightening serum .")
 check("Square description_html retained for safe formatting", mela.descriptionHtml, "<p>Brightening <b>serum</b>.</p>");
 check("both variations kept", mela.variations.map(v => v.id), ["VAR_B1", "VAR_B2"]);
 check("untracked variation is in stock", mela.variations[1].inStock, true);
+check("variation photos resolve to URLs", mela.variations[0].images, ["https://img/2.jpg"]);
+check("variation without photos gets an empty list", mela.variations[1].images, []);
 
 const clean = products.find(p => p.id === "ITEM_A");
 check("category via reporting_category", clean.category, "Cleanser");

@@ -583,10 +583,15 @@ html.result-viewer-open { overflow: hidden; }
 .cart-toast { position: fixed; z-index: 80; right: 24px; top: 142px; max-width: 390px; padding: 17px 20px; display: flex; gap: 24px; align-items: center; background: var(--inverse-bg); color: var(--inverse-fg); box-shadow: 0 16px 38px rgba(0,0,0,.18); font-size: 12px; }
 .cart-toast a { border-bottom: 1px solid currentColor; white-space: nowrap; }
 
-.product-page { padding-top: 75px; padding-bottom: 130px; display: grid; grid-template-columns: 1.08fr .92fr; gap: 9%; align-items: start; }
+.product-page { padding-top: 75px; padding-bottom: 130px; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); gap: 9%; align-items: start; }
 /* Matches the light shop tile — the detail page had the same moss frame,
    inner panel and photo background stacked three deep. */
 .product-gallery { position: sticky; top: 150px; display: flex; flex-direction: column; gap: 12px; }
+/* A plain fr track grows to fit its widest child, so a long thumbnail strip
+   (ten shade photos) stretched the whole page past the phone screen. Both
+   columns may shrink; the strip scrolls instead. */
+.product-gallery, .product-details { min-width: 0; }
+.product-details h1 { overflow-wrap: break-word; }
 .product-gallery-panel { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden;
   background: var(--white); border: 1px solid var(--line); }
 /* contain here, cover in the grid: a square catalogue photo fills either way,
@@ -903,15 +908,19 @@ html.result-viewer-open { overflow: hidden; }
   .menu-button { grid-column: 2; display: flex; width: 38px; height: 38px; flex-direction: column; gap: 7px; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; }
   .menu-button span { width: 22px; height: 1px; background: var(--ink); }
   .site-header nav {
-    position: fixed; inset: 122px 0 auto; z-index: 41;
-    grid-column: 1 / -1; width: 100%; max-height: calc(100dvh - 122px);
+    /* Hangs off the bottom of the sticky header, so it moves with the header
+       when the page scrolls behind an open menu. As position: fixed it was
+       pinned to wherever the header was when tapped: scroll up and the header
+       slid over the first link; scroll down and a gap opened above the menu.
+       cart.js keeps max-height in step with the header's position. */
+    position: absolute; inset: 100% 0 auto; z-index: 41;
+    grid-column: auto; width: 100%; max-height: calc(100dvh - 74px); overscroll-behavior: contain;
     padding: 20px 24px 34px; display: none; overflow-y: auto;
     flex-direction: column; align-items: stretch; gap: 0;
     background: var(--paper); border-block: 1px solid var(--line);
     box-shadow: 0 24px 50px rgba(27,33,24,.14);
   }
   .site-header nav.nav-open { display: flex; }
-  .promo ~ .site-header nav { inset-block-start: 160px; max-height: calc(100dvh - 160px); }
   .site-header nav a { width: 100%; padding: 15px 0; border-bottom: 1px solid var(--line); }
   .site-header nav .cart-link { justify-content: space-between; }
   .hero { min-height: auto; grid-template-columns: 1fr; padding-top: 85px; }
@@ -925,6 +934,7 @@ html.result-viewer-open { overflow: hidden; }
   .product-grid { grid-template-columns: repeat(2, 1fr); row-gap: 50px; }
   .footer-links { padding-top: 0; }
   .shop-hero > div, .product-help, .product-page, .cart-layout { grid-template-columns: 1fr; }
+  .product-page { grid-template-columns: minmax(0, 1fr); }
   .product-gallery, .cart-summary { position: relative; top: auto; }
   .product-gallery-panel { aspect-ratio: 1; }
   .cart-summary { margin-top: 20px; }
@@ -937,7 +947,6 @@ html.result-viewer-open { overflow: hidden; }
   .announcement-detail { display: none; }
   .site-header { height: 74px; }
   .brand { width: 128px; }
-  .site-header nav { inset-block-start: 108px; }
   .promo { height: 34px; }
   .promo-link { font-size: 10px; letter-spacing: .12em; }
   .promo-run em { font-size: 13px; }
@@ -945,7 +954,6 @@ html.result-viewer-open { overflow: hidden; }
   .promo-track { animation-duration: 60s; }
   .promo-pause { width: 34px; }
   .promo-static-until { display: none; }
-  .promo ~ .site-header nav { inset-block-start: 142px; max-height: calc(100dvh - 142px); }
   .hero { padding-top: 58px; padding-bottom: 60px; }
   h1 { font-size: 58px; }
   .hero-lede { font-size: 16px; }
@@ -1182,7 +1190,6 @@ html.result-viewer-open { overflow: hidden; }
 .bf-bar a { display: block; padding: 11px 16px; color: var(--brass); }
 .bf-bar strong { font-weight: 700; color: var(--on-band); }
 @media (max-width: 560px) { .bf-bar-more { display: none; } }
-.bf-bar ~ .site-header nav { inset-block-start: 126px; max-height: calc(100dvh - 126px); }
 
 .bf-home { padding-bottom: 30px; }
 .bf-hero { padding: 34px 0 10px; text-align: center; background: radial-gradient(80% 60% at 50% 0%, rgba(216,195,155,.13), transparent 72%); }

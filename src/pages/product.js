@@ -180,6 +180,7 @@ export function productPage({ product, related, cfg }) {
       price: priceMarkup(variation.priceCents, variation.regularPriceCents),
       sale: saleNote(variation.sale),
       inStock: variation.inStock,
+      image: (variation.images && variation.images[0]) || null,
     }]),
   );
 
@@ -195,8 +196,9 @@ export function productPage({ product, related, cfg }) {
         <div>
           ${product.variations.map((variation, index) => html`
             <button type="button"
-                    class="${index === 0 ? "active" : ""}"
+                    class="${variation.id === product.defaultVariation.id ? "active" : ""}"
                     data-variation="${variation.id}"
+                    aria-pressed="${variation.id === product.defaultVariation.id ? "true" : "false"}"
                     ${variation.inStock ? "" : html`disabled`}>
               ${variation.name || formatMoney(variation.priceCents)}
             </button>

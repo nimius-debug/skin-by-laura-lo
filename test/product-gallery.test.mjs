@@ -50,4 +50,20 @@ const legacyMarkup = toString(productPage({ product: legacy, related: [], cfg })
 assert.match(legacyMarkup, /data-product-gallery/, "a product with only `image` set still renders the gallery wrapper");
 assert.doesNotMatch(legacyMarkup, /product-gallery-thumbs/, "a product with only `image` set has no thumbnail row");
 
+// Shades with their own photos: picking one points the gallery at it.
+const shades = {
+  ...multi,
+  variations: [
+    { id: "VAR_BRONZE", name: "Bronze", priceCents: 3570, regularPriceCents: 4200, inStock: true, images: ["https://example.com/1.jpg"] },
+    { id: "VAR_BERRY", name: "Berry", priceCents: 3570, regularPriceCents: 4200, inStock: true, images: ["https://example.com/3.jpg"] },
+    { id: "VAR_PLAIN", name: "Plain", priceCents: 3570, regularPriceCents: 4200, inStock: true },
+  ],
+};
+shades.defaultVariation = shades.variations[0];
+const shadesMarkup = toString(productPage({ product: shades, related: [], cfg }));
+const shadeData = JSON.parse(shadesMarkup.match(/__PRODUCT_VARIATIONS__ = (\{.*?\});<\/script>/)[1]);
+assert.equal(shadeData.VAR_BERRY.image, "https://example.com/3.jpg", "a shade carries its own first photo to the page");
+assert.equal(shadeData.VAR_PLAIN.image, null, "a shade without photos leaves the gallery alone");
+assert.match(shadesMarkup, /class="active"\s+data-variation="VAR_BRONZE"/, "the default shade starts selected");
+
 console.log("PASS  product photo gallery renders thumbnails, zoom, and lightbox navigation correctly");
