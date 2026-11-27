@@ -9,7 +9,7 @@ import { THEMES } from "./themes.js";
 
 // Change this whenever the shared CSS or client bundle changes. The Worker may
 // be current while a browser still has an older asset URL in its HTTP cache.
-const ASSET_VERSION = "20261120-black-edition-compare";
+const ASSET_VERSION = "20261127-round-sale-badge";
 
 function announcement(cfg) {
   if (!cfg.shippingEnabled) {
