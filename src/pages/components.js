@@ -1,6 +1,18 @@
 import { html, raw } from "../html.js";
 import { formatMoney, priceMarkup } from "../config.js";
 
+/**
+ * The round sale sticker in the corner of a product photo: "15%" large with
+ * "off" underneath. Labels come from saleLabel() in square.js ("15% off",
+ * "$5 off"); anything else is shown whole.
+ */
+function saleBadge(label) {
+  const match = /^(.+?)\s+off$/i.exec(label);
+  return html`<span class="product-badge product-badge-sale" aria-label="${label}">${match
+    ? html`<b>${match[1]}</b><small>off</small>`
+    : label}</span>`;
+}
+
 /** Shared product tile used on the homepage, shop grid and related rails. */
 export function productCard(product, { showShort = false, showAdd = false } = {}) {
   const variation = product.defaultVariation;
@@ -12,7 +24,7 @@ export function productCard(product, { showShort = false, showAdd = false } = {}
         <div class="product-image-wrap">
           ${soldOut
             ? html`<span class="product-badge product-badge-soldout">Sold out</span>`
-            : product.sale ? html`<span class="product-badge product-badge-sale">${product.sale.label}</span>` : ""}
+            : product.sale ? saleBadge(product.sale.label) : ""}
           ${product.bestSeller ? html`<span class="product-badge product-badge-bestseller">Best seller</span>` : ""}
           ${product.image
             ? html`<img src="${product.image}" alt="${product.name}" loading="lazy" width="420" height="490" />`

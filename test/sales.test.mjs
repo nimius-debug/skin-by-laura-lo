@@ -128,7 +128,7 @@ check("product page names the sale", page.includes("15% off · Halloweek Mask Sa
 
 response = await worker.fetch(new Request("https://test.skinbylauralo.com/shop"), env);
 page = await response.text();
-check("shop card shows sale badge", page.includes('product-badge-sale">15% off<'), true);
+check("shop card shows sale badge", page.includes('product-badge-sale" aria-label="15% off"><b>15%</b><small>off</small>'), true);
 
 // Cart API carries both prices.
 response = await worker.fetch(new Request("https://test.skinbylauralo.com/api/catalog"), env);

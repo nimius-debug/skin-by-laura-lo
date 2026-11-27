@@ -322,11 +322,16 @@ html.result-viewer-open { overflow: hidden; }
 .product-image-fallback { width: 100%; height: 100%; display: grid; place-items: center; padding: 12%; text-align: center; background: var(--panel-product); font-family: var(--font-serif); font-size: 13px; font-style: italic; color: var(--muted); }
 .product-badge { position: absolute; z-index: 2; top: 14px; left: 14px; padding: 7px 9px; background: var(--brass); color: var(--on-brass); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .product-badge-soldout { background: var(--inverse-bg); color: var(--inverse-fg); border: 0; }
-.product-badge-sale { background: var(--clay-deep); color: var(--on-dark); }
+/* Sale: a round sticker that reads at a glance on any photo, in every theme
+   (fixed colours, so the Black Friday theme can't wash it out). */
+.product-badge-sale { top: 10px; left: 10px; width: 48px; height: 48px; padding: 0; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: #14130f; color: #f3eee5; border: 1.5px solid #c6a45c; box-shadow: 0 0 0 2px rgba(20,19,15,.16), 0 4px 10px rgba(20,19,15,.26); transform: rotate(-8deg); letter-spacing: 0; line-height: 1; }
+.product-badge-sale b { font-family: var(--font-serif); font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+.product-badge-sale small { font-size: 7px; letter-spacing: .18em; color: #e3cb92; padding-left: .18em; }
+@media (min-width: 760px) { .product-badge-sale { width: 54px; height: 54px; } .product-badge-sale b { font-size: 17px; } }
 .price-regular { color: var(--muted); font-weight: 400; text-decoration-thickness: 1px; }
 .price-sale { color: var(--clay-deep); }
 .product-price .price-regular { display: block; text-align: right; font-size: .9em; }
-.product-badge-bestseller { left: auto; right: 14px; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--on-brass); }
+.product-badge-bestseller { top: 6px; left: auto; right: 6px; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--on-brass); }
 .product-quick { border: 1px solid var(--line); }
 .product-quick { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 14px; text-align: center; background: rgba(241,234,218,.94); color: var(--ink); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; transform: translateY(70px); transition: transform .3s ease; }
 .product-card:hover .product-quick { transform: translateY(0); }
