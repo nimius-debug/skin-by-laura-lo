@@ -322,7 +322,12 @@ html.result-viewer-open { overflow: hidden; }
 .product-image-fallback { width: 100%; height: 100%; display: grid; place-items: center; padding: 12%; text-align: center; background: var(--panel-product); font-family: var(--font-serif); font-size: 13px; font-style: italic; color: var(--muted); }
 .product-badge { position: absolute; z-index: 2; top: 14px; left: 14px; padding: 7px 9px; background: var(--brass); color: var(--on-brass); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
 .product-badge-soldout { background: var(--inverse-bg); color: var(--inverse-fg); border: 0; }
-.product-badge-sale { background: var(--clay-deep); color: var(--on-dark); }
+/* Sale: a round sticker that reads at a glance on any photo, in every theme
+   (fixed colours, so the Black Friday theme can't wash it out). */
+.product-badge-sale { top: 10px; left: 10px; width: 62px; height: 62px; padding: 0; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: #14130f; color: #f3eee5; border: 2px solid #c6a45c; box-shadow: 0 0 0 3px rgba(20,19,15,.18), 0 6px 14px rgba(20,19,15,.28); transform: rotate(-8deg); letter-spacing: 0; line-height: 1; }
+.product-badge-sale b { font-family: var(--font-serif); font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.product-badge-sale small { font-size: 9px; letter-spacing: .18em; color: #e3cb92; padding-left: .18em; }
+@media (min-width: 760px) { .product-badge-sale { width: 70px; height: 70px; } .product-badge-sale b { font-size: 23px; } }
 .price-regular { color: var(--muted); font-weight: 400; text-decoration-thickness: 1px; }
 .price-sale { color: var(--clay-deep); }
 .product-price .price-regular { display: block; text-align: right; font-size: .9em; }
