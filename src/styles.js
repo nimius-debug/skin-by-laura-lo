@@ -331,7 +331,7 @@ html.result-viewer-open { overflow: hidden; }
 .price-regular { color: var(--muted); font-weight: 400; text-decoration-thickness: 1px; }
 .price-sale { color: var(--clay-deep); }
 .product-price .price-regular { display: block; text-align: right; font-size: .9em; }
-.product-badge-bestseller { left: auto; right: 14px; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--on-brass); }
+.product-badge-bestseller { top: 6px; left: auto; right: 6px; background: linear-gradient(135deg, var(--brass-deep), var(--brass) 45%, var(--brass-hi) 60%, var(--brass) 82%); color: var(--on-brass); }
 .product-quick { border: 1px solid var(--line); }
 .product-quick { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 14px; text-align: center; background: rgba(241,234,218,.94); color: var(--ink); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; transform: translateY(70px); transition: transform .3s ease; }
 .product-card:hover .product-quick { transform: translateY(0); }
