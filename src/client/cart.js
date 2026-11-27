@@ -80,14 +80,21 @@ export const CLIENT_JS = String.raw`
     var nav = document.getElementById("primary-nav");
     if (!button || !nav) return;
     var header = document.querySelector(".site-header");
+    // The menu hangs off the header (CSS: top: 100%), so it follows the header
+    // as the page scrolls. Only its height needs the header's live position,
+    // so the last link stays reachable whether the sale bar is showing or not.
+    function fitMenu() {
+      if (!header || !nav.classList.contains("nav-open")) return;
+      var top = Math.max(0, Math.round(header.getBoundingClientRect().bottom));
+      nav.style.maxHeight = "calc(100dvh - " + top + "px)";
+    }
+    window.addEventListener("scroll", fitMenu, { passive: true });
+    window.addEventListener("resize", fitMenu);
     button.addEventListener("click", function () {
       var open = nav.classList.toggle("nav-open");
-      // Drop the menu from wherever the header sits now: below the sale and
-      // shipping bars at the top of the page, or at the very top once scrolled.
-      if (open && header) {
-        var top = Math.max(0, Math.round(header.getBoundingClientRect().bottom));
-        nav.style.top = top + "px";
-        nav.style.maxHeight = "calc(100dvh - " + top + "px)";
+      if (open) {
+        nav.scrollTop = 0;
+        fitMenu();
       }
       button.setAttribute("aria-expanded", open ? "true" : "false");
     });
@@ -227,8 +234,13 @@ export const CLIENT_JS = String.raw`
       if (!choice || choice.disabled) return;
       var id = choice.getAttribute("data-variation");
       var siblings = document.querySelectorAll("[data-variation]");
-      for (var i = 0; i < siblings.length; i++) siblings[i].classList.remove("active");
+      for (var i = 0; i < siblings.length; i++) {
+        siblings[i].classList.remove("active");
+        siblings[i].setAttribute("aria-pressed", "false");
+      }
       choice.classList.add("active");
+      choice.setAttribute("aria-pressed", "true");
+      if (variations[id] && variations[id].image) showVariationImage(variations[id].image);
       if (addButton) addButton.setAttribute("data-add-to-cart", id);
       // price is server-built markup from catalog numbers only.
       if (priceDisplay && variations[id]) priceDisplay.innerHTML = variations[id].price;
@@ -238,6 +250,24 @@ export const CLIENT_JS = String.raw`
         saleDisplay.hidden = !variations[id].sale;
       }
     });
+  }
+
+  // Point the gallery at a shade's own photo. Going through the thumbnail
+  // keeps the gallery's active state and lightbox position in step.
+  function showVariationImage(src) {
+    var thumbs = document.querySelectorAll("[data-gallery-thumb]");
+    for (var i = 0; i < thumbs.length; i++) {
+      if (thumbs[i].getAttribute("data-gallery-thumb") === src) {
+        thumbs[i].click();
+        var strip = thumbs[i].parentNode;
+        if (strip && strip.scrollWidth > strip.clientWidth) {
+          strip.scrollLeft = thumbs[i].offsetLeft - strip.offsetLeft - 8;
+        }
+        return;
+      }
+    }
+    var main = document.querySelector("[data-gallery-main]");
+    if (main) main.src = src;
   }
 
   /* -------------------------------------------------- ingredient review */
