@@ -916,7 +916,11 @@ html.result-viewer-open { overflow: hidden; }
     position: absolute; inset: 100% 0 auto; z-index: 41;
     grid-column: auto; width: 100%; max-height: calc(100dvh - 74px); overscroll-behavior: contain;
     padding: 20px 24px 34px; display: none; overflow-y: auto;
-    flex-direction: column; align-items: stretch; gap: 0;
+    /* flex-start, not the desktop row's flex-end: in a column that is taller
+       than the space below the header, flex-end pushes the first links out
+       of the top of the box, where scrolling can't reach them. That hid
+       About on phones whenever the sale banner took up the space. */
+    flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 0;
     background: var(--paper); border-block: 1px solid var(--line);
     box-shadow: 0 24px 50px rgba(27,33,24,.14);
   }
