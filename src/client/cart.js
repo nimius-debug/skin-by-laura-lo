@@ -1039,7 +1039,7 @@ export const CLIENT_JS = String.raw`
                 : "") +
               "<p><span>Tax</span><span><small>Calculated by Square</small></span></p>" +
               (saved > 0 ? '<p class="summary-saving"><span>You save</span><span>' + money(saved) + "</span></p>" : "") +
-              '<p class="summary-total"><span>Total</span><span>' + money(subtotal + shipping) + "</span></p>" +
+              '<p class="summary-total"><span>Total before tax</span><span>' + money(subtotal + shipping) + "</span></p>" +
             "</div>" +
             '<button class="button button-dark checkout-button" type="button" data-checkout>Checkout with Square</button>' +
             '<div class="checkout-error" data-checkout-error hidden></div>' +
